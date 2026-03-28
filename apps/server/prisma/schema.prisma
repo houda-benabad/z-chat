@@ -1,0 +1,187 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id          String   @id @default(uuid())
+  phoneNumber String   @unique @map("phone_number")
+  displayName String   @map("display_name")
+  about       String?
+  avatarUrl   String?  @map("avatar_url")
+  lastSeen    DateTime @default(now()) @map("last_seen")
+  isOnline    Boolean  @default(false) @map("is_online")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  sessions          Session[]
+  devices           Device[]
+  chatParticipants  ChatParticipant[]
+  sentMessages      Message[]         @relation("SentMessages")
+  groupsCreated     Group[]           @relation("GroupCreator")
+  groupMemberships  GroupMember[]
+  contacts          Contact[]         @relation("UserContacts")
+  contactOf         Contact[]         @relation("ContactUser")
+  blockedUsers      BlockedUser[]     @relation("Blocker")
+  blockedBy         BlockedUser[]     @relation("Blocked")
+  callsMade         CallLog[]         @relation("Caller")
+
+  @@map("users")
+}
+
+model Session {
+  id        String   @id @default(uuid())
+  userId    String   @map("user_id")
+  deviceId  String   @map("device_id")
+  token     String   @unique
+  expiresAt DateTime @map("expires_at")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("sessions")
+}
+
+model Device {
+  id           String   @id @default(uuid())
+  userId       String   @map("user_id")
+  pushToken    String?  @map("push_token")
+  platform     String
+  identityKey  String   @map("identity_key")
+  signedPreKey String   @map("signed_pre_key")
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("devices")
+}
+
+model Chat {
+  id        String   @id @default(uuid())
+  type      String   @default("direct")
+  groupId   String?  @unique @map("group_id")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  group        Group?            @relation(fields: [groupId], references: [id])
+  participants ChatParticipant[]
+  messages     Message[]
+  callLogs     CallLog[]
+
+  @@map("chats")
+}
+
+model ChatParticipant {
+  id                String   @id @default(uuid())
+  chatId            String   @map("chat_id")
+  userId            String   @map("user_id")
+  joinedAt          DateTime @default(now()) @map("joined_at")
+  lastReadMessageId String?  @map("last_read_message_id")
+
+  chat User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  chatRoom Chat @relation(fields: [chatId], references: [id], onDelete: Cascade)
+
+  @@unique([chatId, userId])
+  @@map("chat_participants")
+}
+
+model Message {
+  id           String    @id @default(uuid())
+  chatId       String    @map("chat_id")
+  senderId     String    @map("sender_id")
+  type         String    @default("text")
+  content      String?
+  mediaUrl     String?   @map("media_url")
+  replyToId    String?   @map("reply_to_id")
+  isForwarded  Boolean   @default(false) @map("is_forwarded")
+  isStarred    Boolean   @default(false) @map("is_starred")
+  isDeleted    Boolean   @default(false) @map("is_deleted")
+  disappearsAt DateTime? @map("disappears_at")
+  createdAt    DateTime  @default(now()) @map("created_at")
+  updatedAt    DateTime  @updatedAt @map("updated_at")
+
+  chat    Chat     @relation(fields: [chatId], references: [id], onDelete: Cascade)
+  sender  User     @relation("SentMessages", fields: [senderId], references: [id])
+  replyTo Message? @relation("MessageReplies", fields: [replyToId], references: [id])
+  replies Message[] @relation("MessageReplies")
+
+  @@index([chatId, createdAt])
+  @@map("messages")
+}
+
+model Group {
+  id          String   @id @default(uuid())
+  name        String
+  description String?
+  avatarUrl   String?  @map("avatar_url")
+  createdBy   String   @map("created_by")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  creator User          @relation("GroupCreator", fields: [createdBy], references: [id])
+  members GroupMember[]
+  chat    Chat?
+
+  @@map("groups")
+}
+
+model GroupMember {
+  id       String   @id @default(uuid())
+  groupId  String   @map("group_id")
+  userId   String   @map("user_id")
+  role     String   @default("member")
+  joinedAt DateTime @default(now()) @map("joined_at")
+
+  group Group @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([groupId, userId])
+  @@map("group_members")
+}
+
+model Contact {
+  id            String   @id @default(uuid())
+  userId        String   @map("user_id")
+  contactUserId String   @map("contact_user_id")
+  nickname      String?
+  createdAt     DateTime @default(now()) @map("created_at")
+
+  user        User @relation("UserContacts", fields: [userId], references: [id], onDelete: Cascade)
+  contactUser User @relation("ContactUser", fields: [contactUserId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, contactUserId])
+  @@map("contacts")
+}
+
+model BlockedUser {
+  id            String   @id @default(uuid())
+  userId        String   @map("user_id")
+  blockedUserId String   @map("blocked_user_id")
+  createdAt     DateTime @default(now()) @map("created_at")
+
+  user        User @relation("Blocker", fields: [userId], references: [id], onDelete: Cascade)
+  blockedUser User @relation("Blocked", fields: [blockedUserId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, blockedUserId])
+  @@map("blocked_users")
+}
+
+model CallLog {
+  id        String    @id @default(uuid())
+  chatId    String    @map("chat_id")
+  callerId  String    @map("caller_id")
+  callType  String    @map("call_type")
+  status    String    @default("missed")
+  startedAt DateTime  @default(now()) @map("started_at")
+  endedAt   DateTime? @map("ended_at")
+  duration  Int?
+
+  chat   Chat @relation(fields: [chatId], references: [id], onDelete: Cascade)
+  caller User @relation("Caller", fields: [callerId], references: [id])
+
+  @@map("call_logs")
+}
