@@ -8,14 +8,20 @@ datasource db {
 }
 
 model User {
-  id            String         @id @default(uuid())
-  phone         String         @unique
+  id            String             @id @default(uuid())
+  phone         String             @unique
   name          String?
   about         String?
   avatar        String?
-  createdAt     DateTime       @default(now()) @map("created_at")
-  updatedAt     DateTime       @updatedAt @map("updated_at")
+  lastSeen      DateTime           @default(now()) @map("last_seen")
+  isOnline      Boolean            @default(false) @map("is_online")
+  createdAt     DateTime           @default(now()) @map("created_at")
+  updatedAt     DateTime           @updatedAt @map("updated_at")
   refreshTokens RefreshToken[]
+  participants  ChatParticipant[]
+  sentMessages  Message[]          @relation("SentMessages")
+  contacts      Contact[]          @relation("UserContacts")
+  contactOf     Contact[]          @relation("ContactUser")
 
   @@map("users")
 }
@@ -32,4 +38,70 @@ model RefreshToken {
   @@index([token])
   @@index([userId])
   @@map("refresh_tokens")
+}
+
+model Chat {
+  id           String            @id @default(uuid())
+  type         String            @default("direct") // "direct" | "group"
+  createdAt    DateTime          @default(now()) @map("created_at")
+  updatedAt    DateTime          @updatedAt @map("updated_at")
+  participants ChatParticipant[]
+  messages     Message[]
+
+  @@map("chats")
+}
+
+model ChatParticipant {
+  id                String   @id @default(uuid())
+  chatId            String   @map("chat_id")
+  userId            String   @map("user_id")
+  joinedAt          DateTime @default(now()) @map("joined_at")
+  lastReadMessageId String?  @map("last_read_message_id")
+  isPinned          Boolean  @default(false) @map("is_pinned")
+
+  chat Chat @relation(fields: [chatId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([chatId, userId])
+  @@index([userId])
+  @@map("chat_participants")
+}
+
+model Message {
+  id           String    @id @default(uuid())
+  chatId       String    @map("chat_id")
+  senderId     String    @map("sender_id")
+  type         String    @default("text") // "text" | "image" | "video" | "audio" | "document" | "voice_note"
+  content      String?
+  mediaUrl     String?   @map("media_url")
+  replyToId    String?   @map("reply_to_id")
+  isForwarded  Boolean   @default(false) @map("is_forwarded")
+  isDeleted    Boolean   @default(false) @map("is_deleted")
+  disappearsAt DateTime? @map("disappears_at")
+  createdAt    DateTime  @default(now()) @map("created_at")
+  updatedAt    DateTime  @updatedAt @map("updated_at")
+
+  chat    Chat     @relation(fields: [chatId], references: [id], onDelete: Cascade)
+  sender  User     @relation("SentMessages", fields: [senderId], references: [id])
+  replyTo Message? @relation("MessageReplies", fields: [replyToId], references: [id])
+  replies Message[] @relation("MessageReplies")
+
+  @@index([chatId, createdAt])
+  @@index([senderId])
+  @@map("messages")
+}
+
+model Contact {
+  id            String   @id @default(uuid())
+  userId        String   @map("user_id")
+  contactUserId String   @map("contact_user_id")
+  nickname      String?
+  createdAt     DateTime @default(now()) @map("created_at")
+
+  user        User @relation("UserContacts", fields: [userId], references: [id], onDelete: Cascade)
+  contactUser User @relation("ContactUser", fields: [contactUserId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, contactUserId])
+  @@index([userId])
+  @@map("contacts")
 }

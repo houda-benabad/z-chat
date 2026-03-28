@@ -4,6 +4,8 @@ import cors from "cors";
 import { PrismaClient } from "@prisma/client";
 import { createAuthRouter } from "./routes/auth";
 import { createUserRouter } from "./routes/users";
+import { createChatRouter } from "./routes/chats";
+import { createContactRouter } from "./routes/contacts";
 import { errorHandler } from "./middleware/errorHandler";
 
 export function createApp(prisma: PrismaClient, jwtSecret: string, jwtRefreshSecret: string) {
@@ -19,6 +21,8 @@ export function createApp(prisma: PrismaClient, jwtSecret: string, jwtRefreshSec
 
   app.use("/auth", createAuthRouter(prisma, jwtSecret, jwtRefreshSecret));
   app.use("/users", createUserRouter(prisma, jwtSecret));
+  app.use("/chats", createChatRouter(prisma, jwtSecret));
+  app.use("/contacts", createContactRouter(prisma, jwtSecret));
 
   app.use(errorHandler);
 

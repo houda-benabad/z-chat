@@ -9,6 +9,7 @@
     "dev": "turbo dev",
     "build": "turbo build",
     "clean": "turbo clean",
+    "dev:server": "turbo dev --filter=@z-chat/server",
     "dev:mobile": "turbo dev --filter=@z-chat/mobile"
   },
   "devDependencies": {

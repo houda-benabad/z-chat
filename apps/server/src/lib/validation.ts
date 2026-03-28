@@ -21,7 +21,38 @@ export const updateProfileSchema = z.object({
   avatar: z.string().url().optional(),
 });
 
+export const createChatSchema = z.object({
+  participantId: z.string().uuid("Invalid participant ID"),
+});
+
+export const sendMessageSchema = z.object({
+  chatId: z.string().uuid("Invalid chat ID"),
+  type: z.enum(["text", "image", "video", "audio", "document", "voice_note"]).default("text"),
+  content: z.string().max(4096).optional(),
+  mediaUrl: z.string().url().optional(),
+  replyToId: z.string().uuid().optional(),
+});
+
+export const markReadSchema = z.object({
+  chatId: z.string().uuid("Invalid chat ID"),
+  messageId: z.string().uuid("Invalid message ID"),
+});
+
+export const addContactSchema = z.object({
+  phone: z.string().regex(phoneRegex, "Invalid phone number format. Use E.164 format"),
+  nickname: z.string().max(100).optional(),
+});
+
+export const syncContactsSchema = z.object({
+  phones: z.array(z.string().regex(phoneRegex)).min(1).max(500),
+});
+
+export type AddContactInput = z.infer<typeof addContactSchema>;
+export type SyncContactsInput = z.infer<typeof syncContactsSchema>;
 export type SendOtpInput = z.infer<typeof sendOtpSchema>;
 export type VerifyOtpInput = z.infer<typeof verifyOtpSchema>;
 export type RefreshInput = z.infer<typeof refreshSchema>;
 export type UpdateProfileInput = z.infer<typeof updateProfileSchema>;
+export type CreateChatInput = z.infer<typeof createChatSchema>;
+export type SendMessageInput = z.infer<typeof sendMessageSchema>;
+export type MarkReadInput = z.infer<typeof markReadSchema>;

@@ -47,4 +47,6 @@ protocol=https + TypeScript
 - Message actions (reply, forward, star, delete)
 - Push notifications
 - Settings (privacy, notifications, storage, appearance)
-- Disappearing messages
+- Disappearing messagesgit checkout --theirs .
+git add .
+git commit -m "feat: add onboarding screens"

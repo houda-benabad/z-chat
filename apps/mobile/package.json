@@ -11,27 +11,28 @@
     "android": "expo run:android"
   },
   "dependencies": {
-    "@z-chat/shared": "*",
-    "expo": "~52.0.0",
-    "expo-router": "~4.0.0",
-    "expo-status-bar": "~2.0.0",
-    "expo-font": "~13.0.0",
-    "expo-splash-screen": "~0.29.0",
-    "expo-secure-store": "~14.0.0",
-    "expo-image-picker": "~16.0.0",
-    "expo-linear-gradient": "~14.0.0",
-    "react": "18.3.1",
-    "react-native": "0.76.9",
-    "react-native-safe-area-context": "~5.4.0",
-    "react-native-screens": "~4.10.0",
-    "react-native-gesture-handler": "~2.24.0",
-    "react-native-reanimated": "~3.16.0",
+    "@react-navigation/bottom-tabs": "^7",
     "@react-navigation/native": "^7",
     "@react-navigation/native-stack": "^7",
-    "@react-navigation/bottom-tabs": "^7"
+    "@z-chat/shared": "*",
+    "expo": "~52.0.0",
+    "expo-font": "~13.0.0",
+    "expo-image-picker": "~16.0.0",
+    "expo-linear-gradient": "~14.0.0",
+    "expo-router": "~4.0.0",
+    "expo-secure-store": "~14.0.0",
+    "expo-splash-screen": "~0.29.0",
+    "expo-status-bar": "~2.0.0",
+    "react": "18.3.1",
+    "react-native": "0.76.9",
+    "react-native-gesture-handler": "~2.24.0",
+    "react-native-reanimated": "~3.16.0",
+    "react-native-safe-area-context": "~5.4.0",
+    "react-native-screens": "~4.10.0",
+    "socket.io-client": "^4.8.3"
   },
   "devDependencies": {
-    "typescript": "^5",
-    "@types/react": "~18.3.0"
+    "@types/react": "~18.3.0",
+    "typescript": "^5"
   }
 }

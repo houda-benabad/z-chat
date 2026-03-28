@@ -88,6 +88,126 @@ export const authApi = {
     }),
 };
 
+export interface ChatParticipantUser {
+  id: string;
+  phone: string;
+  name: string | null;
+  avatar: string | null;
+  isOnline: boolean;
+  lastSeen: string;
+}
+
+export interface ChatParticipant {
+  id: string;
+  chatId: string;
+  userId: string;
+  lastReadMessageId: string | null;
+  isPinned: boolean;
+  user: ChatParticipantUser;
+}
+
+export interface MessageSender {
+  id: string;
+  name: string | null;
+  avatar?: string | null;
+}
+
+export interface ChatMessage {
+  id: string;
+  chatId: string;
+  senderId: string;
+  type: string;
+  content: string | null;
+  mediaUrl: string | null;
+  replyToId: string | null;
+  isForwarded: boolean;
+  isDeleted: boolean;
+  createdAt: string;
+  updatedAt: string;
+  sender: MessageSender;
+  replyTo?: { id: string; content: string | null; senderId: string; type: string } | null;
+}
+
+export interface ChatListItem {
+  id: string;
+  type: string;
+  participants: ChatParticipant[];
+  lastMessage: ChatMessage | null;
+  unreadCount: number;
+  isPinned: boolean;
+  updatedAt: string;
+}
+
+export interface ChatData {
+  id: string;
+  type: string;
+  participants: ChatParticipant[];
+}
+
+export const chatApi = {
+  getChats: (): Promise<{ chats: ChatListItem[] }> =>
+    request('/chats'),
+
+  createChat: (participantId: string): Promise<{ chat: ChatData }> =>
+    request('/chats', {
+      method: 'POST',
+      body: JSON.stringify({ participantId }),
+    }),
+
+  getMessages: (chatId: string, cursor?: string): Promise<{ messages: ChatMessage[]; nextCursor: string | null }> =>
+    request(`/chats/${chatId}/messages${cursor ? `?cursor=${cursor}` : ''}`),
+
+  searchUser: (phone: string): Promise<{ user: ChatParticipantUser }> =>
+    request(`/users/search?phone=${encodeURIComponent(phone)}`),
+};
+
+export interface ContactItem {
+  id: string;
+  userId: string;
+  contactUserId: string;
+  nickname: string | null;
+  createdAt: string;
+  contactUser: {
+    id: string;
+    phone: string;
+    name: string | null;
+    avatar: string | null;
+    about: string | null;
+    isOnline: boolean;
+    lastSeen: string;
+  };
+}
+
+export interface SyncedUser {
+  id: string;
+  phone: string;
+  name: string | null;
+  avatar: string | null;
+  isOnline: boolean;
+  lastSeen: string;
+  isContact: boolean;
+}
+
+export const contactApi = {
+  getContacts: (): Promise<{ contacts: ContactItem[] }> =>
+    request('/contacts'),
+
+  addContact: (phone: string, nickname?: string): Promise<{ contact: ContactItem }> =>
+    request('/contacts', {
+      method: 'POST',
+      body: JSON.stringify({ phone, ...(nickname ? { nickname } : {}) }),
+    }),
+
+  deleteContact: (id: string): Promise<{ message: string }> =>
+    request(`/contacts/${id}`, { method: 'DELETE' }),
+
+  syncContacts: (phones: string[]): Promise<{ users: SyncedUser[] }> =>
+    request('/contacts/sync', {
+      method: 'POST',
+      body: JSON.stringify({ phones }),
+    }),
+};
+
 export const tokenStorage = {
   save: (token: string): Promise<void> =>
     SecureStore.setItemAsync(TOKEN_KEY, token),

@@ -43,6 +43,13 @@ export default function RootLayout() {
           name="profile-setup"
           options={{ gestureEnabled: false }}
         />
+        <Stack.Screen
+          name="chat-list"
+          options={{ gestureEnabled: false }}
+        />
+        <Stack.Screen name="chat" />
+        <Stack.Screen name="new-chat" />
+        <Stack.Screen name="add-contact" />
       </Stack>
     </>
   );

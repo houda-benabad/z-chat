@@ -28,6 +28,28 @@ export function createUserRouter(prisma: PrismaClient, jwtSecret: string): Route
     }),
   );
 
+  // GET /users/search?phone=+1234567890
+  router.get(
+    "/search",
+    asyncHandler(async (req: AuthRequest, res) => {
+      const phone = req.query.phone as string;
+      if (!phone) {
+        throw new AppError(400, "Phone query parameter required", "MISSING_PHONE");
+      }
+
+      const user = await prisma.user.findUnique({
+        where: { phone },
+        select: { id: true, phone: true, name: true, avatar: true, isOnline: true, lastSeen: true },
+      });
+
+      if (!user) {
+        throw new AppError(404, "User not found", "USER_NOT_FOUND");
+      }
+
+      res.json({ user });
+    }),
+  );
+
   // PATCH /users/me
   router.patch(
     "/me",

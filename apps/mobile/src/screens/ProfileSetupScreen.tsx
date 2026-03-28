@@ -62,7 +62,7 @@ export default function ProfileSetupScreen() {
         about: about.trim() || undefined,
         avatarUrl: avatarUri ?? undefined,
       });
-      router.replace('/');
+      router.replace('/chat-list');
     } catch (error) {
       const message =
         error instanceof ApiError
