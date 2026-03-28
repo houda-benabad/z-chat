@@ -1,0 +1,23 @@
+{
+  "name": "z-chat",
+  "private": true,
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev": "turbo dev",
+    "build": "turbo build",
+    "lint": "turbo lint",
+    "clean": "turbo clean",
+    "dev:server": "turbo dev --filter=@z-chat/server",
+    "dev:mobile": "turbo dev --filter=@z-chat/mobile",
+    "db:generate": "turbo db:generate --filter=@z-chat/server",
+    "db:push": "turbo db:push --filter=@z-chat/server",
+    "db:migrate": "turbo db:migrate --filter=@z-chat/server"
+  },
+  "devDependencies": {
+    "turbo": "^2"
+  },
+  "packageManager": "npm@11.11.1"
+}

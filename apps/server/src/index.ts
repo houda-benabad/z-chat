@@ -1,23 +1,22 @@
-import Fastify from 'fastify';
-import cors from '@fastify/cors';
-import 'dotenv/config';
-
-const PORT = Number(process.env['PORT'] ?? 3000);
-const HOST = process.env['HOST'] ?? '0.0.0.0';
+import { loadEnv } from "./lib/env";
+import { prisma } from "./lib/prisma";
+import { getRedis } from "./lib/redis";
+import { createApp } from "./app";
 
 async function main() {
-  const app = Fastify({ logger: true });
+  const env = loadEnv();
+  const app = createApp(prisma, env.JWT_SECRET, env.JWT_REFRESH_SECRET);
 
-  await app.register(cors, { origin: true });
+  // Verify connections
+  await prisma.$connect();
+  getRedis();
 
-  app.get('/health', async () => {
-    return { status: 'ok', service: 'z.chat-api' };
+  app.listen(env.PORT, () => {
+    console.log(`Server running on port ${env.PORT}`);
   });
-
-  await app.listen({ port: PORT, host: HOST });
 }
 
 main().catch((err) => {
-  console.error(err);
+  console.error("Failed to start server:", err);
   process.exit(1);
 });
