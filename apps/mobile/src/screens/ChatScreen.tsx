@@ -53,11 +53,13 @@ interface TypingUser {
 }
 
 export default function ChatScreen() {
-  const { chatId, name, recipientId } = useLocalSearchParams<{
+  const { chatId, name, recipientId, chatType } = useLocalSearchParams<{
     chatId: string;
     name: string;
     recipientId: string;
+    chatType?: string;
   }>();
+  const isGroup = chatType === 'group';
   const router = useRouter();
 
   const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -256,6 +258,7 @@ export default function ChatScreen() {
       const isMine = item.senderId === myUserId;
       const prevMsg = index > 0 ? messages[index - 1] : null;
       const showDateSep = !prevMsg || !isSameDay(prevMsg.createdAt, item.createdAt);
+      const showSenderName = isGroup && !isMine && prevMsg?.senderId !== item.senderId;
 
       return (
         <>
@@ -280,6 +283,11 @@ export default function ChatScreen() {
                 isMine ? styles.messageBubbleMine : styles.messageBubbleTheirs,
               ]}
             >
+              {showSenderName && (
+                <Text style={styles.senderName}>
+                  {item.sender?.name ?? 'Unknown'}
+                </Text>
+              )}
               {item.replyTo && (
                 <View style={styles.replyContainer}>
                   <Text style={styles.replyText} numberOfLines={1}>
@@ -315,7 +323,7 @@ export default function ChatScreen() {
         </>
       );
     },
-    [myUserId, messages],
+    [myUserId, messages, isGroup],
   );
 
   if (loading) {
@@ -339,8 +347,11 @@ export default function ChatScreen() {
         <Pressable onPress={() => router.back()} style={styles.backButton}>
           <Text style={styles.backArrow}>{'\u2190'}</Text>
         </Pressable>
-        <View style={styles.headerInfo}>
-          <View style={styles.headerAvatar}>
+        <Pressable
+          style={styles.headerInfo}
+          onPress={isGroup ? () => router.push({ pathname: '/group-info', params: { chatId } }) : undefined}
+        >
+          <View style={[styles.headerAvatar, isGroup && styles.headerGroupAvatar]}>
             <Text style={styles.headerAvatarText}>
               {(name ?? '?')[0]?.toUpperCase()}
             </Text>
@@ -350,10 +361,18 @@ export default function ChatScreen() {
               {name}
             </Text>
             <Text style={styles.headerStatus}>
-              {isTyping ? 'typing...' : isOnline ? 'online' : ''}
+              {isTyping
+                ? isGroup
+                  ? 'someone is typing...'
+                  : 'typing...'
+                : !isGroup && isOnline
+                  ? 'online'
+                  : isGroup
+                    ? 'tap for group info'
+                    : ''}
             </Text>
           </View>
-        </View>
+        </Pressable>
       </View>
 
       {/* Messages */}
@@ -460,6 +479,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginRight: spacing.sm,
   },
+  headerGroupAvatar: {
+    backgroundColor: colors.primary,
+  },
   headerAvatarText: {
     fontSize: typography.sizes.md,
     fontFamily: typography.fontFamily,
@@ -537,6 +559,13 @@ const styles = StyleSheet.create({
   messageBubbleTheirs: {
     backgroundColor: colors.surface,
     borderBottomLeftRadius: 4,
+  },
+  senderName: {
+    fontSize: typography.sizes.xs,
+    fontFamily: typography.fontFamily,
+    fontWeight: typography.weights.semibold,
+    color: colors.secondary,
+    marginBottom: 2,
   },
   replyContainer: {
     borderLeftWidth: 3,

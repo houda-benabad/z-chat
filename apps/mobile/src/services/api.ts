@@ -20,7 +20,7 @@ async function request<T>(
 
   if (!response.ok) {
     const body = await response.json().catch(() => ({}));
-    throw new ApiError(response.status, body.message ?? 'Request failed');
+    throw new ApiError(response.status, body.error?.message ?? body.message ?? 'Request failed');
   }
 
   return response.json() as Promise<T>;
@@ -37,54 +37,32 @@ export class ApiError extends Error {
 }
 
 export interface SendOtpResponse {
-  success: boolean;
   message: string;
 }
 
 export interface VerifyOtpResponse {
-  success: boolean;
-  token: string;
+  accessToken: string;
+  refreshToken: string;
   user: {
     id: string;
-    phoneNumber: string;
-    displayName: string | null;
-    avatarUrl: string | null;
-    isNewUser: boolean;
-  };
-}
-
-export interface UpdateProfileResponse {
-  success: boolean;
-  user: {
-    id: string;
-    phoneNumber: string;
-    displayName: string;
+    phone: string;
+    name: string | null;
     about: string | null;
-    avatarUrl: string | null;
+    avatar: string | null;
   };
 }
 
 export const authApi = {
-  sendOtp: (phoneNumber: string): Promise<SendOtpResponse> =>
+  sendOtp: (phone: string): Promise<SendOtpResponse> =>
     request('/auth/send-otp', {
       method: 'POST',
-      body: JSON.stringify({ phoneNumber }),
+      body: JSON.stringify({ phone }),
     }),
 
-  verifyOtp: (phoneNumber: string, code: string): Promise<VerifyOtpResponse> =>
+  verifyOtp: (phone: string, otp: string): Promise<VerifyOtpResponse> =>
     request('/auth/verify-otp', {
       method: 'POST',
-      body: JSON.stringify({ phoneNumber, code }),
-    }),
-
-  updateProfile: (data: {
-    displayName: string;
-    about?: string;
-    avatarUrl?: string;
-  }): Promise<UpdateProfileResponse> =>
-    request('/auth/profile', {
-      method: 'PUT',
-      body: JSON.stringify(data),
+      body: JSON.stringify({ phone, otp }),
     }),
 };
 
@@ -131,6 +109,10 @@ export interface ChatMessage {
 export interface ChatListItem {
   id: string;
   type: string;
+  name: string | null;
+  avatar: string | null;
+  description: string | null;
+  createdBy: string | null;
   participants: ChatParticipant[];
   lastMessage: ChatMessage | null;
   unreadCount: number;
@@ -141,6 +123,10 @@ export interface ChatListItem {
 export interface ChatData {
   id: string;
   type: string;
+  name: string | null;
+  avatar: string | null;
+  description: string | null;
+  createdBy: string | null;
   participants: ChatParticipant[];
 }
 
@@ -159,6 +145,59 @@ export const chatApi = {
 
   searchUser: (phone: string): Promise<{ user: ChatParticipantUser }> =>
     request(`/users/search?phone=${encodeURIComponent(phone)}`),
+};
+
+export interface GroupInfo {
+  id: string;
+  name: string;
+  description: string | null;
+  avatar: string | null;
+  createdBy: string | null;
+  creator: { id: string; name: string | null; phone: string } | null;
+  createdAt: string;
+  participants: (ChatParticipant & { role: string })[];
+  memberCount: number;
+}
+
+export const groupApi = {
+  createGroup: (data: {
+    name: string;
+    description?: string;
+    avatar?: string;
+    memberIds: string[];
+  }): Promise<{ chat: ChatData }> =>
+    request('/groups', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
+
+  getGroupInfo: (chatId: string): Promise<{ group: GroupInfo }> =>
+    request(`/groups/${chatId}`),
+
+  updateGroup: (chatId: string, data: {
+    name?: string;
+    description?: string;
+    avatar?: string | null;
+  }): Promise<{ chat: ChatData }> =>
+    request(`/groups/${chatId}`, {
+      method: 'PATCH',
+      body: JSON.stringify(data),
+    }),
+
+  addMembers: (chatId: string, memberIds: string[]): Promise<{ chat: ChatData }> =>
+    request(`/groups/${chatId}/members`, {
+      method: 'POST',
+      body: JSON.stringify({ memberIds }),
+    }),
+
+  removeMember: (chatId: string, userId: string): Promise<{ message: string }> =>
+    request(`/groups/${chatId}/members/${userId}`, { method: 'DELETE' }),
+
+  updateMemberRole: (chatId: string, userId: string, role: string): Promise<{ participant: ChatParticipant }> =>
+    request(`/groups/${chatId}/members/${userId}/role`, {
+      method: 'PATCH',
+      body: JSON.stringify({ role }),
+    }),
 };
 
 export interface ContactItem {
@@ -205,6 +244,118 @@ export const contactApi = {
     request('/contacts/sync', {
       method: 'POST',
       body: JSON.stringify({ phones }),
+    }),
+};
+
+// --- Settings ---
+
+export interface UserSettings {
+  id: string;
+  userId: string;
+  lastSeenVisibility: 'everyone' | 'contacts' | 'nobody';
+  profilePhotoVisibility: 'everyone' | 'contacts' | 'nobody';
+  aboutVisibility: 'everyone' | 'contacts' | 'nobody';
+  readReceipts: boolean;
+  defaultDisappearTimer: number;
+  messageNotifications: boolean;
+  groupNotifications: boolean;
+  callNotifications: boolean;
+  notificationSound: boolean;
+  notificationVibrate: boolean;
+  notificationPreview: boolean;
+  theme: 'light' | 'dark' | 'system';
+  accentColor: string;
+  fontSize: 'small' | 'medium' | 'large';
+  autoDownloadPhotos: boolean;
+  autoDownloadVideos: boolean;
+  autoDownloadDocuments: boolean;
+}
+
+export interface BlockedUserItem {
+  id: string;
+  userId: string;
+  blockedUserId: string;
+  createdAt: string;
+  blockedUser: {
+    id: string;
+    phone: string;
+    name: string | null;
+    avatar: string | null;
+  };
+}
+
+export interface UserProfile {
+  id: string;
+  phone: string;
+  name: string | null;
+  about: string | null;
+  avatar: string | null;
+  createdAt: string;
+}
+
+export const settingsApi = {
+  getSettings: (): Promise<{ settings: UserSettings }> =>
+    request('/settings'),
+
+  updatePrivacy: (data: Partial<Pick<UserSettings,
+    'lastSeenVisibility' | 'profilePhotoVisibility' | 'aboutVisibility' | 'readReceipts' | 'defaultDisappearTimer'
+  >>): Promise<{ settings: UserSettings }> =>
+    request('/settings/privacy', {
+      method: 'PATCH',
+      body: JSON.stringify(data),
+    }),
+
+  updateNotifications: (data: Partial<Pick<UserSettings,
+    'messageNotifications' | 'groupNotifications' | 'callNotifications' | 'notificationSound' | 'notificationVibrate' | 'notificationPreview'
+  >>): Promise<{ settings: UserSettings }> =>
+    request('/settings/notifications', {
+      method: 'PATCH',
+      body: JSON.stringify(data),
+    }),
+
+  updateAppearance: (data: Partial<Pick<UserSettings,
+    'theme' | 'accentColor' | 'fontSize'
+  >>): Promise<{ settings: UserSettings }> =>
+    request('/settings/appearance', {
+      method: 'PATCH',
+      body: JSON.stringify(data),
+    }),
+
+  updateStorage: (data: Partial<Pick<UserSettings,
+    'autoDownloadPhotos' | 'autoDownloadVideos' | 'autoDownloadDocuments'
+  >>): Promise<{ settings: UserSettings }> =>
+    request('/settings/storage', {
+      method: 'PATCH',
+      body: JSON.stringify(data),
+    }),
+
+  getBlocked: (): Promise<{ blocked: BlockedUserItem[] }> =>
+    request('/settings/blocked'),
+
+  blockUser: (userId: string): Promise<{ message: string }> =>
+    request('/settings/blocked', {
+      method: 'POST',
+      body: JSON.stringify({ userId }),
+    }),
+
+  unblockUser: (userId: string): Promise<{ message: string }> =>
+    request(`/settings/blocked/${userId}`, { method: 'DELETE' }),
+
+  deleteAccount: (): Promise<{ message: string }> =>
+    request('/settings/account', {
+      method: 'DELETE',
+      body: JSON.stringify({ confirmation: 'DELETE MY ACCOUNT' }),
+    }),
+};
+
+export const userApi = {
+  getMe: (): Promise<{ user: UserProfile }> =>
+    request('/users/me'),
+
+  updateProfile: (data: { name?: string; about?: string; avatar?: string }): Promise<{ user: UserProfile }> =>
+    request('/users/me', {
+      method: 'PATCH',
+      body: JSON.stringify(data),
     }),
 };
 

@@ -70,9 +70,9 @@ export default function OtpVerificationScreen() {
     setIsLoading(true);
     try {
       const response = await authApi.verifyOtp(phoneNumber, fullCode);
-      await tokenStorage.save(response.token);
+      await tokenStorage.save(response.accessToken);
 
-      if (response.user.isNewUser || !response.user.displayName) {
+      if (!response.user.name) {
         router.replace('/profile-setup');
       } else {
         router.replace('/');

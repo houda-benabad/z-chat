@@ -17,7 +17,9 @@ import * as ImagePicker from 'expo-image-picker';
 import { useRouter } from 'expo-router';
 import { MAX_DISPLAY_NAME_LENGTH, MAX_ABOUT_LENGTH } from '@z-chat/shared';
 import { colors, spacing, typography, borderRadius } from '../theme';
-import { authApi, ApiError } from '../services/api';
+import { userApi, ApiError } from '../services/api';
+
+const DEFAULT_AVATAR = require('../../assets/default-avatar.png');
 
 export default function ProfileSetupScreen() {
   const router = useRouter();
@@ -57,10 +59,10 @@ export default function ProfileSetupScreen() {
 
     setIsLoading(true);
     try {
-      await authApi.updateProfile({
-        displayName: displayName.trim(),
+      await userApi.updateProfile({
+        name: displayName.trim(),
         about: about.trim() || undefined,
-        avatarUrl: avatarUri ?? undefined,
+        avatar: avatarUri ?? undefined,
       });
       router.replace('/chat-list');
     } catch (error) {
@@ -92,15 +94,10 @@ export default function ProfileSetupScreen() {
 
         <View style={styles.avatarSection}>
           <Pressable onPress={handlePickAvatar} style={styles.avatarContainer}>
-            {avatarUri ? (
-              <Image source={{ uri: avatarUri }} style={styles.avatar} />
-            ) : (
-              <View style={styles.avatarPlaceholder}>
-                <Text style={styles.avatarPlaceholderText}>
-                  {displayName ? displayName[0].toUpperCase() : '?'}
-                </Text>
-              </View>
-            )}
+            <Image
+              source={avatarUri ? { uri: avatarUri } : DEFAULT_AVATAR}
+              style={styles.avatar}
+            />
             <View style={styles.cameraOverlay}>
               <Text style={styles.cameraIcon}>📷</Text>
             </View>
@@ -223,23 +220,6 @@ const styles = StyleSheet.create({
     width: 120,
     height: 120,
     borderRadius: 60,
-  },
-  avatarPlaceholder: {
-    width: 120,
-    height: 120,
-    borderRadius: 60,
-    backgroundColor: colors.surface,
-    borderWidth: 2,
-    borderColor: colors.border,
-    borderStyle: 'dashed',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  avatarPlaceholderText: {
-    fontSize: 40,
-    fontFamily: typography.fontFamily,
-    fontWeight: typography.weights.bold,
-    color: colors.primary,
   },
   cameraOverlay: {
     position: 'absolute',

@@ -17,6 +17,7 @@ import { colors, spacing, typography, borderRadius } from '../theme';
 import { authApi, ApiError } from '../services/api';
 
 const COUNTRY_CODES = [
+  { code : '+212', country: 'MA', flag: '🇲🇦' },
   { code: '+1', country: 'US', flag: '🇺🇸' },
   { code: '+44', country: 'GB', flag: '🇬🇧' },
   { code: '+33', country: 'FR', flag: '🇫🇷' },

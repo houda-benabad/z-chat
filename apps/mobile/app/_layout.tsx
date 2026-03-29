@@ -50,6 +50,18 @@ export default function RootLayout() {
         <Stack.Screen name="chat" />
         <Stack.Screen name="new-chat" />
         <Stack.Screen name="add-contact" />
+        <Stack.Screen name="create-group" />
+        <Stack.Screen name="group-info" />
+        <Stack.Screen name="add-group-members" />
+        <Stack.Screen name="settings" />
+        <Stack.Screen name="settings-profile" />
+        <Stack.Screen name="settings-account" />
+        <Stack.Screen name="settings-privacy" />
+        <Stack.Screen name="settings-notifications" />
+        <Stack.Screen name="settings-storage" />
+        <Stack.Screen name="settings-appearance" />
+        <Stack.Screen name="settings-blocked" />
+        <Stack.Screen name="settings-help" />
       </Stack>
     </>
   );

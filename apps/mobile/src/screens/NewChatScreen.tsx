@@ -155,6 +155,17 @@ export default function NewChatScreen() {
         />
       </View>
 
+      {/* New Group action */}
+      <Pressable
+        style={({ pressed }) => [styles.actionItem, pressed && styles.contactItemPressed]}
+        onPress={() => router.push('/create-group')}
+      >
+        <View style={[styles.avatar, styles.actionAvatar]}>
+          <Text style={styles.actionIcon}>{'\u{1F465}'}</Text>
+        </View>
+        <Text style={styles.actionText}>New Group</Text>
+      </Pressable>
+
       {/* Add Contact action */}
       <Pressable
         style={({ pressed }) => [styles.actionItem, pressed && styles.contactItemPressed]}

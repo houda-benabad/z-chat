@@ -121,10 +121,13 @@ export default function ChatListScreen() {
 
   const renderChat = useCallback(
     ({ item }: { item: ChatListItem }) => {
-      const otherUser = getOtherUser(item.participants, myUserId);
-      const displayName = otherUser?.name ?? otherUser?.phone ?? 'Unknown';
+      const isGroup = item.type === 'group';
+      const otherUser = isGroup ? null : getOtherUser(item.participants, myUserId);
+      const displayName = isGroup
+        ? (item.name ?? 'Group')
+        : (otherUser?.name ?? otherUser?.phone ?? 'Unknown');
       const lastMsg = item.lastMessage;
-      const isOnline = otherUser?.isOnline ?? false;
+      const isOnline = isGroup ? false : (otherUser?.isOnline ?? false);
 
       let preview = '';
       if (lastMsg) {
@@ -140,6 +143,15 @@ export default function ChatListScreen() {
           };
           preview = typeLabels[lastMsg.type] ?? lastMsg.type;
         }
+        // In groups, prefix with sender name
+        if (isGroup && lastMsg.sender) {
+          const senderName = lastMsg.senderId === myUserId
+            ? 'You'
+            : (lastMsg.sender.name ?? 'Unknown');
+          preview = `${senderName}: ${preview}`;
+        } else if (!isGroup && lastMsg.senderId === myUserId) {
+          preview = `You: ${preview}`;
+        }
       }
 
       return (
@@ -151,13 +163,15 @@ export default function ChatListScreen() {
               params: {
                 chatId: item.id,
                 name: displayName,
-                recipientId: otherUser?.id ?? '',
+                ...(isGroup
+                  ? { chatType: 'group' }
+                  : { recipientId: otherUser?.id ?? '' }),
               },
             })
           }
         >
           <View style={styles.avatarContainer}>
-            <View style={styles.avatar}>
+            <View style={[styles.avatar, isGroup && styles.groupAvatar]}>
               <Text style={styles.avatarText}>
                 {displayName[0]?.toUpperCase() ?? '?'}
               </Text>
@@ -183,7 +197,7 @@ export default function ChatListScreen() {
             </View>
             <View style={styles.chatFooter}>
               <Text style={styles.chatPreview} numberOfLines={1}>
-                {lastMsg?.senderId === myUserId ? `You: ${preview}` : preview}
+                {preview}
               </Text>
               {item.unreadCount > 0 && (
                 <View style={styles.unreadBadge}>
@@ -218,12 +232,20 @@ export default function ChatListScreen() {
     <View style={styles.container}>
       <View style={styles.header}>
         <Text style={styles.headerTitle}>z.chat</Text>
-        <Pressable
-          style={styles.newChatButton}
-          onPress={() => router.push('/new-chat')}
-        >
-          <Text style={styles.newChatButtonText}>+</Text>
-        </Pressable>
+        <View style={styles.headerActions}>
+          <Pressable
+            style={styles.settingsButton}
+            onPress={() => router.push('/settings')}
+          >
+            <Text style={styles.settingsButtonText}>{'\u2699'}</Text>
+          </Pressable>
+          <Pressable
+            style={styles.newChatButton}
+            onPress={() => router.push('/new-chat')}
+          >
+            <Text style={styles.newChatButtonText}>+</Text>
+          </Pressable>
+        </View>
       </View>
 
       <FlatList
@@ -279,6 +301,23 @@ const styles = StyleSheet.create({
     fontWeight: typography.weights.bold,
     color: colors.primary,
   },
+  headerActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+  },
+  settingsButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: colors.surface,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  settingsButtonText: {
+    fontSize: 22,
+    color: colors.textSecondary,
+  },
   newChatButton: {
     width: 40,
     height: 40,
@@ -314,6 +353,9 @@ const styles = StyleSheet.create({
     backgroundColor: colors.secondary,
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  groupAvatar: {
+    backgroundColor: colors.primary,
   },
   avatarText: {
     fontSize: typography.sizes.lg,
