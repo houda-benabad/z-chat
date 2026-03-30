@@ -75,7 +75,7 @@ export default function OtpVerificationScreen() {
       if (!response.user.name) {
         router.replace('/profile-setup');
       } else {
-        router.replace('/');
+        router.replace('/chat-list');
       }
     } catch (error) {
       const message =

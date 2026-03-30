@@ -1,7 +1,9 @@
+import { useEffect } from 'react';
 import { View, Text, StyleSheet, Pressable, Dimensions } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import { colors, spacing, typography, borderRadius } from '../theme';
+import { tokenStorage } from '../services/api';
 
 const { width } = Dimensions.get('window');
 
@@ -25,6 +27,14 @@ const FEATURES = [
 
 export default function WelcomeScreen() {
   const router = useRouter();
+
+  useEffect(() => {
+    tokenStorage.get().then((token) => {
+      if (token) {
+        router.replace('/chat-list');
+      }
+    });
+  }, [router]);
 
   return (
     <View style={styles.container}>

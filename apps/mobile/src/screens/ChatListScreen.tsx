@@ -8,11 +8,15 @@ import {
   ActivityIndicator,
   RefreshControl,
 } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { colors, spacing, typography } from '../theme';
 import { chatApi, ChatListItem, ChatParticipantUser, tokenStorage } from '../services/api';
-import { connectSocket, getSocket, disconnectSocket } from '../services/socket';
+import { connectSocket, disconnectSocket } from '../services/socket';
 import type { Socket } from 'socket.io-client';
+
+type TabName = 'chats' | 'calls' | 'settings';
 
 function formatTime(dateStr: string): string {
   const date = new Date(dateStr);
@@ -40,10 +44,12 @@ function getOtherUser(
 
 export default function ChatListScreen() {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const [chats, setChats] = useState<ChatListItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [myUserId, setMyUserId] = useState('');
+  const [activeTab, setActiveTab] = useState<TabName>('chats');
   const socketRef = useRef<Socket | null>(null);
 
   const loadChats = useCallback(async () => {
@@ -228,37 +234,34 @@ export default function ChatListScreen() {
     );
   }
 
+  const NAV_HEIGHT = 64 + insets.bottom;
+
   return (
     <View style={styles.container}>
-      <View style={styles.header}>
+      {/* Header */}
+      <View style={[styles.header, { paddingTop: insets.top + 12 }]}>
         <Text style={styles.headerTitle}>z.chat</Text>
-        <View style={styles.headerActions}>
-          <Pressable
-            style={styles.settingsButton}
-            onPress={() => router.push('/settings')}
-          >
-            <Text style={styles.settingsButtonText}>{'\u2699'}</Text>
-          </Pressable>
-          <Pressable
-            style={styles.newChatButton}
-            onPress={() => router.push('/new-chat')}
-          >
-            <Text style={styles.newChatButtonText}>+</Text>
-          </Pressable>
-        </View>
+        <Pressable
+          style={styles.newChatButton}
+          onPress={() => router.push('/new-chat')}
+        >
+          <Ionicons name="create-outline" size={22} color={colors.white} />
+        </Pressable>
       </View>
 
       <FlatList
         data={chats}
         keyExtractor={(item) => item.id}
         renderItem={renderChat}
-        contentContainerStyle={chats.length === 0 ? styles.emptyContainer : undefined}
+        contentContainerStyle={[
+          chats.length === 0 ? styles.emptyContainer : undefined,
+          { paddingBottom: NAV_HEIGHT + 72 },
+        ]}
         ListEmptyComponent={
           <View style={styles.emptyState}>
+            <Ionicons name="chatbubbles-outline" size={56} color={colors.border} style={{ marginBottom: 16, opacity: 0.4 }} />
             <Text style={styles.emptyTitle}>No conversations yet</Text>
-            <Text style={styles.emptySubtitle}>
-              Tap + to start a new chat
-            </Text>
+            <Text style={styles.emptySubtitle}>Tap the button below to start a new chat</Text>
           </View>
         }
         refreshControl={
@@ -269,6 +272,45 @@ export default function ChatListScreen() {
           />
         }
       />
+
+      {/* FAB */}
+      <Pressable
+        style={[styles.fab, { bottom: NAV_HEIGHT + 16 }]}
+        onPress={() => router.push('/new-chat')}
+      >
+        <Ionicons name="chatbubble-outline" size={24} color={colors.white} />
+      </Pressable>
+
+      {/* Bottom Navbar */}
+      <View style={[styles.navbar, { paddingBottom: insets.bottom || 12 }]}>
+        {([
+          { key: 'chats', label: 'Chats', icon: 'chatbubble-outline', iconActive: 'chatbubble' },
+          { key: 'calls', label: 'Calls', icon: 'call-outline', iconActive: 'call' },
+          { key: 'settings', label: 'Settings', icon: 'settings-outline', iconActive: 'settings' },
+        ] as const).map((tab) => {
+          const isActive = activeTab === tab.key;
+          return (
+            <Pressable
+              key={tab.key}
+              style={styles.navTab}
+              onPress={() => {
+                setActiveTab(tab.key);
+                if (tab.key === 'settings') router.push('/settings');
+              }}
+            >
+              <Ionicons
+                name={isActive ? tab.iconActive : tab.icon}
+                size={24}
+                color={isActive ? colors.primary : '#999'}
+              />
+              <Text style={[styles.navLabel, isActive && styles.navLabelActive]}>
+                {tab.label}
+              </Text>
+              {isActive && <View style={styles.navDot} />}
+            </Pressable>
+          );
+        })}
+      </View>
     </View>
   );
 }
@@ -289,7 +331,6 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     paddingHorizontal: spacing.lg,
-    paddingTop: 60,
     paddingBottom: spacing.md,
     backgroundColor: colors.background,
     borderBottomWidth: 1,
@@ -301,36 +342,67 @@ const styles = StyleSheet.create({
     fontWeight: typography.weights.bold,
     color: colors.primary,
   },
-  headerActions: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
-  },
-  settingsButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: colors.surface,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  settingsButtonText: {
-    fontSize: 22,
-    color: colors.textSecondary,
-  },
   newChatButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    width: 38,
+    height: 38,
+    borderRadius: 19,
     backgroundColor: colors.primary,
     justifyContent: 'center',
     alignItems: 'center',
   },
-  newChatButtonText: {
-    fontSize: 24,
-    color: colors.white,
-    fontWeight: typography.weights.bold,
-    marginTop: -2,
+  fab: {
+    position: 'absolute',
+    right: 20,
+    width: 56,
+    height: 56,
+    borderRadius: 16,
+    backgroundColor: colors.primary,
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: colors.primary,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.4,
+    shadowRadius: 8,
+    elevation: 8,
+  },
+  navbar: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    flexDirection: 'row',
+    backgroundColor: colors.white,
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    paddingTop: 10,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: -4 },
+    shadowOpacity: 0.08,
+    shadowRadius: 12,
+    elevation: 16,
+  },
+  navTab: {
+    flex: 1,
+    alignItems: 'center',
+    gap: 3,
+    paddingTop: 4,
+  },
+  navLabel: {
+    fontSize: 11,
+    fontFamily: typography.fontFamily,
+    fontWeight: typography.weights.medium,
+    color: '#999',
+  },
+  navLabelActive: {
+    color: colors.primary,
+    fontWeight: typography.weights.semibold,
+  },
+  navDot: {
+    width: 4,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: colors.primary,
+    marginTop: 1,
   },
   chatItem: {
     flexDirection: 'row',
