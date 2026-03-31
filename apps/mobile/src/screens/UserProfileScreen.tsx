@@ -10,6 +10,7 @@ import {
   Modal,
   Animated,
   Dimensions,
+  Alert,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -52,6 +53,7 @@ export default function UserProfileScreen() {
   const [menuVisible, setMenuVisible] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
   const [actionDone, setActionDone] = useState<string | null>(null);
+  const [isBlocked, setIsBlocked] = useState(false);
   const fadeAnim = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
@@ -66,6 +68,9 @@ export default function UserProfileScreen() {
         if (match) setContactId(match.id);
       }).catch(() => {});
     }
+    settingsApi.getBlocked().then(({ blocked }) => {
+      setIsBlocked(blocked.some((b) => b.blockedUserId === userId));
+    }).catch(() => {});
   }, [userId, paramContactId]);
 
   const showToast = (msg: string) => {
@@ -77,14 +82,51 @@ export default function UserProfileScreen() {
     ]).start(() => setActionDone(null));
   };
 
-  const handleBlock = async () => {
+  const handleBlock = () => {
     setMenuVisible(false);
-    try {
-      await settingsApi.blockUser(userId);
-      showToast('User blocked');
-    } catch (err) {
-      setActionError(err instanceof Error ? err.message : 'Failed to block user');
-    }
+    setTimeout(() => Alert.alert(
+      'Block Contact',
+      `Block ${displayName}? They won't be able to send you messages or calls.`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Block',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await settingsApi.blockUser(userId);
+              setIsBlocked(true);
+              showToast(`${displayName} blocked`);
+            } catch (err) {
+              setActionError(err instanceof Error ? err.message : 'Failed to block user');
+            }
+          },
+        },
+      ]
+    ), 300);
+  };
+
+  const handleUnblock = () => {
+    setMenuVisible(false);
+    setTimeout(() => Alert.alert(
+      'Unblock Contact',
+      `Unblock ${displayName}? They'll be able to message and call you again.`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Unblock',
+          onPress: async () => {
+            try {
+              await settingsApi.unblockUser(userId);
+              setIsBlocked(false);
+              showToast(`${displayName} unblocked`);
+            } catch (err) {
+              setActionError(err instanceof Error ? err.message : 'Failed to unblock user');
+            }
+          },
+        },
+      ]
+    ), 300);
   };
 
   const handleDeleteContact = async () => {
@@ -141,20 +183,27 @@ export default function UserProfileScreen() {
               </View>
             )}
           </View>
-          {profile?.isOnline && (
+          {profile?.isOnline && !isBlocked && (
             <View style={styles.onlineDot} />
           )}
         </View>
 
         {/* Name + status inside gradient */}
         <Text style={styles.heroName}>{displayName}</Text>
-        <Text style={styles.heroStatus}>
-          {profile?.isOnline
-            ? 'online'
-            : profile?.lastSeen
-              ? formatLastSeen(profile.lastSeen)
-              : ''}
-        </Text>
+        {isBlocked ? (
+          <View style={styles.blockedBadge}>
+            <Ionicons name="ban" size={12} color="#fff" />
+            <Text style={styles.blockedBadgeText}>Blocked</Text>
+          </View>
+        ) : (
+          <Text style={styles.heroStatus}>
+            {profile?.isOnline
+              ? 'online'
+              : profile?.lastSeen
+                ? formatLastSeen(profile.lastSeen)
+                : ''}
+          </Text>
+        )}
         <View style={{ height: 24 }} />
       </LinearGradient>
 
@@ -163,38 +212,52 @@ export default function UserProfileScreen() {
         showsVerticalScrollIndicator={false}
       >
         {/* Quick actions */}
-        <View style={styles.actionsCard}>
+        <View style={[styles.actionsCard, isBlocked && styles.actionsCardBlocked]}>
           <Pressable
-            style={({ pressed }) => [styles.actionBtn, pressed && styles.actionBtnPressed]}
+            style={({ pressed }) => [styles.actionBtn, pressed && !isBlocked && styles.actionBtnPressed]}
+            disabled={isBlocked}
           >
-            <View style={[styles.actionIconWrap, { backgroundColor: 'rgba(228,108,83,0.1)' }]}>
-              <Ionicons name="chatbubble-ellipses-outline" size={22} color={CORAL} />
+            <View style={[styles.actionIconWrap, { backgroundColor: isBlocked ? 'rgba(0,0,0,0.04)' : 'rgba(228,108,83,0.1)' }]}>
+              <Ionicons name="chatbubble-ellipses-outline" size={22} color={isBlocked ? '#ccc' : CORAL} />
             </View>
-            <Text style={styles.actionLabel}>Message</Text>
+            <Text style={[styles.actionLabel, isBlocked && styles.actionLabelDisabled]}>Message</Text>
           </Pressable>
 
           <View style={styles.actionSep} />
 
           <Pressable
-            style={({ pressed }) => [styles.actionBtn, pressed && styles.actionBtnPressed]}
+            style={({ pressed }) => [styles.actionBtn, pressed && !isBlocked && styles.actionBtnPressed]}
+            disabled={isBlocked}
           >
-            <View style={[styles.actionIconWrap, { backgroundColor: 'rgba(77,126,130,0.1)' }]}>
-              <Ionicons name="call-outline" size={22} color={TEAL} />
+            <View style={[styles.actionIconWrap, { backgroundColor: isBlocked ? 'rgba(0,0,0,0.04)' : 'rgba(77,126,130,0.1)' }]}>
+              <Ionicons name="call-outline" size={22} color={isBlocked ? '#ccc' : TEAL} />
             </View>
-            <Text style={styles.actionLabel}>Audio</Text>
+            <Text style={[styles.actionLabel, isBlocked && styles.actionLabelDisabled]}>Audio</Text>
           </Pressable>
 
           <View style={styles.actionSep} />
 
           <Pressable
-            style={({ pressed }) => [styles.actionBtn, pressed && styles.actionBtnPressed]}
+            style={({ pressed }) => [styles.actionBtn, pressed && !isBlocked && styles.actionBtnPressed]}
+            disabled={isBlocked}
           >
-            <View style={[styles.actionIconWrap, { backgroundColor: 'rgba(77,126,130,0.1)' }]}>
-              <Ionicons name="videocam-outline" size={22} color={TEAL} />
+            <View style={[styles.actionIconWrap, { backgroundColor: isBlocked ? 'rgba(0,0,0,0.04)' : 'rgba(77,126,130,0.1)' }]}>
+              <Ionicons name="videocam-outline" size={22} color={isBlocked ? '#ccc' : TEAL} />
             </View>
-            <Text style={styles.actionLabel}>Video</Text>
+            <Text style={[styles.actionLabel, isBlocked && styles.actionLabelDisabled]}>Video</Text>
           </Pressable>
         </View>
+
+        {/* Blocked notice */}
+        {isBlocked && (
+          <Pressable style={styles.blockedCard} onPress={handleUnblock}>
+            <Ionicons name="ban" size={18} color="#ED2F3C" style={{ marginRight: 10 }} />
+            <Text style={styles.blockedCardText}>
+              You blocked this contact.{' '}
+              <Text style={styles.blockedCardUnlink}>Tap to unblock.</Text>
+            </Text>
+          </Pressable>
+        )}
 
         {/* Info card */}
         {(profile?.phone || profile?.about) && (
@@ -245,10 +308,17 @@ export default function UserProfileScreen() {
           <View style={[styles.menuCard, { marginTop: insets.top + 52 }]}>
             <Pressable
               style={({ pressed }) => [styles.menuItem, pressed && { backgroundColor: '#f8f8f8' }]}
-              onPress={handleBlock}
+              onPress={isBlocked ? handleUnblock : handleBlock}
             >
-              <Ionicons name="ban-outline" size={17} color="#ED2F3C" style={styles.menuItemIcon} />
-              <Text style={[styles.menuItemText, { color: '#ED2F3C' }]}>Block</Text>
+              <Ionicons
+                name={isBlocked ? 'checkmark-circle-outline' : 'ban-outline'}
+                size={17}
+                color={isBlocked ? TEAL : '#ED2F3C'}
+                style={styles.menuItemIcon}
+              />
+              <Text style={[styles.menuItemText, { color: isBlocked ? TEAL : '#ED2F3C' }]}>
+                {isBlocked ? 'Unblock' : 'Block'}
+              </Text>
             </Pressable>
             {contactId && (
               <Pressable
@@ -466,6 +536,54 @@ const styles = StyleSheet.create({
     color: '#ED2F3C',
     textAlign: 'center',
     paddingHorizontal: spacing.lg,
+  },
+
+  // Blocked state
+  blockedBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    backgroundColor: 'rgba(237,47,60,0.75)',
+    borderRadius: 12,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+  },
+  blockedBadgeText: {
+    fontSize: 12,
+    fontFamily: typography.fontFamily,
+    fontWeight: typography.weights.semibold,
+    color: '#fff',
+  },
+  actionsCardBlocked: {
+    opacity: 0.5,
+  },
+  actionLabelDisabled: {
+    color: '#bbb',
+  },
+  blockedCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#fff',
+    borderRadius: 14,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(237,47,60,0.2)',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 3,
+    elevation: 1,
+  },
+  blockedCardText: {
+    flex: 1,
+    fontSize: typography.sizes.sm,
+    fontFamily: typography.fontFamily,
+    color: colors.textSecondary,
+    lineHeight: 18,
+  },
+  blockedCardUnlink: {
+    color: '#ED2F3C',
+    fontWeight: typography.weights.semibold,
   },
 
   // Menu

@@ -101,6 +101,8 @@ export default function NewChatScreen() {
           chatId: chat.id,
           name: contact.nickname ?? otherUser?.name ?? otherUser?.phone ?? 'Chat',
           recipientId: contact.contactUserId,
+          recipientAvatar: otherUser?.avatar ?? '',
+          recipientIsOnline: otherUser?.isOnline ? '1' : '0',
         },
       });
     } catch {

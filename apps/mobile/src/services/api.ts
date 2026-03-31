@@ -141,7 +141,7 @@ export const chatApi = {
       body: JSON.stringify({ participantId }),
     }),
 
-  getMessages: (chatId: string, cursor?: string): Promise<{ messages: ChatMessage[]; nextCursor: string | null }> =>
+  getMessages: (chatId: string, cursor?: string): Promise<{ messages: ChatMessage[]; nextCursor: string | null; participants: { userId: string; lastReadMessageId: string | null; user: { isOnline: boolean } }[] }> =>
     request(`/chats/${chatId}/messages${cursor ? `?cursor=${cursor}` : ''}`),
 
   searchUser: (phone: string): Promise<{ user: ChatParticipantUser }> =>

@@ -118,11 +118,16 @@ export function createChatRouter(prisma: PrismaClient, jwtSecret: string): Route
               select: { createdAt: true },
             });
             if (lastReadMsg) {
+              // Use the later of lastRead or deletedAt so deleted chats don't
+              // re-surface old unread counts when new messages arrive
+              const cutoff = lastReadMsg.createdAt > visibleSince
+                ? lastReadMsg.createdAt
+                : visibleSince;
               unreadCount = await prisma.message.count({
                 where: {
                   chatId: chat.id,
                   senderId: { not: userId },
-                  createdAt: { gt: lastReadMsg.createdAt },
+                  createdAt: { gt: cutoff },
                   isDeleted: false,
                 },
               });
@@ -232,9 +237,20 @@ export function createChatRouter(prisma: PrismaClient, jwtSecret: string): Route
       const hasMore = messages.length > limit;
       if (hasMore) messages.pop();
 
+      // Return participants' read status and online state so the client can render read receipts and online indicator
+      const participants = await prisma.chatParticipant.findMany({
+        where: { chatId },
+        select: {
+          userId: true,
+          lastReadMessageId: true,
+          user: { select: { isOnline: true } },
+        },
+      });
+
       res.json({
         messages,
         nextCursor: hasMore ? messages[messages.length - 1]?.id : null,
+        participants,
       });
     }),
   );

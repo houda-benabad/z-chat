@@ -11,6 +11,7 @@ import {
 import { useRouter } from 'expo-router';
 import { colors, spacing, typography, borderRadius } from '../theme';
 import { userApi, UserProfile, tokenStorage } from '../services/api';
+import { disconnectSocket } from '../services/socket';
 
 interface SettingsRow {
   label: string;
@@ -51,6 +52,7 @@ export default function SettingsScreen() {
   const [error, setError] = useState<string | null>(null);
 
   const handleLogout = async () => {
+    disconnectSocket();
     await tokenStorage.remove();
     router.replace('/');
   };

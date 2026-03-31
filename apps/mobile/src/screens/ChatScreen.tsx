@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import {
   View,
   Text,
@@ -17,7 +17,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { colors, spacing, typography, borderRadius } from '../theme';
-import { chatApi, ChatMessage, tokenStorage } from '../services/api';
+import { chatApi, ChatMessage, tokenStorage, settingsApi } from '../services/api';
 import { getSocket, connectSocket } from '../services/socket';
 import type { Socket } from 'socket.io-client';
 
@@ -110,8 +110,8 @@ const typingStyles = StyleSheet.create({
 });
 
 export default function ChatScreen() {
-  const { chatId, name, recipientId, chatType, recipientAvatar } = useLocalSearchParams<{
-    chatId: string; name: string; recipientId: string; chatType?: string; recipientAvatar?: string;
+  const { chatId, name, recipientId, chatType, recipientAvatar, recipientIsOnline } = useLocalSearchParams<{
+    chatId: string; name: string; recipientId: string; chatType?: string; recipientAvatar?: string; recipientIsOnline?: string;
   }>();
   const isGroup = chatType === 'group';
   const router = useRouter();
@@ -124,8 +124,11 @@ export default function ChatScreen() {
   const [inputText, setInputText] = useState('');
   const [myUserId, setMyUserId] = useState('');
   const [isTyping, setIsTyping] = useState(false);
-  const [isOnline, setIsOnline] = useState(false);
+  const [isOnline, setIsOnline] = useState(recipientIsOnline === '1');
+  const [isBlocked, setIsBlocked] = useState(false);
   const [socket, setSocket] = useState<Socket | null>(() => getSocket());
+  const [participantsData, setParticipantsData] = useState<{ userId: string; lastReadMessageId: string | null }[]>([]);
+  const [recipientLastReadMsgId, setRecipientLastReadMsgId] = useState<string | null>(null);
   const typingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const flatListRef = useRef<FlatList>(null);
 
@@ -140,6 +143,34 @@ export default function ChatScreen() {
     });
   }, []);
 
+  // Check if this recipient is blocked
+  useEffect(() => {
+    if (!isGroup && recipientId) {
+      settingsApi.getBlocked().then(({ blocked }) => {
+        setIsBlocked(blocked.some((b) => b.blockedUserId === recipientId));
+      }).catch(() => {});
+    }
+  }, [isGroup, recipientId]);
+
+  // Extract recipient's last-read message ID and online status once we know who we are
+  useEffect(() => {
+    if (!myUserId || !participantsData.length) return;
+    const recipient = participantsData.find((p) => p.userId !== myUserId);
+    if (recipient) {
+      setRecipientLastReadMsgId(recipient.lastReadMessageId);
+      setIsOnline(recipient.user.isOnline);
+    }
+  }, [myUserId, participantsData]);
+
+  // Index of the last message the recipient has read (-1 if unknown / none)
+  const readUpToIndex = useMemo(() => {
+    if (!recipientLastReadMsgId) return -1;
+    for (let i = 0; i < messages.length; i++) {
+      if (messages[i]?.id === recipientLastReadMsgId) return i;
+    }
+    return -1;
+  }, [messages, recipientLastReadMsgId]);
+
   // Ensure socket is available — connect if ChatListScreen hasn't done so yet
   useEffect(() => {
     const s = getSocket();
@@ -153,6 +184,7 @@ export default function ChatScreen() {
       const data = await chatApi.getMessages(chatId);
       setMessages(data.messages.reverse());
       setNextCursor(data.nextCursor);
+      if (data.participants) setParticipantsData(data.participants);
     } catch { /* ignore */ }
     finally { setLoading(false); }
   }, [chatId]);
@@ -177,7 +209,9 @@ export default function ChatScreen() {
     const handleNew = (message: ChatMessage) => {
       if (message.chatId !== chatId) return;
       setMessages((prev) => prev.some((m) => m.id === message.id) ? prev : [...prev, message]);
-      socket.emit('message:read', { chatId, messageId: message.id });
+      if (message.senderId !== myUserId) {
+        socket.emit('message:read', { chatId, messageId: message.id });
+      }
     };
     const handleTypingStart = (d: { chatId: string; userId: string }) => {
       if (d.chatId !== chatId || d.userId === myUserId) return;
@@ -189,12 +223,17 @@ export default function ChatScreen() {
     };
     const handleOnline = (d: { userId: string }) => { if (d.userId === recipientId) setIsOnline(true); };
     const handleOffline = (d: { userId: string }) => { if (d.userId === recipientId) setIsOnline(false); };
+    const handleRead = (d: { chatId: string; userId: string; messageId: string }) => {
+      if (d.chatId !== chatId || d.userId === myUserId) return;
+      setRecipientLastReadMsgId(d.messageId);
+    };
 
     socket.on('message:new', handleNew);
     socket.on('typing:start', handleTypingStart);
     socket.on('typing:stop', handleTypingStop);
     socket.on('user:online', handleOnline);
     socket.on('user:offline', handleOffline);
+    socket.on('message:read', handleRead);
 
     return () => {
       socket.off('message:new', handleNew);
@@ -202,6 +241,7 @@ export default function ChatScreen() {
       socket.off('typing:stop', handleTypingStop);
       socket.off('user:online', handleOnline);
       socket.off('user:offline', handleOffline);
+      socket.off('message:read', handleRead);
     };
   }, [socket, chatId, myUserId, recipientId]);
 
@@ -213,6 +253,13 @@ export default function ChatScreen() {
       socket.emit('message:read', { chatId, messageId: last.id });
     }
   }, [socket, messages, chatId, myUserId]);
+
+  const handleUnblock = useCallback(async () => {
+    try {
+      await settingsApi.unblockUser(recipientId);
+      setIsBlocked(false);
+    } catch { /* ignore */ }
+  }, [recipientId]);
 
   const handleSend = useCallback(() => {
     const content = inputText.trim();
@@ -292,20 +339,23 @@ export default function ChatScreen() {
               <Text style={[styles.msgTime, isMine ? styles.msgTimeMine : styles.msgTimeTheirs]}>
                 {formatTime(item.createdAt)}
               </Text>
-              {isMine && (
-                <Ionicons
-                  name="checkmark-done"
-                  size={14}
-                  color="rgba(0,0,0,0.35)"
-                  style={{ marginLeft: 2 }}
-                />
-              )}
+              {isMine && !isGroup && (() => {
+                const isRead = readUpToIndex >= 0 && index <= readUpToIndex;
+                return (
+                  <Ionicons
+                    name="checkmark-done"
+                    size={14}
+                    color={isRead ? CORAL : 'rgba(0,0,0,0.35)'}
+                    style={{ marginLeft: 2 }}
+                  />
+                );
+              })()}
             </View>
           </View>
         </View>
       </>
     );
-  }, [myUserId, messages, isGroup]);
+  }, [myUserId, messages, isGroup, readUpToIndex]);
 
   if (loading) {
     return (
@@ -390,10 +440,22 @@ export default function ChatScreen() {
         />
 
         {/* Typing indicator */}
-        {isTyping && <TypingDots />}
+        {isTyping && !isBlocked && <TypingDots />}
+
+        {/* Blocked banner replaces the input bar */}
+        {isBlocked ? (
+          <Pressable
+            style={[styles.blockedBar, { paddingBottom: Math.max(insets.bottom, 12) }]}
+            onPress={handleUnblock}
+          >
+            <Ionicons name="ban" size={16} color="#ED2F3C" style={{ marginRight: 8 }} />
+            <Text style={styles.blockedBarText}>You blocked this contact. </Text>
+            <Text style={styles.blockedBarUnblock}>Unblock</Text>
+          </Pressable>
+        ) : null}
 
         {/* Input bar */}
-        <View style={[styles.inputBar, { paddingBottom: Math.max(insets.bottom, 12) }]}>
+        {!isBlocked && <View style={[styles.inputBar, { paddingBottom: Math.max(insets.bottom, 12) }]}>
           <View style={styles.inputWrap}>
             <Pressable hitSlop={8}>
               <Ionicons name="happy-outline" size={22} color="#aaa" />
@@ -430,7 +492,7 @@ export default function ChatScreen() {
               />
             </LinearGradient>
           </Pressable>
-        </View>
+        </View>}
       </KeyboardAvoidingView>
     </View>
   );
@@ -542,5 +604,28 @@ const styles = StyleSheet.create({
   sendBtnGrad: {
     width: 44, height: 44, borderRadius: 22,
     justifyContent: 'center', alignItems: 'center',
+  },
+
+  // Blocked bar
+  blockedBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 16,
+    paddingTop: 14,
+    backgroundColor: '#F9F0EF',
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: 'rgba(237,47,60,0.2)',
+  },
+  blockedBarText: {
+    fontSize: 14,
+    fontFamily: typography.fontFamily,
+    color: '#888',
+  },
+  blockedBarUnblock: {
+    fontSize: 14,
+    fontFamily: typography.fontFamily,
+    fontWeight: typography.weights.semibold,
+    color: '#ED2F3C',
   },
 });

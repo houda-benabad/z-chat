@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
+import { useFocusEffect } from 'expo-router';
 import {
   View,
   Text,
@@ -9,8 +10,8 @@ import {
   ActivityIndicator,
   RefreshControl,
   Image,
-  Modal,
 } from 'react-native';
+import { Swipeable } from 'react-native-gesture-handler';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
@@ -24,7 +25,7 @@ import {
   UserProfile,
   tokenStorage,
 } from '../services/api';
-import { connectSocket } from '../services/socket';
+import { connectSocket, disconnectSocket } from '../services/socket';
 import { showMessageNotification } from '../services/notifications';
 import type { Socket } from 'socket.io-client';
 
@@ -91,7 +92,6 @@ export default function ChatListScreen() {
   const socketRef = useRef<Socket | null>(null);
   const chatsRef = useRef<ChatListItem[]>([]);
   const myUserIdRef = useRef('');
-  const [deleteTarget, setDeleteTarget] = useState<{ id: string; name: string } | null>(null);
 
   const loadChats = useCallback(async () => {
     try {
@@ -219,6 +219,15 @@ export default function ChatListScreen() {
     return () => { removeListeners?.(); };
   }, [loadChats, loadProfile, setupSocket]);
 
+  // Reload chats when returning to this screen (clears stale unread badges)
+  useFocusEffect(
+    useCallback(() => {
+      if (!loading) {
+        loadChats();
+      }
+    }, [loading, loadChats])
+  );
+
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
     await loadChats();
@@ -226,6 +235,7 @@ export default function ChatListScreen() {
   }, [loadChats]);
 
   const handleLogout = useCallback(async () => {
+    disconnectSocket();
     await tokenStorage.remove();
     router.replace('/');
   }, [router]);
@@ -274,10 +284,36 @@ export default function ChatListScreen() {
         }
       }
 
+      const renderDeleteAction = () => (
+        <Pressable
+          style={styles.swipeDeleteAction}
+          onPress={() => handleDeleteConversation(item.id)}
+        >
+          <Ionicons name="trash-outline" size={22} color="#fff" />
+          <Text style={styles.swipeDeleteText}>Delete</Text>
+        </Pressable>
+      );
+
       return (
+        <Swipeable
+          renderRightActions={renderDeleteAction}
+          onSwipeableOpen={(direction) => {
+            if (direction === 'right') handleDeleteConversation(item.id);
+          }}
+          overshootRight={false}
+          rightThreshold={80}
+        >
         <Pressable
           style={({ pressed }) => [styles.chatItem, pressed && styles.chatItemPressed]}
-          onPress={() =>
+          onPress={() => {
+            // Optimistically clear the unread badge before entering the chat
+            if (item.unreadCount > 0) {
+              setChats((prev) => {
+                const updated = prev.map((c) => c.id === item.id ? { ...c, unreadCount: 0 } : c);
+                chatsRef.current = updated;
+                return updated;
+              });
+            }
             router.push({
               pathname: '/chat',
               params: {
@@ -285,12 +321,10 @@ export default function ChatListScreen() {
                 name: displayName,
                 ...(isGroup
                   ? { chatType: 'group', recipientAvatar: item.avatar ?? '' }
-                  : { recipientId: otherUser?.id ?? '', recipientAvatar: otherUser?.avatar ?? '' }),
+                  : { recipientId: otherUser?.id ?? '', recipientAvatar: otherUser?.avatar ?? '', recipientIsOnline: isOnline ? '1' : '0' }),
               },
-            })
-          }
-          onLongPress={() => setDeleteTarget({ id: item.id, name: displayName })}
-          delayLongPress={400}
+            });
+          }}
         >
           <View style={styles.avatarContainer}>
             <View style={[styles.avatar, isGroup && styles.groupAvatar]}>
@@ -334,9 +368,10 @@ export default function ChatListScreen() {
             <Text style={styles.pinIcon}>{'\u{1F4CC}'}</Text>
           )}
         </Pressable>
+        </Swipeable>
       );
     },
-    [myUserId, router],
+    [myUserId, router, handleDeleteConversation],
   );
 
   if (loading) {
@@ -489,39 +524,6 @@ export default function ChatListScreen() {
           <Ionicons name="chatbubble-outline" size={24} color={colors.white} />
         </Pressable>
       )}
-
-      {/* Delete conversation confirmation modal */}
-      <Modal
-        visible={!!deleteTarget}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setDeleteTarget(null)}
-      >
-        <Pressable style={styles.modalOverlay} onPress={() => setDeleteTarget(null)}>
-          <View style={styles.modalCard}>
-            <Text style={styles.modalTitle}>Delete conversation</Text>
-            <Text style={styles.modalBody}>
-              Delete your chat with{' '}
-              <Text style={{ fontWeight: '600' }}>{deleteTarget?.name}</Text>?{'\n'}
-              This only removes it from your view. They keep their history.
-            </Text>
-            <View style={styles.modalActions}>
-              <Pressable
-                style={[styles.modalBtn, styles.modalBtnCancel]}
-                onPress={() => setDeleteTarget(null)}
-              >
-                <Text style={styles.modalBtnCancelText}>Cancel</Text>
-              </Pressable>
-              <Pressable
-                style={[styles.modalBtn, styles.modalBtnDelete]}
-                onPress={() => deleteTarget && handleDeleteConversation(deleteTarget.id)}
-              >
-                <Text style={styles.modalBtnDeleteText}>Delete</Text>
-              </Pressable>
-            </View>
-          </View>
-        </Pressable>
-      </Modal>
 
       {/* Bottom Navbar */}
       <View style={[styles.navbar, { paddingBottom: insets.bottom || 12 }]}>
@@ -889,65 +891,18 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
 
-  // Delete modal
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.45)',
+  // Swipe-to-delete action
+  swipeDeleteAction: {
+    backgroundColor: '#ED2F3C',
     justifyContent: 'center',
     alignItems: 'center',
-    paddingHorizontal: 32,
+    width: 80,
   },
-  modalCard: {
-    backgroundColor: '#fff',
-    borderRadius: 16,
-    padding: 24,
-    width: '100%',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.18,
-    shadowRadius: 16,
-    elevation: 10,
-  },
-  modalTitle: {
-    fontSize: typography.sizes.lg,
-    fontFamily: typography.fontFamily,
-    fontWeight: typography.weights.bold,
-    color: colors.text,
-    marginBottom: 10,
-  },
-  modalBody: {
-    fontSize: typography.sizes.sm,
-    fontFamily: typography.fontFamily,
-    color: colors.textSecondary,
-    lineHeight: 20,
-    marginBottom: 24,
-  },
-  modalActions: {
-    flexDirection: 'row',
-    gap: 12,
-  },
-  modalBtn: {
-    flex: 1,
-    paddingVertical: 12,
-    borderRadius: 10,
-    alignItems: 'center',
-  },
-  modalBtnCancel: {
-    backgroundColor: colors.surface,
-  },
-  modalBtnCancelText: {
-    fontSize: typography.sizes.md,
-    fontFamily: typography.fontFamily,
-    fontWeight: typography.weights.medium,
-    color: colors.text,
-  },
-  modalBtnDelete: {
-    backgroundColor: '#ED2F3C',
-  },
-  modalBtnDeleteText: {
-    fontSize: typography.sizes.md,
+  swipeDeleteText: {
+    color: '#fff',
+    fontSize: 12,
     fontFamily: typography.fontFamily,
     fontWeight: typography.weights.semibold,
-    color: '#fff',
+    marginTop: 4,
   },
 });
