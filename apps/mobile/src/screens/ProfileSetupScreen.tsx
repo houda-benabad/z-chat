@@ -11,7 +11,14 @@ import {
   ScrollView,
   Image,
   Modal,
+  Alert,
 } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
+import * as ImagePicker from 'expo-image-picker';
+import { useRouter } from 'expo-router';
+import { MAX_DISPLAY_NAME_LENGTH } from '@z-chat/shared';
+import { colors, spacing, typography, borderRadius } from '../theme';
+import { userApi, uploadAvatar, ApiError } from '../services/api';
 
 const DEPARTMENTS = [
   { label: 'IT', value: 'it' },
@@ -19,12 +26,6 @@ const DEPARTMENTS = [
   { label: 'Human Resources', value: 'human_resources' },
   { label: 'Client Relations & Support', value: 'client_relations_support' },
 ];
-import { LinearGradient } from 'expo-linear-gradient';
-import * as ImagePicker from 'expo-image-picker';
-import { useRouter } from 'expo-router';
-import { MAX_DISPLAY_NAME_LENGTH } from '@z-chat/shared';
-import { colors, spacing, typography, borderRadius } from '../theme';
-import { userApi, uploadAvatar, ApiError } from '../services/api';
 
 const DEFAULT_AVATAR = require('../../assets/default-avatar.png');
 
