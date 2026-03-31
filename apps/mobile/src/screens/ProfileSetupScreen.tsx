@@ -78,7 +78,7 @@ export default function ProfileSetupScreen() {
         name: displayName.trim(),
         jobTitle: jobTitle.trim(),
         department: department.trim(),
-        avatar: avatarUrl,
+        ...(avatarUrl ? { avatar: avatarUrl } : {}),
       });
       router.replace('/chat-list' as any);
     } catch (err) {

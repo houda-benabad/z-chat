@@ -9,6 +9,8 @@ import { createChatRouter } from "./routes/chats";
 import { createContactRouter } from "./routes/contacts";
 import { createSettingsRouter } from "./routes/settings";
 import { createUploadRouter } from "./routes/upload";
+import { createGroupRouter } from "./routes/groups";
+import { createDepartmentRouter } from "./routes/departments";
 import { errorHandler } from "./middleware/errorHandler";
 
 export function createApp(prisma: PrismaClient, jwtSecret: string, jwtRefreshSecret: string) {
@@ -29,6 +31,8 @@ export function createApp(prisma: PrismaClient, jwtSecret: string, jwtRefreshSec
   app.use("/contacts", createContactRouter(prisma, jwtSecret));
   app.use("/settings", createSettingsRouter(prisma, jwtSecret));
   app.use("/upload", createUploadRouter(jwtSecret));
+  app.use("/groups", createGroupRouter(prisma, jwtSecret));
+  app.use("/departments", createDepartmentRouter(prisma, jwtSecret));
 
   app.use(errorHandler);
 

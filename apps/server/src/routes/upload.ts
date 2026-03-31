@@ -36,5 +36,16 @@ export function createUploadRouter(jwtSecret: string): Router {
     res.json({ url });
   });
 
+  router.post("/media", upload.single("media"), (req: AuthRequest, res) => {
+    if (!req.file) {
+      res.status(400).json({ error: "No file uploaded" });
+      return;
+    }
+    const host = req.headers.host ?? "localhost:3000";
+    const protocol = req.headers["x-forwarded-proto"] ?? "http";
+    const url = `${protocol}://${host}/uploads/${req.file.filename}`;
+    res.json({ url });
+  });
+
   return router;
 }

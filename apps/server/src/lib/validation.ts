@@ -19,6 +19,8 @@ export const updateProfileSchema = z.object({
   name: z.string().min(1).max(100).optional(),
   about: z.string().max(500).optional(),
   avatar: z.string().url().optional(),
+  jobTitle: z.string().max(100).optional(),
+  department: z.string().max(100).optional(),
 });
 
 export const createChatSchema = z.object({

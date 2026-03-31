@@ -294,8 +294,36 @@ export interface UserProfile {
   name: string | null;
   about: string | null;
   avatar: string | null;
+  jobTitle: string | null;
+  department: string | null;
   createdAt: string;
 }
+
+export interface DepartmentMember {
+  participantId: string;
+  userId: string;
+  role: 'admin' | 'member';
+  user: {
+    id: string;
+    name: string | null;
+    avatar: string | null;
+    jobTitle: string | null;
+    isOnline: boolean;
+    lastSeen: string;
+  };
+}
+
+export interface DepartmentTeam {
+  chatId: string;
+  name: string;
+  memberCount: number;
+  members: DepartmentMember[];
+}
+
+export const departmentApi = {
+  getMyTeam: (): Promise<DepartmentTeam> =>
+    request('/departments/my-team'),
+};
 
 export const settingsApi = {
   getSettings: (): Promise<{ settings: UserSettings }> =>
@@ -369,12 +397,33 @@ export const userApi = {
   getUser: (userId: string): Promise<{ user: PublicUserProfile }> =>
     request(`/users/${userId}`),
 
-  updateProfile: (data: { name?: string; about?: string; avatar?: string }): Promise<{ user: UserProfile }> =>
+  updateProfile: (data: { name?: string; about?: string; avatar?: string; jobTitle?: string; department?: string }): Promise<{ user: UserProfile }> =>
     request('/users/me', {
       method: 'PATCH',
       body: JSON.stringify(data),
     }),
 };
+
+export async function uploadMedia(uri: string): Promise<string> {
+  const token = await tokenStorage.get();
+  const formData = new FormData();
+  const ext = uri.split('.').pop() ?? 'jpg';
+  formData.append('media', { uri, name: `media.${ext}`, type: `image/${ext}` } as any);
+
+  const response = await fetch(`${API_BASE_URL}/upload/media`, {
+    method: 'POST',
+    headers: token ? { Authorization: `Bearer ${token}` } : {},
+    body: formData,
+  });
+
+  if (!response.ok) {
+    const body = await response.json().catch(() => ({}));
+    throw new ApiError(response.status, body.error ?? 'Upload failed');
+  }
+
+  const { url } = await response.json();
+  return url;
+}
 
 export async function uploadAvatar(uri: string): Promise<string> {
   const token = await tokenStorage.get();

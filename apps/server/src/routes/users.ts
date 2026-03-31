@@ -17,7 +17,7 @@ export function createUserRouter(prisma: PrismaClient, jwtSecret: string): Route
     asyncHandler(async (req: AuthRequest, res) => {
       const user = await prisma.user.findUnique({
         where: { id: req.userId },
-        select: { id: true, phone: true, name: true, about: true, avatar: true, createdAt: true },
+        select: { id: true, phone: true, name: true, about: true, avatar: true, jobTitle: true, department: true, createdAt: true },
       });
 
       if (!user) {
@@ -75,7 +75,7 @@ export function createUserRouter(prisma: PrismaClient, jwtSecret: string): Route
       const user = await prisma.user.update({
         where: { id: req.userId },
         data: req.body,
-        select: { id: true, phone: true, name: true, about: true, avatar: true, createdAt: true },
+        select: { id: true, phone: true, name: true, about: true, avatar: true, jobTitle: true, department: true, createdAt: true },
       });
 
       res.json({ user });

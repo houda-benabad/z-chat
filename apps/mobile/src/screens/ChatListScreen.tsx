@@ -23,6 +23,7 @@ import {
 } from '../services/api';
 import { connectSocket } from '../services/socket';
 import { showMessageNotification } from '../services/notifications';
+import MyTeamScreen from './MyTeamScreen';
 import type { Socket } from 'socket.io-client';
 
 type TabName = 'chats' | 'my-team' | 'company' | 'calls';
@@ -308,26 +309,28 @@ export default function ChatListScreen() {
 
   return (
     <View style={styles.container}>
-      {/* Header */}
-      <View style={[styles.header, { paddingTop: insets.top + 12 }]}>
-        <Text style={styles.headerTitle}>z.chat</Text>
-        <View style={styles.headerActions}>
-          {activeTab === 'chats' && (
+      {/* Header — hidden on My Team tab (it renders its own) */}
+      {activeTab !== 'my-team' && (
+        <View style={[styles.header, { paddingTop: insets.top + 12 }]}>
+          <Text style={styles.headerTitle}>z.chat</Text>
+          <View style={styles.headerActions}>
+            {activeTab === 'chats' && (
+              <Pressable
+                style={styles.headerIconBtn}
+                onPress={() => router.push('/new-chat')}
+              >
+                <Ionicons name="create-outline" size={22} color={colors.primary} />
+              </Pressable>
+            )}
             <Pressable
               style={styles.headerIconBtn}
-              onPress={() => router.push('/new-chat')}
+              onPress={() => router.push('/settings')}
             >
-              <Ionicons name="create-outline" size={22} color={colors.primary} />
+              <Ionicons name="settings-outline" size={22} color={colors.primary} />
             </Pressable>
-          )}
-          <Pressable
-            style={styles.headerIconBtn}
-            onPress={() => router.push('/settings')}
-          >
-            <Ionicons name="settings-outline" size={22} color={colors.primary} />
-          </Pressable>
+          </View>
         </View>
-      </View>
+      )}
 
       {/* Chats tab */}
       {activeTab === 'chats' && (
@@ -356,15 +359,9 @@ export default function ChatListScreen() {
         />
       )}
 
-      {/* My Team tab */}
+      {/* My Team tab — full chat, renders its own header */}
       {activeTab === 'my-team' && (
-        <View style={styles.emptyContainer}>
-          <View style={styles.emptyState}>
-            <Ionicons name="people-outline" size={56} color={colors.border} style={{ marginBottom: 16, opacity: 0.4 }} />
-            <Text style={styles.emptyTitle}>Your Team</Text>
-            <Text style={styles.emptySubtitle}>Your colleagues at z.systems will appear here</Text>
-          </View>
-        </View>
+        <MyTeamScreen navbarHeight={NAV_HEIGHT} />
       )}
 
       {/* Company tab */}

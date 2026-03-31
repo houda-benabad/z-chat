@@ -146,6 +146,10 @@ export function createChatRouter(prisma: PrismaClient, jwtSecret: string): Route
           return {
             id: chat.id,
             type: chat.type,
+            name: chat.name,
+            description: chat.description,
+            avatar: chat.avatar,
+            createdBy: chat.createdBy,
             participants: chat.participants,
             lastMessage,
             unreadCount,
