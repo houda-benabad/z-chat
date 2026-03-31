@@ -146,6 +146,9 @@ export const chatApi = {
 
   searchUser: (phone: string): Promise<{ user: ChatParticipantUser }> =>
     request(`/users/search?phone=${encodeURIComponent(phone)}`),
+
+  deleteConversation: (chatId: string): Promise<{ message: string }> =>
+    request(`/chats/${chatId}`, { method: 'DELETE' }),
 };
 
 export interface GroupInfo {
@@ -349,9 +352,22 @@ export const settingsApi = {
     }),
 };
 
+export interface PublicUserProfile {
+  id: string;
+  phone: string;
+  name: string | null;
+  about: string | null;
+  avatar: string | null;
+  isOnline: boolean;
+  lastSeen: string;
+}
+
 export const userApi = {
   getMe: (): Promise<{ user: UserProfile }> =>
     request('/users/me'),
+
+  getUser: (userId: string): Promise<{ user: PublicUserProfile }> =>
+    request(`/users/${userId}`),
 
   updateProfile: (data: { name?: string; about?: string; avatar?: string }): Promise<{ user: UserProfile }> =>
     request('/users/me', {

@@ -5,11 +5,11 @@ import {
   StyleSheet,
   Pressable,
   TextInput,
-  Alert,
   ActivityIndicator,
   KeyboardAvoidingView,
   Platform,
   ScrollView,
+  Image,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { colors, spacing, typography, borderRadius } from '../theme';
@@ -20,6 +20,8 @@ export default function AddContactScreen() {
   const [phone, setPhone] = useState('+');
   const [nickname, setNickname] = useState('');
   const [saving, setSaving] = useState(false);
+  const [added, setAdded] = useState(false);
+  const [addError, setAddError] = useState<string | null>(null);
   const [foundUser, setFoundUser] = useState<{
     id: string;
     phone: string;
@@ -35,6 +37,8 @@ export default function AddContactScreen() {
     setSaving(true);
     setSearched(false);
     setFoundUser(null);
+    setAddError(null);
+    setAdded(false);
     try {
       // Use sync to check if user exists
       const { users } = await contactApi.syncContacts([phone]);
@@ -44,7 +48,8 @@ export default function AddContactScreen() {
       }
       setSearched(true);
     } catch {
-      Alert.alert('Error', 'Failed to search. Please try again.');
+      setSearched(true);
+      setAddError('Failed to search. Please try again.');
     } finally {
       setSaving(false);
     }
@@ -55,13 +60,11 @@ export default function AddContactScreen() {
     setSaving(true);
     try {
       await contactApi.addContact(foundUser.phone, nickname.trim() || undefined);
-      Alert.alert('Contact Added', `${nickname.trim() || foundUser.name || foundUser.phone} has been added to your contacts.`, [
-        { text: 'OK', onPress: () => router.back() },
-      ]);
+      setAdded(true);
+      setTimeout(() => router.back(), 900);
     } catch (error) {
       const message = error instanceof ApiError ? error.message : 'Failed to add contact.';
-      Alert.alert('Error', message);
-    } finally {
+      setAddError(message);
       setSaving(false);
     }
   }, [foundUser, nickname, router]);
@@ -133,9 +136,13 @@ export default function AddContactScreen() {
           <View style={styles.foundCard}>
             <View style={styles.foundUserRow}>
               <View style={styles.avatar}>
-                <Text style={styles.avatarText}>
-                  {(foundUser.name ?? foundUser.phone)[0]?.toUpperCase() ?? '?'}
-                </Text>
+                {foundUser.avatar ? (
+                  <Image source={{ uri: foundUser.avatar }} style={styles.avatarImage} />
+                ) : (
+                  <Text style={styles.avatarText}>
+                    {(foundUser.name ?? foundUser.phone)[0]?.toUpperCase() ?? '?'}
+                  </Text>
+                )}
               </View>
               <View style={styles.foundUserInfo}>
                 <Text style={styles.foundUserName}>
@@ -158,14 +165,21 @@ export default function AddContactScreen() {
               />
             </View>
 
+            {/* Error message */}
+            {!!addError && (
+              <Text style={styles.addError}>{addError}</Text>
+            )}
+
             {/* Add button */}
             <Pressable
-              style={[styles.addButton, saving && styles.addButtonDisabled]}
+              style={[styles.addButton, (saving || added) && styles.addButtonDisabled, added && styles.addButtonSuccess]}
               onPress={handleAddContact}
-              disabled={saving}
+              disabled={saving || added}
             >
               {saving ? (
                 <ActivityIndicator size="small" color={colors.white} />
+              ) : added ? (
+                <Text style={styles.addButtonText}>Added!</Text>
               ) : (
                 <Text style={styles.addButtonText}>Add to Contacts</Text>
               )}
@@ -298,6 +312,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginRight: spacing.md,
   },
+  avatarImage: {
+    width: 52,
+    height: 52,
+    borderRadius: 26,
+  },
   avatarText: {
     fontSize: typography.sizes.lg,
     fontFamily: typography.fontFamily,
@@ -328,6 +347,17 @@ const styles = StyleSheet.create({
   },
   addButtonDisabled: {
     opacity: 0.6,
+  },
+  addButtonSuccess: {
+    backgroundColor: '#4CAF50',
+    opacity: 1,
+  },
+  addError: {
+    fontSize: typography.sizes.sm,
+    fontFamily: typography.fontFamily,
+    color: '#ED2F3C',
+    marginTop: spacing.sm,
+    textAlign: 'center',
   },
   addButtonText: {
     fontSize: typography.sizes.md,

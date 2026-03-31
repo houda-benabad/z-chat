@@ -115,8 +115,7 @@ export function createSocketServer(httpServer: HttpServer, prisma: PrismaClient,
           select: { userId: true },
         });
 
-        // Ensure every connected participant is in the room (handles new chats
-        // where participants joined the socket before the chat was created)
+        // Ensure every connected participant is in the room and notify if needed
         for (const cp of chatParticipants) {
           const sIds = userSockets.get(cp.userId);
           if (sIds) {
@@ -124,7 +123,10 @@ export function createSocketServer(httpServer: HttpServer, prisma: PrismaClient,
               const pSocket = io.sockets.sockets.get(sId);
               if (pSocket && !pSocket.rooms.has(`chat:${parsed.chatId}`)) {
                 pSocket.join(`chat:${parsed.chatId}`);
-                // Tell that client they have a new chat so they can refresh their list
+              }
+              // Notify recipients so their chat list re-fetches and re-shows the conversation
+              // (deletedAt stays set — the server uses it to filter old messages)
+              if (pSocket && cp.userId !== userId) {
                 pSocket.emit("chat:new", { chatId: parsed.chatId });
               }
             }

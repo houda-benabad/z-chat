@@ -22,6 +22,9 @@ model User {
   sentMessages  Message[]          @relation("SentMessages")
   contacts      Contact[]          @relation("UserContacts")
   contactOf     Contact[]          @relation("ContactUser")
+  settings      UserSettings?
+  blockedUsers  BlockedUser[]      @relation("UserBlocked")
+  blockedBy     BlockedUser[]      @relation("BlockedByUser")
 
   @@map("users")
 }
@@ -52,12 +55,13 @@ model Chat {
 }
 
 model ChatParticipant {
-  id                String   @id @default(uuid())
-  chatId            String   @map("chat_id")
-  userId            String   @map("user_id")
-  joinedAt          DateTime @default(now()) @map("joined_at")
-  lastReadMessageId String?  @map("last_read_message_id")
-  isPinned          Boolean  @default(false) @map("is_pinned")
+  id                String    @id @default(uuid())
+  chatId            String    @map("chat_id")
+  userId            String    @map("user_id")
+  joinedAt          DateTime  @default(now()) @map("joined_at")
+  lastReadMessageId String?   @map("last_read_message_id")
+  isPinned          Boolean   @default(false) @map("is_pinned")
+  deletedAt         DateTime? @map("deleted_at")
 
   chat Chat @relation(fields: [chatId], references: [id], onDelete: Cascade)
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -104,4 +108,46 @@ model Contact {
   @@unique([userId, contactUserId])
   @@index([userId])
   @@map("contacts")
+}
+
+model UserSettings {
+  id                     String   @id @default(uuid())
+  userId                 String   @unique @map("user_id")
+  lastSeenVisibility     String   @default("everyone") @map("last_seen_visibility")
+  profilePhotoVisibility String   @default("everyone") @map("profile_photo_visibility")
+  aboutVisibility        String   @default("everyone") @map("about_visibility")
+  readReceipts           Boolean  @default(true) @map("read_receipts")
+  defaultDisappearTimer  Int      @default(0) @map("default_disappear_timer")
+  messageNotifications   Boolean  @default(true) @map("message_notifications")
+  groupNotifications     Boolean  @default(true) @map("group_notifications")
+  callNotifications      Boolean  @default(true) @map("call_notifications")
+  notificationSound      Boolean  @default(true) @map("notification_sound")
+  notificationVibrate    Boolean  @default(true) @map("notification_vibrate")
+  notificationPreview    Boolean  @default(true) @map("notification_preview")
+  theme                  String   @default("system")
+  accentColor            String   @default("#E46C53") @map("accent_color")
+  fontSize               String   @default("medium") @map("font_size")
+  autoDownloadPhotos     Boolean  @default(true) @map("auto_download_photos")
+  autoDownloadVideos     Boolean  @default(false) @map("auto_download_videos")
+  autoDownloadDocuments  Boolean  @default(false) @map("auto_download_documents")
+  createdAt              DateTime @default(now()) @map("created_at")
+  updatedAt              DateTime @updatedAt @map("updated_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("user_settings")
+}
+
+model BlockedUser {
+  id            String   @id @default(uuid())
+  userId        String   @map("user_id")
+  blockedUserId String   @map("blocked_user_id")
+  createdAt     DateTime @default(now()) @map("created_at")
+
+  user        User @relation("UserBlocked", fields: [userId], references: [id], onDelete: Cascade)
+  blockedUser User @relation("BlockedByUser", fields: [blockedUserId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, blockedUserId])
+  @@index([userId])
+  @@map("blocked_users")
 }

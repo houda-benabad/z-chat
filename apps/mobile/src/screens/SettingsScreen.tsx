@@ -6,6 +6,7 @@ import {
   Pressable,
   ScrollView,
   ActivityIndicator,
+  Image,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { colors, spacing, typography, borderRadius } from '../theme';
@@ -93,9 +94,13 @@ export default function SettingsScreen() {
           onPress={() => router.push('/settings-profile')}
         >
           <View style={styles.profileAvatar}>
-            <Text style={styles.profileAvatarText}>
-              {profile?.name?.[0]?.toUpperCase() ?? '?'}
-            </Text>
+            {profile?.avatar ? (
+              <Image source={{ uri: profile.avatar }} style={styles.profileAvatarImage} />
+            ) : (
+              <Text style={styles.profileAvatarText}>
+                {profile?.name?.[0]?.toUpperCase() ?? '?'}
+              </Text>
+            )}
           </View>
           <View style={styles.profileInfo}>
             <Text style={styles.profileName}>{profile?.name ?? 'Set up your name'}</Text>
@@ -214,6 +219,11 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: spacing.md,
+  },
+  profileAvatarImage: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
   },
   profileAvatarText: {
     fontSize: typography.sizes.xl,

@@ -10,6 +10,7 @@ import {
   Platform,
   ActivityIndicator,
   Animated,
+  Image,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -109,8 +110,8 @@ const typingStyles = StyleSheet.create({
 });
 
 export default function ChatScreen() {
-  const { chatId, name, recipientId, chatType } = useLocalSearchParams<{
-    chatId: string; name: string; recipientId: string; chatType?: string;
+  const { chatId, name, recipientId, chatType, recipientAvatar } = useLocalSearchParams<{
+    chatId: string; name: string; recipientId: string; chatType?: string; recipientAvatar?: string;
   }>();
   const isGroup = chatType === 'group';
   const router = useRouter();
@@ -331,10 +332,14 @@ export default function ChatScreen() {
 
         <Pressable
           style={styles.headerInfo}
-          onPress={isGroup ? () => router.push({ pathname: '/group-info', params: { chatId } }) : undefined}
+          onPress={isGroup ? () => router.push({ pathname: '/group-info', params: { chatId } }) : recipientId ? () => router.push({ pathname: '/user-profile', params: { userId: recipientId, name: name ?? '' } }) : undefined}
         >
           <View style={styles.headerAvatar}>
-            <Text style={styles.headerAvatarText}>{(name ?? '?')[0]?.toUpperCase()}</Text>
+            {recipientAvatar ? (
+              <Image source={{ uri: recipientAvatar }} style={styles.headerAvatarImage} />
+            ) : (
+              <Text style={styles.headerAvatarText}>{(name ?? '?')[0]?.toUpperCase()}</Text>
+            )}
           </View>
           <View style={styles.headerText}>
             <Text style={styles.headerName} numberOfLines={1}>{name}</Text>
@@ -446,6 +451,7 @@ const styles = StyleSheet.create({
     marginRight: 10,
     borderWidth: 1.5, borderColor: 'rgba(255,255,255,0.4)',
   },
+  headerAvatarImage: { width: 40, height: 40, borderRadius: 20 },
   headerAvatarText: { fontSize: 16, fontFamily: typography.fontFamily, fontWeight: typography.weights.bold, color: '#fff' },
   headerText: { flex: 1 },
   headerName: { fontSize: 16, fontFamily: typography.fontFamily, fontWeight: typography.weights.semibold, color: '#fff' },

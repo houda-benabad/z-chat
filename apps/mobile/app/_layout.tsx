@@ -62,6 +62,7 @@ export default function RootLayout() {
         <Stack.Screen name="settings-appearance" />
         <Stack.Screen name="settings-blocked" />
         <Stack.Screen name="settings-help" />
+        <Stack.Screen name="user-profile" />
       </Stack>
     </>
   );

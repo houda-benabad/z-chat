@@ -99,11 +99,17 @@ export function createChatRouter(prisma: PrismaClient, jwtSecret: string): Route
         orderBy: { updatedAt: "desc" },
       });
 
-      // Compute unread counts
+      // Compute unread counts, filter out soft-deleted chats
       const chatsWithMeta = await Promise.all(
         chats.map(async (chat) => {
           const myParticipant = chat.participants.find((p) => p.userId === userId);
+          const deletedAt = myParticipant?.deletedAt ?? null;
+
+          // Hide chat if user deleted it and no new messages have arrived since
+          if (deletedAt && chat.updatedAt <= deletedAt) return null;
+
           const lastReadId = myParticipant?.lastReadMessageId;
+          const visibleSince = deletedAt ?? new Date(0);
 
           let unreadCount = 0;
           if (lastReadId) {
@@ -122,17 +128,20 @@ export function createChatRouter(prisma: PrismaClient, jwtSecret: string): Route
               });
             }
           } else {
-            // Never read — count all messages from others
             unreadCount = await prisma.message.count({
               where: {
                 chatId: chat.id,
                 senderId: { not: userId },
+                createdAt: { gt: visibleSince },
                 isDeleted: false,
               },
             });
           }
 
-          const lastMessage = chat.messages[0] ?? null;
+          // Only show the last message if it arrived after the deletion
+          const lastMessage = (chat.messages[0] && (!deletedAt || new Date(chat.messages[0].createdAt) > deletedAt))
+            ? chat.messages[0]
+            : null;
 
           return {
             id: chat.id,
@@ -146,13 +155,38 @@ export function createChatRouter(prisma: PrismaClient, jwtSecret: string): Route
         }),
       );
 
+      const filtered = chatsWithMeta.filter(Boolean) as NonNullable<(typeof chatsWithMeta)[number]>[];
+
       // Sort: pinned first, then by updatedAt
-      chatsWithMeta.sort((a, b) => {
+      filtered.sort((a, b) => {
         if (a.isPinned !== b.isPinned) return a.isPinned ? -1 : 1;
         return b.updatedAt.getTime() - a.updatedAt.getTime();
       });
 
-      res.json({ chats: chatsWithMeta });
+      res.json({ chats: filtered });
+    }),
+  );
+
+  // DELETE /chats/:id — Soft-delete conversation for current user only
+  router.delete(
+    "/:id",
+    asyncHandler(async (req: AuthRequest, res) => {
+      const userId = req.userId!;
+      const chatId = String(req.params.id);
+
+      const participant = await prisma.chatParticipant.findUnique({
+        where: { chatId_userId: { chatId, userId } },
+      });
+      if (!participant) {
+        throw new AppError(403, "Not a participant of this chat", "FORBIDDEN");
+      }
+
+      await prisma.chatParticipant.update({
+        where: { chatId_userId: { chatId, userId } },
+        data: { deletedAt: new Date() },
+      });
+
+      res.json({ message: "Conversation deleted" });
     }),
   );
 
@@ -174,7 +208,11 @@ export function createChatRouter(prisma: PrismaClient, jwtSecret: string): Route
       }
 
       const messages = await prisma.message.findMany({
-        where: { chatId, isDeleted: false },
+        where: {
+          chatId,
+          isDeleted: false,
+          ...(participant.deletedAt ? { createdAt: { gt: participant.deletedAt } } : {}),
+        },
         orderBy: { createdAt: "desc" },
         take: limit + 1,
         ...(cursor
