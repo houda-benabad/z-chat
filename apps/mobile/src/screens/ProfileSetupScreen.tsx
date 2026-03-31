@@ -10,11 +10,19 @@ import {
   Platform,
   ScrollView,
   Image,
+  Modal,
 } from 'react-native';
+
+const DEPARTMENTS = [
+  { label: 'IT', value: 'it' },
+  { label: 'Finance', value: 'finance' },
+  { label: 'Human Resources', value: 'human_resources' },
+  { label: 'Client Relations & Support', value: 'client_relations_support' },
+];
 import { LinearGradient } from 'expo-linear-gradient';
 import * as ImagePicker from 'expo-image-picker';
 import { useRouter } from 'expo-router';
-import { MAX_DISPLAY_NAME_LENGTH, MAX_ABOUT_LENGTH } from '@z-chat/shared';
+import { MAX_DISPLAY_NAME_LENGTH } from '@z-chat/shared';
 import { colors, spacing, typography, borderRadius } from '../theme';
 import { userApi, uploadAvatar, ApiError } from '../services/api';
 
@@ -23,12 +31,14 @@ const DEFAULT_AVATAR = require('../../assets/default-avatar.png');
 export default function ProfileSetupScreen() {
   const router = useRouter();
   const [displayName, setDisplayName] = useState('');
-  const [about, setAbout] = useState('');
+  const [jobTitle, setJobTitle] = useState('');
+  const [department, setDepartment] = useState('');
+  const [departmentPickerVisible, setDepartmentPickerVisible] = useState(false);
   const [avatarUri, setAvatarUri] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const isValid = displayName.trim().length > 0;
+  const isValid = displayName.trim().length > 0 && jobTitle.trim().length > 0 && department.trim().length > 0;
 
   const handlePickAvatar = useCallback(async () => {
     const permissionResult =
@@ -66,10 +76,11 @@ export default function ProfileSetupScreen() {
       }
       await userApi.updateProfile({
         name: displayName.trim(),
-        about: about.trim() || undefined,
+        jobTitle: jobTitle.trim(),
+        department: department.trim(),
         avatar: avatarUrl,
       });
-      router.replace('/chat-list');
+      router.replace('/chat-list' as any);
     } catch (err) {
       setError(
         err instanceof ApiError
@@ -79,7 +90,7 @@ export default function ProfileSetupScreen() {
     } finally {
       setIsLoading(false);
     }
-  }, [isValid, displayName, about, avatarUri, router]);
+  }, [isValid, displayName, jobTitle, department, avatarUri, router]);
 
   return (
     <KeyboardAvoidingView
@@ -127,21 +138,79 @@ export default function ProfileSetupScreen() {
           </View>
 
           <View style={styles.inputGroup}>
-            <Text style={styles.inputLabel}>About</Text>
+            <Text style={styles.inputLabel}>Job Title</Text>
             <TextInput
-              style={[styles.textInput, styles.aboutInput]}
-              placeholder="What's on your mind? (optional)"
+              style={styles.textInput}
+              placeholder="e.g. Software Engineer"
               placeholderTextColor={colors.border}
-              value={about}
-              onChangeText={setAbout}
-              maxLength={MAX_ABOUT_LENGTH}
-              multiline
-              numberOfLines={3}
+              value={jobTitle}
+              onChangeText={setJobTitle}
+              maxLength={100}
             />
-            <Text style={styles.charCount}>
-              {about.length}/{MAX_ABOUT_LENGTH}
-            </Text>
           </View>
+
+          <View style={styles.inputGroup}>
+            <Text style={styles.inputLabel}>Department</Text>
+            <Pressable
+              style={styles.pickerButton}
+              onPress={() => setDepartmentPickerVisible(true)}
+            >
+              <Text
+                style={[
+                  styles.pickerButtonText,
+                  !department && styles.pickerPlaceholder,
+                ]}
+              >
+                {department
+                  ? DEPARTMENTS.find((d) => d.value === department)?.label
+                  : 'Select your department'}
+              </Text>
+              <Text style={styles.pickerChevron}>›</Text>
+            </Pressable>
+          </View>
+
+          <Modal
+            visible={departmentPickerVisible}
+            transparent
+            animationType="fade"
+            onRequestClose={() => setDepartmentPickerVisible(false)}
+          >
+            <Pressable
+              style={styles.modalOverlay}
+              onPress={() => setDepartmentPickerVisible(false)}
+            >
+              <View style={styles.modalSheet}>
+                <Text style={styles.modalTitle}>Select Department</Text>
+                {DEPARTMENTS.map((dept) => (
+                  <Pressable
+                    key={dept.value}
+                    style={({ pressed }) => [
+                      styles.modalOption,
+                      department === dept.value && styles.modalOptionSelected,
+                      pressed && styles.modalOptionPressed,
+                    ]}
+                    onPress={() => {
+                      setDepartment(dept.value);
+                      setDepartmentPickerVisible(false);
+                    }}
+                  >
+                    <Text
+                      style={[
+                        styles.modalOptionText,
+                        department === dept.value &&
+                          styles.modalOptionTextSelected,
+                      ]}
+                    >
+                      {dept.label}
+                    </Text>
+                    {department === dept.value && (
+                      <Text style={styles.modalOptionCheck}>✓</Text>
+                    )}
+                  </Pressable>
+                ))}
+              </View>
+            </Pressable>
+          </Modal>
         </View>
 
         <View style={styles.bottomSection}>
@@ -269,10 +338,83 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.border,
   },
-  aboutInput: {
-    height: 80,
-    textAlignVertical: 'top',
-    paddingTop: 14,
+  pickerButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: spacing.md,
+    paddingVertical: 14,
+    backgroundColor: colors.surface,
+    borderRadius: borderRadius.lg,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  pickerButtonText: {
+    fontSize: typography.sizes.md,
+    fontFamily: typography.fontFamily,
+    fontWeight: typography.weights.regular,
+    color: colors.text,
+  },
+  pickerPlaceholder: {
+    color: colors.border,
+  },
+  pickerChevron: {
+    fontSize: 20,
+    color: colors.textSecondary,
+    lineHeight: 22,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.4)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: spacing.lg,
+  },
+  modalSheet: {
+    width: '100%',
+    backgroundColor: colors.background,
+    borderRadius: borderRadius.xl,
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.md,
+    gap: 4,
+  },
+  modalTitle: {
+    fontSize: typography.sizes.sm,
+    fontFamily: typography.fontFamily,
+    fontWeight: typography.weights.semibold,
+    color: colors.textSecondary,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
+    marginBottom: 4,
+  },
+  modalOption: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 14,
+    borderRadius: borderRadius.lg,
+  },
+  modalOptionSelected: {
+    backgroundColor: colors.surface,
+  },
+  modalOptionPressed: {
+    opacity: 0.7,
+  },
+  modalOptionText: {
+    fontSize: typography.sizes.md,
+    fontFamily: typography.fontFamily,
+    fontWeight: typography.weights.regular,
+    color: colors.text,
+  },
+  modalOptionTextSelected: {
+    fontWeight: typography.weights.semibold,
+    color: colors.primary,
+  },
+  modalOptionCheck: {
+    fontSize: typography.sizes.md,
+    color: colors.primary,
+    fontWeight: typography.weights.semibold,
   },
   charCount: {
     fontSize: typography.sizes.xs,

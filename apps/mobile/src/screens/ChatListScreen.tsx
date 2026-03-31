@@ -3,7 +3,6 @@ import {
   View,
   Text,
   FlatList,
-  ScrollView,
   StyleSheet,
   Pressable,
   ActivityIndicator,
@@ -17,42 +16,16 @@ import { useRouter } from 'expo-router';
 import { colors, spacing, typography } from '../theme';
 import {
   chatApi,
-  userApi,
   ChatListItem,
   ChatMessage,
   ChatParticipantUser,
-  UserProfile,
   tokenStorage,
 } from '../services/api';
 import { connectSocket } from '../services/socket';
 import { showMessageNotification } from '../services/notifications';
 import type { Socket } from 'socket.io-client';
 
-type TabName = 'chats' | 'calls' | 'settings';
-
-const SETTINGS_SECTIONS: { title: string; rows: { label: string; subtitle?: string; icon: string; route: string }[] }[] = [
-  {
-    title: '',
-    rows: [
-      { label: 'Account', subtitle: 'Privacy, security, change number', icon: '🔑', route: '/settings-account' },
-    ],
-  },
-  {
-    title: 'Preferences',
-    rows: [
-      { label: 'Privacy', subtitle: 'Last seen, read receipts, blocked', icon: '🔒', route: '/settings-privacy' },
-      { label: 'Notifications', subtitle: 'Message, group, call alerts', icon: '🔔', route: '/settings-notifications' },
-      { label: 'Storage & Data', subtitle: 'Auto-download, data usage', icon: '💾', route: '/settings-storage' },
-      { label: 'Appearance', subtitle: 'Theme, accent color, font size', icon: '🎨', route: '/settings-appearance' },
-    ],
-  },
-  {
-    title: 'Support',
-    rows: [
-      { label: 'Help', subtitle: 'FAQ, contact us, terms & privacy', icon: '❓', route: '/settings-help' },
-    ],
-  },
-];
+type TabName = 'chats' | 'my-team' | 'company' | 'calls';
 
 function formatTime(dateStr: string): string {
   const date = new Date(dateStr);
@@ -85,9 +58,7 @@ export default function ChatListScreen() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [myUserId, setMyUserId] = useState('');
-  const [activeTab, setActiveTab] = useState<TabName>('chats');
-  const [profile, setProfile] = useState<UserProfile | null>(null);
-  const [profileLoading, setProfileLoading] = useState(false);
+  const [activeTab, setActiveTab] = useState<TabName>('my-team');
   const socketRef = useRef<Socket | null>(null);
   const chatsRef = useRef<ChatListItem[]>([]);
   const myUserIdRef = useRef('');
@@ -101,15 +72,6 @@ export default function ChatListScreen() {
     } catch {
       // Silently handle — will retry on refresh
     }
-  }, []);
-
-  const loadProfile = useCallback(async () => {
-    setProfileLoading(true);
-    try {
-      const { user } = await userApi.getMe();
-      setProfile(user);
-    } catch { /* ignore */ }
-    finally { setProfileLoading(false); }
   }, []);
 
   const setupSocket = useCallback(async (): Promise<(() => void) | undefined> => {
@@ -210,25 +172,20 @@ export default function ChatListScreen() {
         } catch { /* ignore */ }
       }
 
-      await Promise.all([loadChats(), loadProfile()]);
+      await Promise.all([loadChats()]);
       setLoading(false);
       removeListeners = await setupSocket();
     };
 
     init();
     return () => { removeListeners?.(); };
-  }, [loadChats, loadProfile, setupSocket]);
+  }, [loadChats, setupSocket]);
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
     await loadChats();
     setRefreshing(false);
   }, [loadChats]);
-
-  const handleLogout = useCallback(async () => {
-    await tokenStorage.remove();
-    router.replace('/');
-  }, [router]);
 
   const handleDeleteConversation = useCallback(async (chatId: string) => {
     setDeleteTarget(null);
@@ -351,21 +308,25 @@ export default function ChatListScreen() {
 
   return (
     <View style={styles.container}>
-      {/* Dynamic header */}
+      {/* Header */}
       <View style={[styles.header, { paddingTop: insets.top + 12 }]}>
-        {activeTab === 'settings' ? (
-          <Text style={styles.headerTitle}>Settings</Text>
-        ) : (
-          <>
-            <Text style={styles.headerTitle}>z.chat</Text>
+        <Text style={styles.headerTitle}>z.chat</Text>
+        <View style={styles.headerActions}>
+          {activeTab === 'chats' && (
             <Pressable
-              style={styles.newChatButton}
+              style={styles.headerIconBtn}
               onPress={() => router.push('/new-chat')}
             >
-              <Ionicons name="create-outline" size={22} color={colors.white} />
+              <Ionicons name="create-outline" size={22} color={colors.primary} />
             </Pressable>
-          </>
-        )}
+          )}
+          <Pressable
+            style={styles.headerIconBtn}
+            onPress={() => router.push('/settings')}
+          >
+            <Ionicons name="settings-outline" size={22} color={colors.primary} />
+          </Pressable>
+        </View>
       </View>
 
       {/* Chats tab */}
@@ -395,7 +356,29 @@ export default function ChatListScreen() {
         />
       )}
 
-      {/* Calls tab placeholder */}
+      {/* My Team tab */}
+      {activeTab === 'my-team' && (
+        <View style={styles.emptyContainer}>
+          <View style={styles.emptyState}>
+            <Ionicons name="people-outline" size={56} color={colors.border} style={{ marginBottom: 16, opacity: 0.4 }} />
+            <Text style={styles.emptyTitle}>Your Team</Text>
+            <Text style={styles.emptySubtitle}>Your colleagues at z.systems will appear here</Text>
+          </View>
+        </View>
+      )}
+
+      {/* Company tab */}
+      {activeTab === 'company' && (
+        <View style={styles.emptyContainer}>
+          <View style={styles.emptyState}>
+            <Ionicons name="business-outline" size={56} color={colors.border} style={{ marginBottom: 16, opacity: 0.4 }} />
+            <Text style={styles.emptyTitle}>z.systems</Text>
+            <Text style={styles.emptySubtitle}>Company announcements and updates will appear here</Text>
+          </View>
+        </View>
+      )}
+
+      {/* Calls tab */}
       {activeTab === 'calls' && (
         <View style={styles.emptyContainer}>
           <View style={styles.emptyState}>
@@ -404,80 +387,6 @@ export default function ChatListScreen() {
             <Text style={styles.emptySubtitle}>Voice and video calls will appear here</Text>
           </View>
         </View>
-      )}
-
-      {/* Settings tab — inline, no navigation */}
-      {activeTab === 'settings' && (
-        <ScrollView
-          contentContainerStyle={{ paddingBottom: NAV_HEIGHT + 16 }}
-          showsVerticalScrollIndicator={false}
-        >
-          {/* Profile card */}
-          <Pressable
-            style={({ pressed }) => [styles.profileCard, pressed && styles.pressed]}
-            onPress={() => router.push('/settings-profile')}
-          >
-            <View style={styles.profileAvatar}>
-              {profileLoading ? (
-                <ActivityIndicator size="small" color={colors.white} />
-              ) : profile?.avatar ? (
-                <Image source={{ uri: profile.avatar }} style={styles.profileAvatarImage} />
-              ) : (
-                <Text style={styles.profileAvatarText}>
-                  {profile?.name?.[0]?.toUpperCase() ?? '?'}
-                </Text>
-              )}
-            </View>
-            <View style={styles.profileInfo}>
-              <Text style={styles.profileName}>{profile?.name ?? 'Set up your name'}</Text>
-              <Text style={styles.profileAbout} numberOfLines={1}>
-                {profile?.phone ?? profile?.about ?? 'Hey there! I am using z.chat'}
-              </Text>
-            </View>
-            <Ionicons name="chevron-forward" size={20} color={colors.textSecondary} />
-          </Pressable>
-
-          {/* Settings sections */}
-          {SETTINGS_SECTIONS.map((section, si) => (
-            <View key={si} style={styles.section}>
-              {section.title ? (
-                <Text style={styles.sectionTitle}>{section.title}</Text>
-              ) : null}
-              {section.rows.map((row) => (
-                <Pressable
-                  key={row.route}
-                  style={({ pressed }) => [styles.settingsRow, pressed && styles.pressed]}
-                  onPress={() => router.push(row.route as any)}
-                >
-                  <Text style={styles.rowIcon}>{row.icon}</Text>
-                  <View style={styles.rowContent}>
-                    <Text style={styles.rowLabel}>{row.label}</Text>
-                    {row.subtitle && (
-                      <Text style={styles.rowSubtitle}>{row.subtitle}</Text>
-                    )}
-                  </View>
-                  <Ionicons name="chevron-forward" size={16} color={colors.textSecondary} />
-                </Pressable>
-              ))}
-            </View>
-          ))}
-
-          {/* Logout */}
-          <View style={styles.section}>
-            <Pressable
-              style={({ pressed }) => [styles.settingsRow, pressed && styles.pressed]}
-              onPress={handleLogout}
-            >
-              <Text style={[styles.rowIcon, { color: '#ED2F3C' }]}>↩</Text>
-              <Text style={styles.logoutLabel}>Log Out</Text>
-            </Pressable>
-          </View>
-
-          <View style={styles.appInfo}>
-            <Text style={styles.appInfoText}>z.chat by z.systems</Text>
-            <Text style={styles.appInfoVersion}>Version 1.0.0</Text>
-          </View>
-        </ScrollView>
       )}
 
       {/* FAB — chats tab only */}
@@ -490,7 +399,7 @@ export default function ChatListScreen() {
         </Pressable>
       )}
 
-      {/* Delete conversation confirmation modal */}
+      {/* Delete modal */}
       <Modal
         visible={!!deleteTarget}
         transparent
@@ -527,8 +436,9 @@ export default function ChatListScreen() {
       <View style={[styles.navbar, { paddingBottom: insets.bottom || 12 }]}>
         {([
           { key: 'chats', label: 'Chats', icon: 'chatbubble-outline', iconActive: 'chatbubble' },
+          { key: 'my-team', label: 'My Team', icon: 'people-outline', iconActive: 'people' },
+          { key: 'company', label: 'Company', icon: 'business-outline', iconActive: 'business' },
           { key: 'calls', label: 'Calls', icon: 'call-outline', iconActive: 'call' },
-          { key: 'settings', label: 'Settings', icon: 'settings-outline', iconActive: 'settings' },
         ] as const).map((tab) => {
           const isActive = activeTab === tab.key;
           return (
@@ -583,11 +493,15 @@ const styles = StyleSheet.create({
     fontWeight: typography.weights.bold,
     color: colors.primary,
   },
-  newChatButton: {
+  headerActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  headerIconBtn: {
     width: 38,
     height: 38,
     borderRadius: 19,
-    backgroundColor: colors.primary,
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -776,117 +690,6 @@ const styles = StyleSheet.create({
     borderRadius: 2,
     backgroundColor: colors.primary,
     marginTop: 1,
-  },
-
-  // Settings tab
-  pressed: {
-    backgroundColor: colors.surface,
-  },
-  profileCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.lg,
-    borderBottomWidth: 8,
-    borderBottomColor: colors.surface,
-  },
-  profileAvatar: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
-    backgroundColor: colors.secondary,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: spacing.md,
-  },
-  profileAvatarImage: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
-  },
-  profileAvatarText: {
-    fontSize: typography.sizes.xl,
-    fontFamily: typography.fontFamily,
-    fontWeight: typography.weights.bold,
-    color: colors.white,
-  },
-  profileInfo: {
-    flex: 1,
-  },
-  profileName: {
-    fontSize: typography.sizes.lg,
-    fontFamily: typography.fontFamily,
-    fontWeight: typography.weights.semibold,
-    color: colors.text,
-  },
-  profileAbout: {
-    fontSize: typography.sizes.sm,
-    fontFamily: typography.fontFamily,
-    color: colors.textSecondary,
-    marginTop: 2,
-  },
-  section: {
-    borderBottomWidth: 8,
-    borderBottomColor: colors.surface,
-  },
-  sectionTitle: {
-    fontSize: typography.sizes.xs,
-    fontFamily: typography.fontFamily,
-    fontWeight: typography.weights.semibold,
-    color: colors.textSecondary,
-    textTransform: 'uppercase',
-    paddingHorizontal: spacing.lg,
-    paddingTop: spacing.md,
-    paddingBottom: spacing.xs,
-  },
-  settingsRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: spacing.lg,
-    paddingVertical: 14,
-  },
-  rowIcon: {
-    fontSize: 22,
-    width: 36,
-    textAlign: 'center',
-    marginRight: spacing.md,
-  },
-  rowContent: {
-    flex: 1,
-  },
-  rowLabel: {
-    fontSize: typography.sizes.md,
-    fontFamily: typography.fontFamily,
-    fontWeight: typography.weights.medium,
-    color: colors.text,
-  },
-  rowSubtitle: {
-    fontSize: typography.sizes.xs,
-    fontFamily: typography.fontFamily,
-    color: colors.textSecondary,
-    marginTop: 1,
-  },
-  logoutLabel: {
-    fontSize: typography.sizes.md,
-    fontFamily: typography.fontFamily,
-    fontWeight: typography.weights.medium,
-    color: '#ED2F3C',
-    flex: 1,
-  },
-  appInfo: {
-    alignItems: 'center',
-    paddingVertical: spacing.xl,
-  },
-  appInfoText: {
-    fontSize: typography.sizes.sm,
-    fontFamily: typography.fontFamily,
-    color: colors.textSecondary,
-  },
-  appInfoVersion: {
-    fontSize: typography.sizes.xs,
-    fontFamily: typography.fontFamily,
-    color: colors.border,
-    marginTop: 2,
   },
 
   // Delete modal
