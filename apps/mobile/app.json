@@ -4,7 +4,9 @@
     "slug": "z-chat",
     "version": "0.0.1",
     "orientation": "portrait",
-    "icon": "./assets/icon.png",
+    "platforms": ["ios", "android", "web"],
+    "newArchEnabled": false,
+    "icon": "./assets/default-avatar.png",
     "userInterfaceStyle": "light",
     "scheme": "zchat",
     "splash": {

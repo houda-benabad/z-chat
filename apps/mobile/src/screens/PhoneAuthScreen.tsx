@@ -5,7 +5,6 @@ import {
   TextInput,
   StyleSheet,
   Pressable,
-  Alert,
   ActivityIndicator,
   KeyboardAvoidingView,
   Platform,
@@ -36,6 +35,7 @@ export default function PhoneAuthScreen() {
   const [phoneNumber, setPhoneNumber] = useState('');
   const [showCountryPicker, setShowCountryPicker] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const fullPhoneNumber = `${countryCode.code}${phoneNumber.replace(/\D/g, '')}`;
   const isValidPhone = phoneNumber.replace(/\D/g, '').length >= 7;
@@ -44,18 +44,19 @@ export default function PhoneAuthScreen() {
     if (!isValidPhone) return;
 
     setIsLoading(true);
+    setError(null);
     try {
       await authApi.sendOtp(fullPhoneNumber);
       router.push({
         pathname: '/otp-verification',
         params: { phoneNumber: fullPhoneNumber },
       });
-    } catch (error) {
-      const message =
-        error instanceof ApiError
-          ? error.message
-          : 'Failed to send verification code. Please try again.';
-      Alert.alert('Error', message);
+    } catch (err) {
+      setError(
+        err instanceof ApiError
+          ? err.message
+          : 'Failed to send verification code. Please try again.',
+      );
     } finally {
       setIsLoading(false);
     }
@@ -132,6 +133,9 @@ export default function PhoneAuthScreen() {
         </View>
 
         <View style={styles.bottomSection}>
+          {error && (
+            <Text style={styles.errorText}>{error}</Text>
+          )}
           <Pressable
             onPress={handleSendCode}
             disabled={!isValidPhone || isLoading}
@@ -293,6 +297,13 @@ const styles = StyleSheet.create({
   },
   bottomSection: {
     marginTop: spacing.xl,
+    gap: spacing.md,
+  },
+  errorText: {
+    fontSize: typography.sizes.sm,
+    fontFamily: typography.fontFamily,
+    color: colors.crimson,
+    textAlign: 'center',
   },
   buttonContainer: {
     borderRadius: borderRadius.xl,

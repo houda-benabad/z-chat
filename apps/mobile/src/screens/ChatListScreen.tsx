@@ -12,8 +12,8 @@ import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { colors, spacing, typography } from '../theme';
-import { chatApi, ChatListItem, ChatParticipantUser, tokenStorage } from '../services/api';
-import { connectSocket, disconnectSocket } from '../services/socket';
+import { chatApi, ChatListItem, ChatMessage, ChatParticipantUser, tokenStorage } from '../services/api';
+import { connectSocket } from '../services/socket';
 import type { Socket } from 'socket.io-client';
 
 type TabName = 'chats' | 'calls' | 'settings';
@@ -51,72 +51,115 @@ export default function ChatListScreen() {
   const [myUserId, setMyUserId] = useState('');
   const [activeTab, setActiveTab] = useState<TabName>('chats');
   const socketRef = useRef<Socket | null>(null);
+  const chatsRef = useRef<ChatListItem[]>([]);
 
   const loadChats = useCallback(async () => {
     try {
       const { chats: data } = await chatApi.getChats();
+      chatsRef.current = data;
       setChats(data);
     } catch {
       // Silently handle — will retry on refresh
     }
   }, []);
 
-  const setupSocket = useCallback(async () => {
+  const setupSocket = useCallback(async (): Promise<(() => void) | undefined> => {
     try {
       const sock = await connectSocket();
       socketRef.current = sock;
 
-      // Extract userId from token (simple decode)
       const token = await tokenStorage.get();
       if (token) {
         const payload = JSON.parse(atob(token.split('.')[1]!));
         setMyUserId(payload.sub);
       }
 
-      sock.on('message:new', () => {
-        // Reload chat list to update last message and unread counts
-        loadChats();
-      });
+      const handleMessageNew = (message: ChatMessage) => {
+        if (!chatsRef.current.some(c => c.id === message.chatId)) {
+          // New conversation we don't have yet — fetch the full list
+          loadChats();
+          return;
+        }
+        setChats((prev) => {
+          const updated = prev.map((chat) =>
+            chat.id === message.chatId
+              ? { ...chat, lastMessage: message, updatedAt: message.createdAt }
+              : chat
+          );
+          return updated.sort((a, b) =>
+            new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()
+          );
+        });
+      };
 
-      sock.on('message:read', () => {
+      const handleChatNew = () => {
         loadChats();
-      });
+      };
 
-      sock.on('user:online', () => {
-        loadChats();
-      });
+      const handleMessageRead = () => { loadChats(); };
 
-      sock.on('user:offline', () => {
-        loadChats();
-      });
+      const handleUserOnline = ({ userId }: { userId: string }) => {
+        setChats((prev) =>
+          prev.map((chat) => ({
+            ...chat,
+            participants: chat.participants.map((p) =>
+              p.userId === userId ? { ...p, user: { ...p.user, isOnline: true } } : p
+            ),
+          }))
+        );
+      };
+
+      const handleUserOffline = ({ userId }: { userId: string }) => {
+        setChats((prev) =>
+          prev.map((chat) => ({
+            ...chat,
+            participants: chat.participants.map((p) =>
+              p.userId === userId ? { ...p, user: { ...p.user, isOnline: false } } : p
+            ),
+          }))
+        );
+      };
+
+      sock.on('message:new', handleMessageNew);
+      sock.on('message:read', handleMessageRead);
+      sock.on('user:online', handleUserOnline);
+      sock.on('user:offline', handleUserOffline);
+      sock.on('chat:new', handleChatNew);
+
+      // Return cleanup that only removes listeners — never disconnects the socket
+      return () => {
+        sock.off('message:new', handleMessageNew);
+        sock.off('message:read', handleMessageRead);
+        sock.off('user:online', handleUserOnline);
+        sock.off('user:offline', handleUserOffline);
+        sock.off('chat:new', handleChatNew);
+      };
     } catch {
       // Will retry on pull-to-refresh
     }
   }, [loadChats]);
 
   useEffect(() => {
+    let removeListeners: (() => void) | undefined;
+
     const init = async () => {
-      // Extract userId
       const token = await tokenStorage.get();
       if (token) {
         try {
           const payload = JSON.parse(atob(token.split('.')[1]!));
           setMyUserId(payload.sub);
-        } catch {
-          // Ignore
-        }
+        } catch { /* ignore */ }
       }
 
       await loadChats();
       setLoading(false);
-      await setupSocket();
+      removeListeners = await setupSocket();
     };
 
     init();
 
-    return () => {
-      disconnectSocket();
-    };
+    // Only remove listeners — keep socket alive for other screens
+    return () => { removeListeners?.(); };
   }, [loadChats, setupSocket]);
 
   const onRefresh = useCallback(async () => {

@@ -5,7 +5,6 @@ import {
   TextInput,
   StyleSheet,
   Pressable,
-  Alert,
   ActivityIndicator,
   KeyboardAvoidingView,
   Platform,
@@ -17,7 +16,7 @@ import * as ImagePicker from 'expo-image-picker';
 import { useRouter } from 'expo-router';
 import { MAX_DISPLAY_NAME_LENGTH, MAX_ABOUT_LENGTH } from '@z-chat/shared';
 import { colors, spacing, typography, borderRadius } from '../theme';
-import { userApi, ApiError } from '../services/api';
+import { userApi, uploadAvatar, ApiError } from '../services/api';
 
 const DEFAULT_AVATAR = require('../../assets/default-avatar.png');
 
@@ -27,6 +26,7 @@ export default function ProfileSetupScreen() {
   const [about, setAbout] = useState('');
   const [avatarUri, setAvatarUri] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const isValid = displayName.trim().length > 0;
 
@@ -58,19 +58,24 @@ export default function ProfileSetupScreen() {
     if (!isValid) return;
 
     setIsLoading(true);
+    setError(null);
     try {
+      let avatarUrl: string | undefined;
+      if (avatarUri) {
+        avatarUrl = await uploadAvatar(avatarUri);
+      }
       await userApi.updateProfile({
         name: displayName.trim(),
         about: about.trim() || undefined,
-        avatar: avatarUri ?? undefined,
+        avatar: avatarUrl,
       });
       router.replace('/chat-list');
-    } catch (error) {
-      const message =
-        error instanceof ApiError
-          ? error.message
-          : 'Failed to update profile. Please try again.';
-      Alert.alert('Error', message);
+    } catch (err) {
+      setError(
+        err instanceof ApiError
+          ? err.message
+          : 'Failed to update profile. Please try again.',
+      );
     } finally {
       setIsLoading(false);
     }
@@ -140,6 +145,7 @@ export default function ProfileSetupScreen() {
         </View>
 
         <View style={styles.bottomSection}>
+          {error && <Text style={styles.errorText}>{error}</Text>}
           <Pressable
             onPress={handleContinue}
             disabled={!isValid || isLoading}
@@ -277,6 +283,13 @@ const styles = StyleSheet.create({
   },
   bottomSection: {
     marginTop: spacing.xl,
+    gap: spacing.md,
+  },
+  errorText: {
+    fontSize: typography.sizes.sm,
+    fontFamily: typography.fontFamily,
+    color: '#ED2F3C',
+    textAlign: 'center',
   },
   buttonContainer: {
     borderRadius: borderRadius.xl,

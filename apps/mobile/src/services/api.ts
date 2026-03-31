@@ -1,4 +1,5 @@
 import * as SecureStore from 'expo-secure-store';
+import { Platform } from 'react-native';
 
 const API_BASE_URL = process.env.EXPO_PUBLIC_API_URL ?? 'http://localhost:3000';
 const TOKEN_KEY = 'z_chat_jwt_token';
@@ -7,7 +8,7 @@ async function request<T>(
   path: string,
   options: RequestInit = {},
 ): Promise<T> {
-  const token = await SecureStore.getItemAsync(TOKEN_KEY);
+  const token = await tokenStorage.get();
 
   const response = await fetch(`${API_BASE_URL}${path}`, {
     ...options,
@@ -359,13 +360,56 @@ export const userApi = {
     }),
 };
 
+export async function uploadAvatar(uri: string): Promise<string> {
+  const token = await tokenStorage.get();
+  const formData = new FormData();
+
+  if (Platform.OS === 'web') {
+    const response = await fetch(uri);
+    const blob = await response.blob();
+    const ext = blob.type.split('/')[1] ?? 'jpg';
+    formData.append('avatar', blob, `avatar.${ext}`);
+  } else {
+    const ext = uri.split('.').pop() ?? 'jpg';
+    formData.append('avatar', { uri, name: `avatar.${ext}`, type: `image/${ext}` } as any);
+  }
+
+  const response = await fetch(`${API_BASE_URL}/upload/avatar`, {
+    method: 'POST',
+    headers: token ? { Authorization: `Bearer ${token}` } : {},
+    body: formData,
+  });
+
+  if (!response.ok) {
+    const body = await response.json().catch(() => ({}));
+    throw new ApiError(response.status, body.error ?? 'Upload failed');
+  }
+
+  const { url } = await response.json();
+  return url;
+}
+
 export const tokenStorage = {
-  save: (token: string): Promise<void> =>
-    SecureStore.setItemAsync(TOKEN_KEY, token),
+  save: (token: string): Promise<void> => {
+    if (Platform.OS === 'web') {
+      localStorage.setItem(TOKEN_KEY, token);
+      return Promise.resolve();
+    }
+    return SecureStore.setItemAsync(TOKEN_KEY, token);
+  },
 
-  get: (): Promise<string | null> =>
-    SecureStore.getItemAsync(TOKEN_KEY),
+  get: (): Promise<string | null> => {
+    if (Platform.OS === 'web') {
+      return Promise.resolve(localStorage.getItem(TOKEN_KEY));
+    }
+    return SecureStore.getItemAsync(TOKEN_KEY);
+  },
 
-  remove: (): Promise<void> =>
-    SecureStore.deleteItemAsync(TOKEN_KEY),
+  remove: (): Promise<void> => {
+    if (Platform.OS === 'web') {
+      localStorage.removeItem(TOKEN_KEY);
+      return Promise.resolve();
+    }
+    return SecureStore.deleteItemAsync(TOKEN_KEY);
+  },
 };

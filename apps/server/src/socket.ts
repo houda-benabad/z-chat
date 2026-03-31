@@ -109,14 +109,30 @@ export function createSocketServer(httpServer: HttpServer, prisma: PrismaClient,
           data: { updatedAt: new Date() },
         });
 
-        // Broadcast to all participants in the chat room
-        io.to(`chat:${parsed.chatId}`).emit("message:new", message);
-
-        // Store for offline delivery
+        // Fetch all participants
         const chatParticipants = await prisma.chatParticipant.findMany({
           where: { chatId: parsed.chatId },
           select: { userId: true },
         });
+
+        // Ensure every connected participant is in the room (handles new chats
+        // where participants joined the socket before the chat was created)
+        for (const cp of chatParticipants) {
+          const sIds = userSockets.get(cp.userId);
+          if (sIds) {
+            for (const sId of sIds) {
+              const pSocket = io.sockets.sockets.get(sId);
+              if (pSocket && !pSocket.rooms.has(`chat:${parsed.chatId}`)) {
+                pSocket.join(`chat:${parsed.chatId}`);
+                // Tell that client they have a new chat so they can refresh their list
+                pSocket.emit("chat:new", { chatId: parsed.chatId });
+              }
+            }
+          }
+        }
+
+        // Broadcast to all participants in the chat room
+        io.to(`chat:${parsed.chatId}`).emit("message:new", message);
 
         const redis = getRedis();
         for (const cp of chatParticipants) {

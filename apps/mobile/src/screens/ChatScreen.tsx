@@ -9,58 +9,112 @@ import {
   KeyboardAvoidingView,
   Platform,
   ActivityIndicator,
+  Animated,
 } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { colors, spacing, typography, borderRadius } from '../theme';
 import { chatApi, ChatMessage, tokenStorage } from '../services/api';
-import { getSocket } from '../services/socket';
+import { getSocket, connectSocket } from '../services/socket';
+import type { Socket } from 'socket.io-client';
 
-function formatMessageTime(dateStr: string): string {
-  return new Date(dateStr).toLocaleTimeString([], {
-    hour: '2-digit',
-    minute: '2-digit',
-  });
+const CHAT_BG = '#ECE5DD';
+const SENT_BG = '#FFF0EC';
+const RECV_BG = '#FFFFFF';
+const CORAL = '#E46C53';
+const TEAL = '#4D7E82';
+
+function formatTime(dateStr: string) {
+  return new Date(dateStr).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 }
 
-function formatDateSeparator(dateStr: string): string {
+function formatDateSep(dateStr: string) {
   const date = new Date(dateStr);
   const now = new Date();
-  const diffMs = now.getTime() - date.getTime();
-  const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
-
-  if (diffDays === 0) return 'Today';
-  if (diffDays === 1) return 'Yesterday';
-  return date.toLocaleDateString([], {
-    weekday: 'long',
-    month: 'long',
-    day: 'numeric',
-  });
+  const diff = Math.floor((now.getTime() - date.getTime()) / 86400000);
+  if (diff === 0) return 'Today';
+  if (diff === 1) return 'Yesterday';
+  return date.toLocaleDateString([], { weekday: 'long', month: 'long', day: 'numeric' });
 }
 
-function isSameDay(a: string, b: string): boolean {
-  const da = new Date(a);
-  const db = new Date(b);
+function sameDay(a: string, b: string) {
+  const da = new Date(a), db = new Date(b);
+  return da.getFullYear() === db.getFullYear() && da.getMonth() === db.getMonth() && da.getDate() === db.getDate();
+}
+
+/** Animated three-dot typing indicator */
+function TypingDots() {
+  const dot0 = useRef(new Animated.Value(0)).current;
+  const dot1 = useRef(new Animated.Value(0)).current;
+  const dot2 = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    const makeBounce = (dot: Animated.Value, delay: number) =>
+      Animated.loop(
+        Animated.sequence([
+          Animated.delay(delay),
+          Animated.timing(dot, { toValue: 1, duration: 300, useNativeDriver: true }),
+          Animated.timing(dot, { toValue: 0, duration: 300, useNativeDriver: true }),
+          Animated.delay(450 - delay),
+        ])
+      );
+    const a0 = makeBounce(dot0, 0);
+    const a1 = makeBounce(dot1, 150);
+    const a2 = makeBounce(dot2, 300);
+    a0.start(); a1.start(); a2.start();
+    return () => { a0.stop(); a1.stop(); a2.stop(); };
+  }, [dot0, dot1, dot2]);
+
+  const dotStyle = (dot: Animated.Value) => ([
+    typingStyles.dot,
+    { opacity: dot, transform: [{ translateY: dot.interpolate({ inputRange: [0, 1], outputRange: [0, -4] }) }] },
+  ]);
+
   return (
-    da.getFullYear() === db.getFullYear() &&
-    da.getMonth() === db.getMonth() &&
-    da.getDate() === db.getDate()
+    <View style={typingStyles.bubble}>
+      <Animated.View style={dotStyle(dot0)} />
+      <Animated.View style={dotStyle(dot1)} />
+      <Animated.View style={dotStyle(dot2)} />
+    </View>
   );
 }
 
-interface TypingUser {
-  userId: string;
-  timeout: ReturnType<typeof setTimeout>;
-}
+const typingStyles = StyleSheet.create({
+  bubble: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: RECV_BG,
+    borderRadius: 18,
+    borderBottomLeftRadius: 4,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    gap: 5,
+    alignSelf: 'flex-start',
+    marginLeft: 12,
+    marginBottom: 6,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.06,
+    shadowRadius: 2,
+    elevation: 1,
+  },
+  dot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: '#aaa',
+  },
+});
 
 export default function ChatScreen() {
   const { chatId, name, recipientId, chatType } = useLocalSearchParams<{
-    chatId: string;
-    name: string;
-    recipientId: string;
-    chatType?: string;
+    chatId: string; name: string; recipientId: string; chatType?: string;
   }>();
   const isGroup = chatType === 'group';
   const router = useRouter();
+  const insets = useSafeAreaInsets();
 
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [loading, setLoading] = useState(true);
@@ -68,40 +122,40 @@ export default function ChatScreen() {
   const [nextCursor, setNextCursor] = useState<string | null>(null);
   const [inputText, setInputText] = useState('');
   const [myUserId, setMyUserId] = useState('');
-  const [typingUsers, setTypingUsers] = useState<Map<string, TypingUser>>(new Map());
+  const [isTyping, setIsTyping] = useState(false);
   const [isOnline, setIsOnline] = useState(false);
+  const [socket, setSocket] = useState<Socket | null>(() => getSocket());
   const typingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const flatListRef = useRef<FlatList>(null);
 
-  // Load userId from token
   useEffect(() => {
     tokenStorage.get().then((token) => {
       if (token) {
         try {
           const payload = JSON.parse(atob(token.split('.')[1]!));
           setMyUserId(payload.sub);
-        } catch {
-          // Ignore
-        }
+        } catch { /* ignore */ }
       }
     });
   }, []);
 
-  // Load initial messages
+  // Ensure socket is available — connect if ChatListScreen hasn't done so yet
+  useEffect(() => {
+    const s = getSocket();
+    if (s) { setSocket(s); return; }
+    connectSocket().then(setSocket).catch(() => {});
+  }, []);
+
   const loadMessages = useCallback(async () => {
     if (!chatId) return;
     try {
       const data = await chatApi.getMessages(chatId);
-      setMessages(data.messages.reverse()); // API returns newest first, we want oldest first
+      setMessages(data.messages.reverse());
       setNextCursor(data.nextCursor);
-    } catch {
-      // Handle error silently
-    } finally {
-      setLoading(false);
-    }
+    } catch { /* ignore */ }
+    finally { setLoading(false); }
   }, [chatId]);
 
-  // Load older messages
   const loadOlderMessages = useCallback(async () => {
     if (!chatId || !nextCursor || loadingMore) return;
     setLoadingMore(true);
@@ -109,556 +163,378 @@ export default function ChatScreen() {
       const data = await chatApi.getMessages(chatId, nextCursor);
       setMessages((prev) => [...data.messages.reverse(), ...prev]);
       setNextCursor(data.nextCursor);
-    } catch {
-      // Ignore
-    } finally {
-      setLoadingMore(false);
-    }
+    } catch { /* ignore */ }
+    finally { setLoadingMore(false); }
   }, [chatId, nextCursor, loadingMore]);
 
-  useEffect(() => {
-    loadMessages();
-  }, [loadMessages]);
+  useEffect(() => { loadMessages(); }, [loadMessages]);
 
-  // Socket events
+  // Re-subscribe whenever socket becomes available (covers race conditions)
   useEffect(() => {
-    const socket = getSocket();
     if (!socket || !chatId) return;
 
-    const handleNewMessage = (message: ChatMessage) => {
+    const handleNew = (message: ChatMessage) => {
       if (message.chatId !== chatId) return;
-      setMessages((prev) => {
-        // Deduplicate
-        if (prev.some((m) => m.id === message.id)) return prev;
-        return [...prev, message];
-      });
-
-      // Mark as read
+      setMessages((prev) => prev.some((m) => m.id === message.id) ? prev : [...prev, message]);
       socket.emit('message:read', { chatId, messageId: message.id });
     };
-
-    const handleTypingStart = (data: { chatId: string; userId: string }) => {
-      if (data.chatId !== chatId || data.userId === myUserId) return;
-      setTypingUsers((prev) => {
-        const next = new Map(prev);
-        const existing = next.get(data.userId);
-        if (existing) clearTimeout(existing.timeout);
-        const timeout = setTimeout(() => {
-          setTypingUsers((p) => {
-            const n = new Map(p);
-            n.delete(data.userId);
-            return n;
-          });
-        }, 3000);
-        next.set(data.userId, { userId: data.userId, timeout });
-        return next;
-      });
+    const handleTypingStart = (d: { chatId: string; userId: string }) => {
+      if (d.chatId !== chatId || d.userId === myUserId) return;
+      setIsTyping(true);
     };
-
-    const handleTypingStop = (data: { chatId: string; userId: string }) => {
-      if (data.chatId !== chatId) return;
-      setTypingUsers((prev) => {
-        const next = new Map(prev);
-        const existing = next.get(data.userId);
-        if (existing) clearTimeout(existing.timeout);
-        next.delete(data.userId);
-        return next;
-      });
+    const handleTypingStop = (d: { chatId: string; userId: string }) => {
+      if (d.chatId !== chatId) return;
+      setIsTyping(false);
     };
+    const handleOnline = (d: { userId: string }) => { if (d.userId === recipientId) setIsOnline(true); };
+    const handleOffline = (d: { userId: string }) => { if (d.userId === recipientId) setIsOnline(false); };
 
-    const handleUserOnline = (data: { userId: string }) => {
-      if (data.userId === recipientId) setIsOnline(true);
-    };
-
-    const handleUserOffline = (data: { userId: string }) => {
-      if (data.userId === recipientId) setIsOnline(false);
-    };
-
-    socket.on('message:new', handleNewMessage);
+    socket.on('message:new', handleNew);
     socket.on('typing:start', handleTypingStart);
     socket.on('typing:stop', handleTypingStop);
-    socket.on('user:online', handleUserOnline);
-    socket.on('user:offline', handleUserOffline);
-
-    // Mark latest message as read on open
-    if (messages.length > 0) {
-      const lastMsg = messages[messages.length - 1];
-      if (lastMsg && lastMsg.senderId !== myUserId) {
-        socket.emit('message:read', { chatId, messageId: lastMsg.id });
-      }
-    }
+    socket.on('user:online', handleOnline);
+    socket.on('user:offline', handleOffline);
 
     return () => {
-      socket.off('message:new', handleNewMessage);
+      socket.off('message:new', handleNew);
       socket.off('typing:start', handleTypingStart);
       socket.off('typing:stop', handleTypingStop);
-      socket.off('user:online', handleUserOnline);
-      socket.off('user:offline', handleUserOffline);
+      socket.off('user:online', handleOnline);
+      socket.off('user:offline', handleOffline);
     };
-  }, [chatId, myUserId, recipientId, messages]);
+  }, [socket, chatId, myUserId, recipientId]);
+
+  // Send read receipt when the last message changes
+  useEffect(() => {
+    if (!socket || !chatId || !myUserId || messages.length === 0) return;
+    const last = messages[messages.length - 1];
+    if (last && last.senderId !== myUserId) {
+      socket.emit('message:read', { chatId, messageId: last.id });
+    }
+  }, [socket, messages, chatId, myUserId]);
 
   const handleSend = useCallback(() => {
     const content = inputText.trim();
-    if (!content || !chatId) return;
-
-    const socket = getSocket();
-    if (!socket) return;
-
-    socket.emit(
-      'message:send',
-      { chatId, type: 'text', content },
-      (response: { message?: ChatMessage; error?: string }) => {
-        if (response.error) {
-          // Could show an alert here
-          return;
-        }
-      },
-    );
+    if (!content || !chatId || !socket) return;
 
     setInputText('');
-
-    // Stop typing indicator
     socket.emit('typing:stop', { chatId });
-    if (typingTimeoutRef.current) {
-      clearTimeout(typingTimeoutRef.current);
-      typingTimeoutRef.current = null;
-    }
-  }, [inputText, chatId]);
+    if (typingTimeoutRef.current) { clearTimeout(typingTimeoutRef.current); typingTimeoutRef.current = null; }
 
-  const handleTextChange = useCallback(
-    (text: string) => {
-      setInputText(text);
-
-      const socket = getSocket();
-      if (!socket || !chatId) return;
-
-      if (text.length > 0) {
-        socket.emit('typing:start', { chatId });
-
-        if (typingTimeoutRef.current) {
-          clearTimeout(typingTimeoutRef.current);
-        }
-        typingTimeoutRef.current = setTimeout(() => {
-          socket.emit('typing:stop', { chatId });
-          typingTimeoutRef.current = null;
-        }, 2000);
-      } else {
-        socket.emit('typing:stop', { chatId });
-        if (typingTimeoutRef.current) {
-          clearTimeout(typingTimeoutRef.current);
-          typingTimeoutRef.current = null;
-        }
+    // Use ack to add sender's own message immediately without waiting for the broadcast
+    socket.emit('message:send', { chatId, type: 'text', content }, (res: { message?: ChatMessage; error?: string }) => {
+      if (res?.message) {
+        setMessages((prev) =>
+          prev.some((m) => m.id === res.message!.id) ? prev : [...prev, res.message!]
+        );
       }
-    },
-    [chatId],
-  );
+    });
+  }, [socket, inputText, chatId]);
 
-  const renderMessage = useCallback(
-    ({ item, index }: { item: ChatMessage; index: number }) => {
-      const isMine = item.senderId === myUserId;
-      const prevMsg = index > 0 ? messages[index - 1] : null;
-      const showDateSep = !prevMsg || !isSameDay(prevMsg.createdAt, item.createdAt);
-      const showSenderName = isGroup && !isMine && prevMsg?.senderId !== item.senderId;
+  const handleTextChange = useCallback((text: string) => {
+    setInputText(text);
+    if (!socket || !chatId) return;
+    if (text.length > 0) {
+      socket.emit('typing:start', { chatId });
+      if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
+      typingTimeoutRef.current = setTimeout(() => {
+        socket.emit('typing:stop', { chatId });
+        typingTimeoutRef.current = null;
+      }, 2000);
+    } else {
+      socket.emit('typing:stop', { chatId });
+      if (typingTimeoutRef.current) { clearTimeout(typingTimeoutRef.current); typingTimeoutRef.current = null; }
+    }
+  }, [socket, chatId]);
 
-      return (
-        <>
-          {showDateSep && (
-            <View style={styles.dateSeparator}>
-              <View style={styles.dateLine} />
-              <Text style={styles.dateText}>
-                {formatDateSeparator(item.createdAt)}
-              </Text>
-              <View style={styles.dateLine} />
+  const renderMessage = useCallback(({ item, index }: { item: ChatMessage; index: number }) => {
+    const isMine = item.senderId === myUserId;
+    const prev = index > 0 ? messages[index - 1] : null;
+    const showDate = !prev || !sameDay(prev.createdAt, item.createdAt);
+    const showSender = isGroup && !isMine && prev?.senderId !== item.senderId;
+    const isLast = index === messages.length - 1;
+    const nextMsg = index < messages.length - 1 ? messages[index + 1] : null;
+    const isTail = !nextMsg || nextMsg.senderId !== item.senderId;
+
+    return (
+      <>
+        {showDate && (
+          <View style={styles.dateSep}>
+            <View style={styles.dateLine} />
+            <View style={styles.datePill}>
+              <Text style={styles.datePillText}>{formatDateSep(item.createdAt)}</Text>
             </View>
-          )}
-          <View
-            style={[
-              styles.messageBubbleRow,
-              isMine ? styles.messageBubbleRowMine : styles.messageBubbleRowTheirs,
-            ]}
-          >
-            <View
-              style={[
-                styles.messageBubble,
-                isMine ? styles.messageBubbleMine : styles.messageBubbleTheirs,
-              ]}
-            >
-              {showSenderName && (
-                <Text style={styles.senderName}>
-                  {item.sender?.name ?? 'Unknown'}
+            <View style={styles.dateLine} />
+          </View>
+        )}
+        <View style={[styles.row, isMine ? styles.rowMine : styles.rowTheirs]}>
+          <View style={[
+            styles.bubble,
+            isMine ? styles.bubbleMine : styles.bubbleTheirs,
+            isTail && isMine && styles.bubbleTailMine,
+            isTail && !isMine && styles.bubbleTailTheirs,
+          ]}>
+            {showSender && (
+              <Text style={styles.senderName}>{item.sender?.name ?? 'Unknown'}</Text>
+            )}
+            {item.replyTo && (
+              <View style={[styles.replyBar, isMine && styles.replyBarMine]}>
+                <Text style={styles.replyText} numberOfLines={2}>
+                  {item.replyTo.content ?? item.replyTo.type}
                 </Text>
-              )}
-              {item.replyTo && (
-                <View style={styles.replyContainer}>
-                  <Text style={styles.replyText} numberOfLines={1}>
-                    {item.replyTo.content ?? item.replyTo.type}
-                  </Text>
-                </View>
-              )}
-              <Text
-                style={[
-                  styles.messageText,
-                  isMine ? styles.messageTextMine : styles.messageTextTheirs,
-                ]}
-              >
-                {item.content}
-              </Text>
-              <View style={styles.messageFooter}>
-                <Text
-                  style={[
-                    styles.messageTime,
-                    isMine ? styles.messageTimeMine : styles.messageTimeTheirs,
-                  ]}
-                >
-                  {formatMessageTime(item.createdAt)}
-                </Text>
-                {isMine && (
-                  <Text style={styles.readReceipt}>
-                    {'\u2713\u2713'}
-                  </Text>
-                )}
               </View>
+            )}
+            <Text style={[styles.msgText, isMine ? styles.msgTextMine : styles.msgTextTheirs]}>
+              {item.content}
+            </Text>
+            <View style={styles.msgMeta}>
+              <Text style={[styles.msgTime, isMine ? styles.msgTimeMine : styles.msgTimeTheirs]}>
+                {formatTime(item.createdAt)}
+              </Text>
+              {isMine && (
+                <Ionicons
+                  name="checkmark-done"
+                  size={14}
+                  color="rgba(0,0,0,0.35)"
+                  style={{ marginLeft: 2 }}
+                />
+              )}
             </View>
           </View>
-        </>
-      );
-    },
-    [myUserId, messages, isGroup],
-  );
+        </View>
+      </>
+    );
+  }, [myUserId, messages, isGroup]);
 
   if (loading) {
     return (
       <View style={styles.centered}>
-        <ActivityIndicator size="large" color={colors.primary} />
+        <ActivityIndicator size="large" color={CORAL} />
       </View>
     );
   }
 
-  const isTyping = typingUsers.size > 0;
+  const hasText = inputText.trim().length > 0;
 
   return (
-    <KeyboardAvoidingView
-      style={styles.container}
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-      keyboardVerticalOffset={0}
-    >
-      {/* Header */}
-      <View style={styles.header}>
-        <Pressable onPress={() => router.back()} style={styles.backButton}>
-          <Text style={styles.backArrow}>{'\u2190'}</Text>
+    <View style={styles.container}>
+      {/* Coral gradient header */}
+      <LinearGradient
+        colors={['#E46C53', '#D45A42']}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={[styles.header, { paddingTop: insets.top + 8 }]}
+      >
+        <Pressable onPress={() => router.back()} style={styles.backBtn} hitSlop={10}>
+          <Ionicons name="arrow-back" size={22} color="#fff" />
         </Pressable>
+
         <Pressable
           style={styles.headerInfo}
           onPress={isGroup ? () => router.push({ pathname: '/group-info', params: { chatId } }) : undefined}
         >
-          <View style={[styles.headerAvatar, isGroup && styles.headerGroupAvatar]}>
-            <Text style={styles.headerAvatarText}>
-              {(name ?? '?')[0]?.toUpperCase()}
-            </Text>
+          <View style={styles.headerAvatar}>
+            <Text style={styles.headerAvatarText}>{(name ?? '?')[0]?.toUpperCase()}</Text>
           </View>
-          <View>
-            <Text style={styles.headerName} numberOfLines={1}>
-              {name}
-            </Text>
+          <View style={styles.headerText}>
+            <Text style={styles.headerName} numberOfLines={1}>{name}</Text>
             <Text style={styles.headerStatus}>
-              {isTyping
-                ? isGroup
-                  ? 'someone is typing...'
-                  : 'typing...'
-                : !isGroup && isOnline
-                  ? 'online'
-                  : isGroup
-                    ? 'tap for group info'
-                    : ''}
+              {isTyping ? 'typing...' : !isGroup && isOnline ? 'online' : isGroup ? 'tap for group info' : ''}
             </Text>
           </View>
         </Pressable>
-      </View>
+
+        <View style={styles.headerActions}>
+          <Pressable hitSlop={10} style={styles.headerActionBtn}>
+            <Ionicons name="videocam-outline" size={22} color="#fff" />
+          </Pressable>
+          <Pressable hitSlop={10} style={styles.headerActionBtn}>
+            <Ionicons name="call-outline" size={20} color="#fff" />
+          </Pressable>
+        </View>
+      </LinearGradient>
 
       {/* Messages */}
-      <FlatList
-        ref={flatListRef}
-        data={messages}
-        keyExtractor={(item) => item.id}
-        renderItem={renderMessage}
-        contentContainerStyle={styles.messageList}
-        onContentSizeChange={() => {
-          flatListRef.current?.scrollToEnd({ animated: false });
-        }}
-        onStartReached={loadOlderMessages}
-        onStartReachedThreshold={0.1}
-        ListHeaderComponent={
-          loadingMore ? (
-            <View style={styles.loadingMore}>
-              <ActivityIndicator size="small" color={colors.primary} />
+      <KeyboardAvoidingView
+        style={{ flex: 1 }}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        keyboardVerticalOffset={0}
+      >
+        <FlatList
+          ref={flatListRef}
+          data={messages}
+          keyExtractor={(item) => item.id}
+          renderItem={renderMessage}
+          style={styles.msgList}
+          contentContainerStyle={styles.msgContent}
+          onContentSizeChange={() => flatListRef.current?.scrollToEnd({ animated: false })}
+          onStartReached={loadOlderMessages}
+          onStartReachedThreshold={0.1}
+          ListHeaderComponent={loadingMore ? (
+            <View style={styles.loadingMore}><ActivityIndicator size="small" color={CORAL} /></View>
+          ) : null}
+          ListEmptyComponent={
+            <View style={styles.emptyMsgs}>
+              <View style={styles.emptyMsgsPill}>
+                <Ionicons name="lock-closed-outline" size={13} color={TEAL} style={{ marginRight: 5 }} />
+                <Text style={styles.emptyMsgsText}>Messages are end-to-end encrypted</Text>
+              </View>
+              <Text style={styles.emptyMsgsSub}>Say hello 👋</Text>
             </View>
-          ) : null
-        }
-        ListEmptyComponent={
-          <View style={styles.emptyMessages}>
-            <Text style={styles.emptyMessagesText}>
-              Send a message to start the conversation
-            </Text>
-          </View>
-        }
-      />
-
-      {/* Typing indicator */}
-      {isTyping && (
-        <View style={styles.typingBar}>
-          <Text style={styles.typingText}>{name} is typing...</Text>
-        </View>
-      )}
-
-      {/* Input */}
-      <View style={styles.inputContainer}>
-        <TextInput
-          style={styles.textInput}
-          placeholder="Message"
-          placeholderTextColor={colors.textSecondary}
-          value={inputText}
-          onChangeText={handleTextChange}
-          multiline
-          maxLength={4096}
+          }
         />
-        <Pressable
-          style={[
-            styles.sendButton,
-            !inputText.trim() && styles.sendButtonDisabled,
-          ]}
-          onPress={handleSend}
-          disabled={!inputText.trim()}
-        >
-          <Text style={styles.sendButtonText}>{'\u2191'}</Text>
-        </Pressable>
-      </View>
-    </KeyboardAvoidingView>
+
+        {/* Typing indicator */}
+        {isTyping && <TypingDots />}
+
+        {/* Input bar */}
+        <View style={[styles.inputBar, { paddingBottom: Math.max(insets.bottom, 12) }]}>
+          <View style={styles.inputWrap}>
+            <Pressable hitSlop={8}>
+              <Ionicons name="happy-outline" size={22} color="#aaa" />
+            </Pressable>
+            <TextInput
+              style={styles.textInput}
+              placeholder="Message"
+              placeholderTextColor="#bbb"
+              value={inputText}
+              onChangeText={handleTextChange}
+              multiline
+              maxLength={4096}
+              onSubmitEditing={handleSend}
+            />
+            <Pressable hitSlop={8}>
+              <Ionicons name="attach" size={22} color="#aaa" />
+            </Pressable>
+          </View>
+          <Pressable
+            style={[styles.sendBtn, hasText && styles.sendBtnActive]}
+            onPress={hasText ? handleSend : undefined}
+          >
+            <LinearGradient
+              colors={hasText ? ['#E46C53', '#ED2F3C'] : ['#E0E0E0', '#E0E0E0']}
+              style={styles.sendBtnGrad}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+            >
+              <Ionicons
+                name={hasText ? 'send' : 'mic-outline'}
+                size={18}
+                color="#fff"
+                style={hasText ? { marginLeft: 2 } : {}}
+              />
+            </LinearGradient>
+          </Pressable>
+        </View>
+      </KeyboardAvoidingView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: colors.background,
-  },
-  centered: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: colors.background,
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: spacing.md,
-    paddingTop: 56,
-    paddingBottom: 12,
-    backgroundColor: colors.background,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border,
-  },
-  backButton: {
-    padding: spacing.sm,
-    marginRight: spacing.xs,
-  },
-  backArrow: {
-    fontSize: 24,
-    color: colors.primary,
-  },
-  headerInfo: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
+  container: { flex: 1, backgroundColor: CHAT_BG },
+  centered: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: CHAT_BG },
+
+  // Header
+  header: { paddingHorizontal: 12, paddingBottom: 12, flexDirection: 'row', alignItems: 'center' },
+  backBtn: { marginRight: 6, padding: 4 },
+  headerInfo: { flex: 1, flexDirection: 'row', alignItems: 'center' },
   headerAvatar: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: colors.secondary,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: spacing.sm,
+    width: 40, height: 40, borderRadius: 20,
+    backgroundColor: 'rgba(255,255,255,0.25)',
+    justifyContent: 'center', alignItems: 'center',
+    marginRight: 10,
+    borderWidth: 1.5, borderColor: 'rgba(255,255,255,0.4)',
   },
-  headerGroupAvatar: {
-    backgroundColor: colors.primary,
+  headerAvatarText: { fontSize: 16, fontFamily: typography.fontFamily, fontWeight: typography.weights.bold, color: '#fff' },
+  headerText: { flex: 1 },
+  headerName: { fontSize: 16, fontFamily: typography.fontFamily, fontWeight: typography.weights.semibold, color: '#fff' },
+  headerStatus: { fontSize: 12, fontFamily: typography.fontFamily, color: 'rgba(255,255,255,0.8)', marginTop: 1 },
+  headerActions: { flexDirection: 'row', gap: 4 },
+  headerActionBtn: { padding: 6 },
+
+  // Messages
+  msgList: { flex: 1, backgroundColor: CHAT_BG },
+  msgContent: { paddingHorizontal: 10, paddingVertical: 12, flexGrow: 1 },
+  loadingMore: { paddingVertical: 12, alignItems: 'center' },
+
+  emptyMsgs: { flex: 1, justifyContent: 'center', alignItems: 'center', paddingVertical: 60, gap: 16 },
+  emptyMsgsPill: {
+    flexDirection: 'row', alignItems: 'center',
+    backgroundColor: 'rgba(243,210,146,0.4)', borderRadius: 20,
+    paddingHorizontal: 16, paddingVertical: 7,
   },
-  headerAvatarText: {
-    fontSize: typography.sizes.md,
-    fontFamily: typography.fontFamily,
-    fontWeight: typography.weights.semibold,
-    color: colors.white,
+  emptyMsgsText: { fontSize: 12, fontFamily: typography.fontFamily, color: TEAL },
+  emptyMsgsSub: { fontSize: 14, fontFamily: typography.fontFamily, color: '#888' },
+
+  // Date separator
+  dateSep: { flexDirection: 'row', alignItems: 'center', marginVertical: 14, paddingHorizontal: 4 },
+  dateLine: { flex: 1, height: StyleSheet.hairlineWidth, backgroundColor: 'rgba(0,0,0,0.12)' },
+  datePill: {
+    backgroundColor: 'rgba(243,210,146,0.5)', borderRadius: 10,
+    paddingHorizontal: 10, paddingVertical: 3, marginHorizontal: 10,
   },
-  headerName: {
-    fontSize: typography.sizes.md,
-    fontFamily: typography.fontFamily,
-    fontWeight: typography.weights.semibold,
-    color: colors.text,
+  datePillText: { fontSize: 11, fontFamily: typography.fontFamily, fontWeight: '600' as any, color: '#666' },
+
+  // Bubble rows
+  row: { marginBottom: 2, paddingHorizontal: 2 },
+  rowMine: { alignItems: 'flex-end' },
+  rowTheirs: { alignItems: 'flex-start' },
+
+  bubble: {
+    maxWidth: '78%', paddingHorizontal: 12, paddingTop: 8, paddingBottom: 6,
+    borderRadius: 18,
+    shadowColor: '#000', shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.06, shadowRadius: 2, elevation: 1,
   },
-  headerStatus: {
-    fontSize: typography.sizes.xs,
-    fontFamily: typography.fontFamily,
-    color: colors.success,
-  },
-  messageList: {
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-    flexGrow: 1,
-  },
-  loadingMore: {
-    paddingVertical: spacing.md,
-    alignItems: 'center',
-  },
-  emptyMessages: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingVertical: 60,
-  },
-  emptyMessagesText: {
-    fontSize: typography.sizes.sm,
-    fontFamily: typography.fontFamily,
-    color: colors.textSecondary,
-  },
-  dateSeparator: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginVertical: spacing.md,
-  },
-  dateLine: {
-    flex: 1,
-    height: 1,
-    backgroundColor: colors.border,
-  },
-  dateText: {
-    marginHorizontal: spacing.md,
-    fontSize: typography.sizes.xs,
-    fontFamily: typography.fontFamily,
-    color: colors.textSecondary,
-    fontWeight: typography.weights.medium,
-  },
-  messageBubbleRow: {
-    marginBottom: 4,
-  },
-  messageBubbleRowMine: {
-    alignItems: 'flex-end',
-  },
-  messageBubbleRowTheirs: {
-    alignItems: 'flex-start',
-  },
-  messageBubble: {
-    maxWidth: '78%',
-    paddingHorizontal: 14,
-    paddingTop: 8,
-    paddingBottom: 6,
-    borderRadius: borderRadius.lg,
-  },
-  messageBubbleMine: {
-    backgroundColor: colors.primary,
-    borderBottomRightRadius: 4,
-  },
-  messageBubbleTheirs: {
-    backgroundColor: colors.surface,
-    borderBottomLeftRadius: 4,
-  },
+  bubbleMine: { backgroundColor: SENT_BG, borderBottomRightRadius: 18 },
+  bubbleTheirs: { backgroundColor: RECV_BG, borderBottomLeftRadius: 18 },
+  bubbleTailMine: { borderBottomRightRadius: 4 },
+  bubbleTailTheirs: { borderBottomLeftRadius: 4 },
+
   senderName: {
-    fontSize: typography.sizes.xs,
-    fontFamily: typography.fontFamily,
-    fontWeight: typography.weights.semibold,
-    color: colors.secondary,
-    marginBottom: 2,
+    fontSize: 12, fontFamily: typography.fontFamily, fontWeight: typography.weights.semibold,
+    color: CORAL, marginBottom: 3,
   },
-  replyContainer: {
-    borderLeftWidth: 3,
-    borderLeftColor: colors.secondary,
-    paddingLeft: spacing.sm,
-    marginBottom: 6,
-    opacity: 0.8,
+  replyBar: {
+    borderLeftWidth: 3, borderLeftColor: TEAL,
+    paddingLeft: 8, marginBottom: 6,
+    backgroundColor: 'rgba(77,126,130,0.08)', borderRadius: 4, padding: 6,
   },
-  replyText: {
-    fontSize: typography.sizes.xs,
-    fontFamily: typography.fontFamily,
-    color: colors.textSecondary,
+  replyBarMine: { borderLeftColor: CORAL, backgroundColor: 'rgba(228,108,83,0.08)' },
+  replyText: { fontSize: 12, fontFamily: typography.fontFamily, color: '#666' },
+
+  msgText: { fontSize: 15, fontFamily: typography.fontFamily, lineHeight: 21 },
+  msgTextMine: { color: '#2C2C2C' },
+  msgTextTheirs: { color: '#1A1A1A' },
+
+  msgMeta: { flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end', marginTop: 3, gap: 2 },
+  msgTime: { fontSize: 10, fontFamily: typography.fontFamily },
+  msgTimeMine: { color: '#999' },
+  msgTimeTheirs: { color: '#aaa' },
+
+  // Input bar
+  inputBar: {
+    flexDirection: 'row', alignItems: 'flex-end', gap: 8,
+    paddingHorizontal: 10, paddingTop: 8,
+    backgroundColor: '#F0EBE3',
+    borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: 'rgba(0,0,0,0.1)',
   },
-  messageText: {
-    fontSize: typography.sizes.md,
-    fontFamily: typography.fontFamily,
-    lineHeight: 22,
-  },
-  messageTextMine: {
-    color: colors.white,
-  },
-  messageTextTheirs: {
-    color: colors.text,
-  },
-  messageFooter: {
-    flexDirection: 'row',
-    justifyContent: 'flex-end',
-    alignItems: 'center',
-    marginTop: 2,
-    gap: 4,
-  },
-  messageTime: {
-    fontSize: 10,
-    fontFamily: typography.fontFamily,
-  },
-  messageTimeMine: {
-    color: 'rgba(255,255,255,0.7)',
-  },
-  messageTimeTheirs: {
-    color: colors.textSecondary,
-  },
-  readReceipt: {
-    fontSize: 11,
-    color: 'rgba(255,255,255,0.7)',
-  },
-  typingBar: {
-    paddingHorizontal: spacing.lg,
-    paddingVertical: 6,
-  },
-  typingText: {
-    fontSize: typography.sizes.xs,
-    fontFamily: typography.fontFamily,
-    fontStyle: 'italic',
-    color: colors.textSecondary,
-  },
-  inputContainer: {
-    flexDirection: 'row',
-    alignItems: 'flex-end',
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-    paddingBottom: Platform.OS === 'ios' ? 34 : spacing.sm,
-    backgroundColor: colors.background,
-    borderTopWidth: 1,
-    borderTopColor: colors.border,
-    gap: spacing.sm,
+  inputWrap: {
+    flex: 1, flexDirection: 'row', alignItems: 'flex-end',
+    backgroundColor: '#fff', borderRadius: 24,
+    paddingHorizontal: 12, paddingVertical: 8, gap: 8,
+    shadowColor: '#000', shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05, shadowRadius: 3, elevation: 1,
   },
   textInput: {
-    flex: 1,
-    fontSize: typography.sizes.md,
-    fontFamily: typography.fontFamily,
-    color: colors.text,
-    paddingHorizontal: spacing.md,
-    paddingVertical: 10,
-    backgroundColor: colors.surface,
-    borderRadius: borderRadius.xl,
-    borderWidth: 1,
-    borderColor: colors.border,
-    maxHeight: 120,
+    flex: 1, fontSize: 15, fontFamily: typography.fontFamily, color: '#1A1A1A',
+    maxHeight: 110, padding: 0, lineHeight: 20,
   },
-  sendButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: colors.primary,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  sendButtonDisabled: {
-    backgroundColor: colors.border,
-  },
-  sendButtonText: {
-    fontSize: 20,
-    color: colors.white,
-    fontWeight: typography.weights.bold,
+  sendBtn: { marginBottom: 2 },
+  sendBtnActive: {},
+  sendBtnGrad: {
+    width: 44, height: 44, borderRadius: 22,
+    justifyContent: 'center', alignItems: 'center',
   },
 });

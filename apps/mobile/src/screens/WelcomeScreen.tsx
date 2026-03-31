@@ -30,8 +30,17 @@ export default function WelcomeScreen() {
 
   useEffect(() => {
     tokenStorage.get().then((token) => {
-      if (token) {
+      if (!token) return;
+      try {
+        const payload = JSON.parse(atob(token.split('.')[1]!));
+        const isExpired = payload.exp && payload.exp * 1000 < Date.now();
+        if (isExpired) {
+          tokenStorage.remove();
+          return;
+        }
         router.replace('/chat-list');
+      } catch {
+        tokenStorage.remove();
       }
     });
   }, [router]);

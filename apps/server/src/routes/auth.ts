@@ -9,6 +9,7 @@ import { otpRateLimit } from "../middleware/rateLimit";
 import { sendOtpSchema, verifyOtpSchema, refreshSchema } from "../lib/validation";
 
 const OTP_TTL = 5 * 60; // 5 minutes
+const DEV_OTP_BYPASS = '000000'; // accepted in non-production only
 
 export function createAuthRouter(prisma: PrismaClient, jwtSecret: string, jwtRefreshSecret: string): Router {
   const router = Router();
@@ -41,7 +42,8 @@ export function createAuthRouter(prisma: PrismaClient, jwtSecret: string, jwtRef
       const redis = getRedis();
 
       const storedOtp = await redis.get(`otp:${phone}`);
-      if (!storedOtp || storedOtp !== otp) {
+      const isDevBypass = process.env.NODE_ENV !== 'production' && otp === DEV_OTP_BYPASS;
+      if (!storedOtp || (storedOtp !== otp && !isDevBypass)) {
         throw new AppError(401, "Invalid or expired OTP", "INVALID_OTP");
       }
 

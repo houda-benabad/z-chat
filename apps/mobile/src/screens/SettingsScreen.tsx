@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -47,14 +47,20 @@ export default function SettingsScreen() {
   const router = useRouter();
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const handleLogout = async () => {
+    await tokenStorage.remove();
+    router.replace('/');
+  };
 
   useEffect(() => {
     const load = async () => {
       try {
         const { user } = await userApi.getMe();
         setProfile(user);
-      } catch {
-        // Handle
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Failed to load profile');
       } finally {
         setLoading(false);
       }
@@ -94,8 +100,11 @@ export default function SettingsScreen() {
           <View style={styles.profileInfo}>
             <Text style={styles.profileName}>{profile?.name ?? 'Set up your name'}</Text>
             <Text style={styles.profileAbout} numberOfLines={1}>
-              {profile?.about ?? 'Hey there! I am using z.chat'}
+              {profile?.phone ?? profile?.about ?? 'Hey there! I am using z.chat'}
             </Text>
+            {error && (
+              <Text style={styles.profileError}>{error}</Text>
+            )}
           </View>
           <Text style={styles.chevron}>{'\u203A'}</Text>
         </Pressable>
@@ -126,6 +135,17 @@ export default function SettingsScreen() {
             ))}
           </View>
         ))}
+
+        {/* Logout */}
+        <View style={styles.section}>
+          <Pressable
+            style={({ pressed }) => [styles.logoutRow, pressed && styles.pressed]}
+            onPress={handleLogout}
+          >
+            <Text style={styles.logoutIcon}>{'↩'}</Text>
+            <Text style={styles.logoutLabel}>Log Out</Text>
+          </Pressable>
+        </View>
 
         {/* App info */}
         <View style={styles.appInfo}>
@@ -216,6 +236,12 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
     marginTop: 2,
   },
+  profileError: {
+    fontSize: typography.sizes.xs,
+    fontFamily: typography.fontFamily,
+    color: '#ED2F3C',
+    marginTop: 4,
+  },
   chevron: {
     fontSize: 24,
     color: colors.textSecondary,
@@ -261,6 +287,25 @@ const styles = StyleSheet.create({
     fontFamily: typography.fontFamily,
     color: colors.textSecondary,
     marginTop: 1,
+  },
+  logoutRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: spacing.lg,
+    paddingVertical: 16,
+  },
+  logoutIcon: {
+    fontSize: 20,
+    width: 36,
+    textAlign: 'center',
+    marginRight: spacing.md,
+    color: '#ED2F3C',
+  },
+  logoutLabel: {
+    fontSize: typography.sizes.md,
+    fontFamily: typography.fontFamily,
+    fontWeight: typography.weights.medium,
+    color: '#ED2F3C',
   },
   appInfo: {
     alignItems: 'center',

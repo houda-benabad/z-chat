@@ -19,6 +19,15 @@ async function main() {
   httpServer.listen(env.PORT, () => {
     console.log(`Server running on port ${env.PORT}`);
   });
+
+  const shutdown = async () => {
+    httpServer.close();
+    await prisma.$disconnect();
+    process.exit(0);
+  };
+
+  process.on("SIGTERM", shutdown);
+  process.on("SIGINT", shutdown);
 }
 
 main().catch((err) => {
