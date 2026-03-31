@@ -27,7 +27,14 @@
       "expo-font",
       "expo-secure-store",
       "expo-image-picker",
-      "expo-asset"
+      "expo-asset",
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/default-avatar.png",
+          "color": "#E46C53"
+        }
+      ]
     ]
   }
 }

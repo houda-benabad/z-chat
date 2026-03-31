@@ -4,6 +4,7 @@ import { StatusBar } from 'expo-status-bar';
 import { useFonts } from 'expo-font';
 import * as SplashScreen from 'expo-splash-screen';
 import { colors, typography } from '../src/theme';
+import { requestNotificationPermissions } from '../src/services/notifications';
 
 SplashScreen.preventAutoHideAsync();
 
@@ -20,6 +21,7 @@ export default function RootLayout() {
 
   useEffect(() => {
     onLayoutReady();
+    requestNotificationPermissions();
   }, [onLayoutReady]);
 
   if (!fontsLoaded) {

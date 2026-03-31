@@ -25,6 +25,7 @@ import {
   tokenStorage,
 } from '../services/api';
 import { connectSocket } from '../services/socket';
+import { showMessageNotification } from '../services/notifications';
 import type { Socket } from 'socket.io-client';
 
 type TabName = 'chats' | 'calls' | 'settings';
@@ -89,6 +90,7 @@ export default function ChatListScreen() {
   const [profileLoading, setProfileLoading] = useState(false);
   const socketRef = useRef<Socket | null>(null);
   const chatsRef = useRef<ChatListItem[]>([]);
+  const myUserIdRef = useRef('');
   const [deleteTarget, setDeleteTarget] = useState<{ id: string; name: string } | null>(null);
 
   const loadChats = useCallback(async () => {
@@ -119,9 +121,23 @@ export default function ChatListScreen() {
       if (token) {
         const payload = JSON.parse(atob(token.split('.')[1]!));
         setMyUserId(payload.sub);
+        myUserIdRef.current = payload.sub;
       }
 
       const handleMessageNew = (message: ChatMessage) => {
+        // Fire local notification for messages from others
+        if (message.senderId !== myUserIdRef.current) {
+          const chat = chatsRef.current.find(c => c.id === message.chatId);
+          let senderName = message.sender?.name ?? message.sender?.phone ?? 'New message';
+          if (chat?.type === 'group' && chat.name) {
+            senderName = `${chat.name}: ${senderName}`;
+          }
+          const body = message.type === 'text'
+            ? (message.content ?? '')
+            : { image: 'Photo', video: 'Video', audio: 'Audio', document: 'Document', voice_note: 'Voice note' }[message.type] ?? message.type;
+          showMessageNotification(senderName, body, message.chatId);
+        }
+
         if (!chatsRef.current.some(c => c.id === message.chatId)) {
           loadChats();
           return;
@@ -190,6 +206,7 @@ export default function ChatListScreen() {
         try {
           const payload = JSON.parse(atob(token.split('.')[1]!));
           setMyUserId(payload.sub);
+          myUserIdRef.current = payload.sub;
         } catch { /* ignore */ }
       }
 
