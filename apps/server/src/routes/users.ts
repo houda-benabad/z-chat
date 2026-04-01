@@ -3,7 +3,7 @@ import { PrismaClient } from "@prisma/client";
 import { AuthRequest, authMiddleware } from "../middleware/auth";
 import { validate } from "../middleware/validate";
 import { asyncHandler } from "../lib/asyncHandler";
-import { updateProfileSchema } from "../lib/validation";
+import { updateProfileSchema, uploadPublicKeySchema } from "../lib/validation";
 import { AppError } from "../lib/errors";
 
 export function createUserRouter(prisma: PrismaClient, jwtSecret: string): Router {
@@ -28,6 +28,20 @@ export function createUserRouter(prisma: PrismaClient, jwtSecret: string): Route
     }),
   );
 
+  // PATCH /users/me/keys — upload/rotate public key
+  router.patch(
+    "/me/keys",
+    validate(uploadPublicKeySchema),
+    asyncHandler(async (req: AuthRequest, res) => {
+      const user = await prisma.user.update({
+        where: { id: req.userId },
+        data: { publicKey: req.body.publicKey },
+        select: { id: true, publicKey: true },
+      });
+      res.json({ user });
+    }),
+  );
+
   // GET /users/search?phone=+1234567890
   router.get(
     "/search",
@@ -39,7 +53,7 @@ export function createUserRouter(prisma: PrismaClient, jwtSecret: string): Route
 
       const user = await prisma.user.findUnique({
         where: { phone },
-        select: { id: true, phone: true, name: true, avatar: true, isOnline: true, lastSeen: true },
+        select: { id: true, phone: true, name: true, avatar: true, isOnline: true, lastSeen: true, publicKey: true },
       });
 
       if (!user) {
@@ -56,7 +70,7 @@ export function createUserRouter(prisma: PrismaClient, jwtSecret: string): Route
     asyncHandler(async (req: AuthRequest, res) => {
       const user = await prisma.user.findUnique({
         where: { id: String(req.params.id) },
-        select: { id: true, phone: true, name: true, about: true, avatar: true, isOnline: true, lastSeen: true },
+        select: { id: true, phone: true, name: true, about: true, avatar: true, isOnline: true, lastSeen: true, publicKey: true },
       });
 
       if (!user) {

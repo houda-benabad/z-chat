@@ -1,0 +1,862 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>z.chat — Secure Messaging by z.systems</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+body{font-family:'Inter',system-ui,-apple-system,sans-serif;background:#1a1a2e;display:flex;align-items:center;justify-content:center;min-height:100vh;padding:16px}
+:root{--coral:#E46C53;--teal:#4D7E82;--crimson:#ED2F3C;--peach:#F1A167;--pale-gold:#F3D292;--white:#FFF;--lg:#F5F5F5;--mg:#E0E0E0;--dg:#333;--ts:#888;--cb:#ECE5DD;--sb:#FFF0EC;--rb:#FFF;--green:#4CAF50}
+#phone{width:390px;height:844px;background:var(--white);border-radius:44px;overflow:hidden;box-shadow:0 20px 60px rgba(0,0,0,.5),0 0 0 2px #333,0 0 0 8px #111;position:relative;display:flex;flex-direction:column}
+.sbar{display:flex;justify-content:space-between;align-items:center;padding:10px 28px 4px;font-size:13px;font-weight:600;flex-shrink:0;transition:all .3s;z-index:10}
+.sbar.dk{background:var(--coral);color:#fff}.sbar.lt{background:#fff;color:var(--dg)}.sbar.call-bar{background:#1a1a2e;color:#fff}
+.scr{flex:1;display:flex;flex-direction:column;overflow:hidden;position:relative}.scr.h{display:none}
+/* Animations */
+@keyframes pIn{0%{opacity:0;transform:scale(.85)}to{opacity:1;transform:scale(1)}}
+@keyframes fIn{0%{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}
+@keyframes sUp{0%{opacity:0;transform:translateY(20px)}to{opacity:1;transform:translateY(0)}}
+@keyframes pulse{0%,to{opacity:1}50%{opacity:.4}}
+@keyframes ring{0%,to{transform:rotate(0)}25%{transform:rotate(15deg)}75%{transform:rotate(-15deg)}}
+@keyframes fadeOut{to{opacity:0}}
+/* Splash */
+#splash{background:#fff;align-items:center;justify-content:center;position:relative}
+.sp-c{text-align:center;animation:pIn 1s ease-out}.sp-t{font-size:38px;font-weight:800;color:var(--coral);margin-top:8px;letter-spacing:-.5px}
+.sp-s{font-size:11px;color:var(--ts);margin-top:10px;letter-spacing:2.5px;text-transform:uppercase}
+.sp-l{font-size:11px;color:var(--teal);margin-top:24px;display:flex;align-items:center;justify-content:center;gap:6px}
+.sp-f{position:absolute;bottom:40px;text-align:center;font-size:11px;color:var(--ts)}
+/* Buttons */
+.btn{width:100%;padding:16px;border:none;border-radius:14px;font-size:16px;font-weight:700;font-family:inherit;cursor:pointer;transition:all .15s}
+.btn-p{background:linear-gradient(135deg,var(--coral),var(--crimson));color:#fff;box-shadow:0 4px 16px rgba(228,108,83,.3)}
+.btn-p:hover{transform:scale(1.01)}.btn-p:active{transform:scale(.99)}.btn-p:disabled{opacity:.45;cursor:default;transform:none}
+.btn-s{background:#fff;color:var(--coral);border:2px solid var(--coral);margin-top:12px}.btn-s:hover{background:#FFF5F3}
+.btn-t{background:none;border:none;color:var(--coral);font-size:14px;font-weight:600;cursor:pointer;font-family:inherit;margin-top:16px;padding:8px}
+.btn-icon{width:44px;height:44px;border-radius:50%;border:none;display:flex;align-items:center;justify-content:center;cursor:pointer;transition:all .15s}
+/* Form */
+.fg{margin-bottom:20px;animation:sUp .4s ease-out}.fl{font-size:13px;font-weight:600;color:var(--teal);margin-bottom:6px;display:block}
+.fi{width:100%;padding:14px 16px;border:2px solid var(--mg);border-radius:14px;font-size:16px;font-family:inherit;outline:none;transition:border .2s;background:var(--lg)}
+.fi:focus{border-color:var(--coral);background:#fff}.fi::placeholder{color:#bbb}
+.phi{display:flex;gap:10px}.cc{width:80px;padding:14px 12px;border:2px solid var(--mg);border-radius:14px;font-size:16px;font-family:inherit;background:var(--lg);outline:none;text-align:center;font-weight:600}
+.cc:focus{border-color:var(--coral);background:#fff}
+/* OTP */
+.otp-c{display:flex;gap:10px;justify-content:center;margin:24px 0}
+.otp-i{width:50px;height:58px;border:2px solid var(--mg);border-radius:14px;font-size:24px;font-weight:700;text-align:center;font-family:inherit;outline:none;transition:all .2s;background:var(--lg)}
+.otp-i:focus{border-color:var(--coral);background:#fff}.otp-i.ok{border-color:var(--teal);background:rgba(77,126,130,.05)}
+/* Auth */
+.ab{flex:1;padding:24px;display:flex;flex-direction:column;overflow-y:auto}
+.at{text-align:center;margin-bottom:28px;animation:fIn .5s ease-out}
+.at h2{font-size:22px;font-weight:700;color:var(--dg);margin-top:14px}.at p{font-size:14px;color:var(--ts);margin-top:8px;line-height:1.5}
+.terms{font-size:12px;color:var(--ts);text-align:center;margin-top:16px;line-height:1.5}.terms a{color:var(--coral);text-decoration:none;font-weight:600}
+/* Avatar */
+.av{border-radius:50%;display:flex;align-items:center;justify-content:center;color:#fff;font-weight:600;flex-shrink:0;position:relative;letter-spacing:.5px}
+.av.cr{background:linear-gradient(135deg,var(--coral),#e46c53dd)}.av.tl{background:linear-gradient(135deg,var(--teal),#4d7e82dd)}
+.av.pc{background:linear-gradient(135deg,var(--peach),#f1a167dd)}.av.gd{background:linear-gradient(135deg,var(--pale-gold),#e8c470)}
+.av48{width:48px;height:48px;font-size:15px}.av38{width:38px;height:38px;font-size:12px}.av56{width:56px;height:56px;font-size:18px}
+.av80{width:80px;height:80px;font-size:26px}.av100{width:100px;height:100px;font-size:36px}
+.on-d{position:absolute;bottom:1px;right:1px;width:12px;height:12px;border-radius:50%;background:var(--green);border:2px solid #fff}
+/* Header */
+.hdr{background:linear-gradient(135deg,var(--coral),#e46c53ee);color:#fff;padding:12px 16px;flex-shrink:0}
+.hdr-r{display:flex;align-items:center;justify-content:space-between}
+.hdr-t{font-size:22px;font-weight:700;letter-spacing:-.3px}.hdr-ic{display:flex;gap:16px}.hdr-ic svg{cursor:pointer;opacity:.9}
+.hdr-b{display:flex;align-items:center;gap:8px}.hdr-b svg{cursor:pointer}
+.sb{display:flex;align-items:center;gap:8px;background:rgba(255,255,255,.2);border-radius:24px;padding:8px 14px;margin-top:12px;border:1px solid transparent;transition:border .2s}
+.sb:focus-within{border-color:rgba(255,255,255,.5)}
+.sb input{background:none;border:none;outline:none;color:#fff;font-size:14px;width:100%;font-family:inherit}.sb input::placeholder{color:rgba(255,255,255,.7)}
+/* Chat list */
+.cl{flex:1;overflow-y:auto}.ci{display:flex;align-items:center;gap:12px;padding:12px 16px;cursor:pointer;border-bottom:1px solid var(--lg);transition:background .12s}
+.ci:hover,.ci:active{background:var(--lg)}.ci.pin{background:rgba(243,210,146,.07)}
+.ci-i{flex:1;min-width:0}.ci-t{display:flex;justify-content:space-between;align-items:center}
+.cn{font-weight:600;font-size:15.5px;color:var(--dg)}.ct{font-size:11.5px;color:var(--ts)}.ct.ur{color:var(--coral)}
+.ci-b{display:flex;justify-content:space-between;align-items:center;margin-top:2px}
+.cp{font-size:13.5px;color:var(--ts);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:80%;line-height:1.3}
+.ub{background:var(--coral);color:#fff;border-radius:12px;min-width:20px;height:20px;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;padding:0 5px;flex-shrink:0}
+.fab{position:absolute;bottom:72px;right:16px;width:56px;height:56px;border-radius:16px;background:linear-gradient(135deg,var(--coral),var(--crimson));display:flex;align-items:center;justify-content:center;box-shadow:0 4px 16px rgba(228,108,83,.4);cursor:pointer;transition:transform .15s;z-index:10;border:none}
+.fab:hover{transform:scale(1.08)}
+/* Bottom nav */
+.bnav{display:flex;border-top:1px solid var(--mg);background:var(--white);padding:6px 0 10px;flex-shrink:0}
+.ni{flex:1;display:flex;flex-direction:column;align-items:center;gap:2px;cursor:pointer;color:var(--ts);transition:color .2s;border:none;background:none;font-family:inherit}
+.ni.ac{color:var(--coral)}.ni span{font-size:10.5px;font-weight:500}.ni.ac span{font-weight:700}
+.nd{width:4px;height:4px;border-radius:50%;background:var(--coral);margin-top:-1px}
+/* Chat view */
+.ch{background:linear-gradient(135deg,var(--coral),#e46c53ee);padding:10px 8px;color:#fff;display:flex;align-items:center;gap:8px;flex-shrink:0}
+.ch-i{display:flex;align-items:center;gap:10px;flex:1;cursor:pointer}.ch-n{font-weight:600;font-size:15px}.ch-s{font-size:12px;opacity:.85}
+.ch-a{display:flex;gap:14px}.ch-a svg{cursor:pointer}
+.ma{flex:1;overflow-y:auto;padding:4px 0;background:var(--cb);background-image:radial-gradient(circle at 20% 50%,rgba(243,210,146,.08) 0%,transparent 50%),radial-gradient(circle at 80% 20%,rgba(228,108,83,.05) 0%,transparent 50%)}
+.eb{display:flex;align-items:center;justify-content:center;gap:6px;padding:6px 12px;margin:8px 40px;background:rgba(243,210,146,.25);border-radius:8px;font-size:11px;color:var(--teal)}
+.sm{display:flex;justify-content:center;margin:8px 0}.sm-i{background:rgba(243,210,146,.33);border-radius:8px;padding:4px 12px;font-size:12px;color:var(--teal);display:flex;align-items:center;gap:4px}
+.ds{display:flex;justify-content:center;margin:12px 0}.ds-i{background:rgba(0,0,0,.06);border-radius:6px;padding:3px 10px;font-size:11px;color:var(--ts);font-weight:500}
+.br{display:flex;padding:2px 12px;margin-bottom:2px}.br.me{justify-content:flex-end}.br.th{justify-content:flex-start}
+.bb{max-width:78%;padding:7px 10px 4px;box-shadow:0 1px 1px rgba(0,0,0,.06);position:relative;cursor:pointer;transition:background .15s}
+.bb.se{background:var(--sb);border-radius:10px 10px 2px 10px;border:1px solid rgba(228,108,83,.08)}
+.bb.re{background:var(--rb);border-radius:10px 10px 10px 2px;border:1px solid #eee}
+.bb:active{filter:brightness(.96)}
+.bb .sn{font-size:12px;font-weight:600;color:var(--coral);margin-bottom:2px}
+.bb .tx{font-size:14.5px;color:var(--dg);line-height:1.35;word-wrap:break-word}
+.bb .mt{display:flex;align-items:center;justify-content:flex-end;gap:3px;margin-top:2px}
+.bb .tm{font-size:11px;color:var(--ts)}
+.bb .star{color:var(--pale-gold);margin-right:2px}
+/* Reply preview */
+.rp-bar{display:flex;align-items:center;gap:8px;padding:8px 12px;background:#fff;border-top:1px solid var(--mg);flex-shrink:0}
+.rp-bar .rp-content{flex:1;padding:8px 12px;background:var(--lg);border-radius:8px;border-left:3px solid var(--coral)}
+.rp-bar .rp-name{font-size:12px;font-weight:600;color:var(--coral)}.rp-bar .rp-text{font-size:12px;color:var(--ts);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+/* Typing */
+.typing{display:flex;gap:3px;padding:4px 0}.typing span{width:7px;height:7px;border-radius:50%;background:var(--ts);animation:pulse 1.2s infinite}
+.typing span:nth-child(2){animation-delay:.2s}.typing span:nth-child(3){animation-delay:.4s}
+/* Input */
+.ia{display:flex;align-items:flex-end;gap:8px;padding:8px 8px 12px;background:var(--lg);flex-shrink:0}
+.iw{flex:1;display:flex;align-items:center;gap:6px;background:#fff;border-radius:24px;padding:8px 12px;border:1px solid var(--mg)}
+.iw input{border:none;outline:none;flex:1;font-size:15px;font-family:inherit;background:transparent}.iw svg{cursor:pointer;flex-shrink:0;color:var(--ts)}
+.sbtn{width:44px;height:44px;border-radius:50%;background:linear-gradient(135deg,var(--coral),var(--crimson));display:flex;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0;border:none;transition:all .15s}
+/* Attach menu */
+.att-menu{display:none;padding:12px 20px 8px;background:#fff;border-top:1px solid var(--mg);flex-shrink:0;animation:sUp .2s ease-out}
+.att-menu.show{display:flex;flex-wrap:wrap;gap:16px;justify-content:center}
+.att-item{display:flex;flex-direction:column;align-items:center;gap:4px;cursor:pointer;width:64px}
+.att-ic{width:50px;height:50px;border-radius:50%;display:flex;align-items:center;justify-content:center}
+.att-item span{font-size:11px;color:var(--ts)}
+/* Message context menu */
+.ctx{display:none;position:absolute;background:#fff;border-radius:14px;box-shadow:0 8px 32px rgba(0,0,0,.18);z-index:100;min-width:180px;overflow:hidden;animation:fIn .15s ease-out}
+.ctx.show{display:block}
+.ctx-item{display:flex;align-items:center;gap:12px;padding:12px 16px;cursor:pointer;transition:background .1s;font-size:14px;color:var(--dg)}
+.ctx-item:hover,.ctx-item:active{background:var(--lg)}.ctx-item svg{flex-shrink:0}
+/* Overlay */
+.overlay{display:none;position:absolute;inset:0;background:rgba(0,0,0,.4);z-index:90}.overlay.show{display:block}
+/* Info / Settings shared */
+.inf-p{display:flex;flex-direction:column;align-items:center;padding:28px 16px 20px;background:#fff}
+.inf-n{font-size:22px;font-weight:700;color:var(--dg);margin-top:12px}.inf-s{font-size:13px;color:var(--ts);margin-top:4px}
+.inf-sec{background:#fff;margin-top:8px;padding:14px 16px}
+.inf-lb{font-size:13px;color:var(--teal);font-weight:600;margin-bottom:4px}
+.inf-r{display:flex;align-items:center;gap:12px;padding:12px 0;border-bottom:1px solid var(--lg);cursor:pointer;transition:background .1s}
+.inf-r:last-child{border-bottom:none}.inf-r:active{background:var(--lg)}
+.inf-ic{width:36px;height:36px;border-radius:50%;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.inf-tx{flex:1}.inf-tx .lb{font-size:15px;font-weight:500;color:var(--dg)}.inf-tx .ds{font-size:12.5px;color:var(--ts)}
+.inf-dt{font-size:13px;color:var(--ts)}
+.sct{background:#fff;margin-bottom:8px}.sr{display:flex;align-items:center;gap:14px;padding:14px 16px;border-bottom:1px solid var(--lg);cursor:pointer;transition:background .1s}
+.sr:last-child{border-bottom:none}.sr:active{background:var(--lg)}
+/* Toggle switch */
+.tgl{position:relative;width:44px;height:24px;flex-shrink:0;cursor:pointer}
+.tgl input{opacity:0;width:0;height:0}.tgl .sl{position:absolute;inset:0;background:var(--mg);border-radius:12px;transition:all .3s}
+.tgl .sl:before{content:'';position:absolute;height:18px;width:18px;left:3px;bottom:3px;background:#fff;border-radius:50%;transition:all .3s;box-shadow:0 1px 3px rgba(0,0,0,.2)}
+.tgl input:checked+.sl{background:var(--teal)}.tgl input:checked+.sl:before{transform:translateX(20px)}
+/* Sections */
+.slb{padding:8px 16px 4px;font-size:13px;font-weight:600;color:var(--teal)}
+.cti{display:flex;align-items:center;gap:12px;padding:10px 16px;cursor:pointer;border-bottom:1px solid var(--lg);transition:background .12s}
+.cti:hover,.cti:active{background:var(--lg)}
+.aci{display:flex;align-items:center;gap:14px;padding:12px 16px;cursor:pointer;border-bottom:1px solid var(--lg);transition:background .1s}
+.aci:hover,.aci:active{background:var(--lg)}
+.aic{width:44px;height:44px;border-radius:50%;background:var(--teal);display:flex;align-items:center;justify-content:center;color:#fff;flex-shrink:0}
+/* Profile setup */
+.paw{position:relative;width:100px;height:100px;margin:0 auto 16px}.pav{width:100px;height:100px;border-radius:50%;background:linear-gradient(135deg,var(--coral),#e46c53dd);display:flex;align-items:center;justify-content:center;font-size:36px;font-weight:700;color:#fff}
+.pac{position:absolute;bottom:0;right:0;width:32px;height:32px;border-radius:50%;background:var(--teal);display:flex;align-items:center;justify-content:center;border:3px solid #fff;cursor:pointer}
+/* Group */
+.sel-bar{display:flex;gap:8px;padding:10px 16px;overflow-x:auto;flex-shrink:0;border-bottom:1px solid var(--mg);background:#fff;min-height:24px}
+.sel-c{display:flex;flex-direction:column;align-items:center;gap:3px;min-width:54px;position:relative;animation:fIn .2s ease-out}
+.sel-c .rm{position:absolute;top:-2px;right:2px;width:18px;height:18px;border-radius:50%;background:var(--ts);color:#fff;display:flex;align-items:center;justify-content:center;font-size:11px;cursor:pointer;border:2px solid #fff}
+.sel-c span{font-size:10px;color:var(--ts);max-width:54px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;text-align:center}
+.ck-c{width:24px;height:24px;border-radius:50%;border:2px solid var(--mg);display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:all .15s}
+.ck-c.on{background:var(--teal);border-color:var(--teal)}
+.mcb{display:inline-flex;align-items:center;gap:4px;padding:4px 10px;border-radius:12px;font-size:12px;background:rgba(77,126,130,.1);color:var(--teal);font-weight:600}
+.gi-s{padding:24px}.gs-r{display:flex;align-items:center;gap:14px;margin-bottom:20px}
+.g-ic{width:64px;height:64px;border-radius:50%;background:linear-gradient(135deg,var(--teal),#4d7e82dd);display:flex;align-items:center;justify-content:center;color:#fff;cursor:pointer;flex-shrink:0;position:relative}
+.g-ic .cb{position:absolute;bottom:0;right:0;width:22px;height:22px;border-radius:50%;background:var(--coral);display:flex;align-items:center;justify-content:center;border:2px solid #fff}
+/* Call screens */
+.call-scr{background:linear-gradient(160deg,#1a1a2e 0%,#2d3748 50%,#1a1a2e 100%);align-items:center;justify-content:center;color:#fff;position:relative}
+.call-av{width:120px;height:120px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:42px;font-weight:700;color:#fff;border:3px solid rgba(255,255,255,.2)}
+.call-name{font-size:24px;font-weight:700;margin-top:16px}.call-status{font-size:14px;color:rgba(255,255,255,.7);margin-top:6px}
+.call-actions{display:flex;gap:24px;margin-top:48px}
+.call-btn{width:60px;height:60px;border-radius:50%;display:flex;flex-direction:column;align-items:center;justify-content:center;border:none;cursor:pointer;transition:all .15s}
+.call-btn:active{transform:scale(.9)}.call-btn span{font-size:10px;margin-top:4px}
+.call-end{width:68px;height:68px;border-radius:50%;background:var(--crimson);border:none;display:flex;align-items:center;justify-content:center;cursor:pointer;margin-top:40px}
+.call-end:active{transform:scale(.9)}
+.call-timer{font-size:16px;font-weight:600;color:rgba(255,255,255,.9);margin-top:8px;font-variant-numeric:tabular-nums}
+/* Incoming call */
+.inc-call{background:linear-gradient(160deg,#1a1a2e,#2d3748);align-items:center;justify-content:center;color:#fff}
+.inc-btns{display:flex;gap:60px;margin-top:60px}
+.inc-btn{width:68px;height:68px;border-radius:50%;border:none;display:flex;flex-direction:column;align-items:center;justify-content:center;cursor:pointer}
+.inc-btn span{font-size:11px;margin-top:6px;color:rgba(255,255,255,.8)}
+/* Starred */
+.star-item{display:flex;gap:10px;padding:12px 16px;border-bottom:1px solid var(--lg)}
+/* Archived */
+.arch-banner{display:flex;align-items:center;gap:12px;padding:14px 16px;cursor:pointer;background:var(--lg);border-bottom:1px solid var(--mg)}
+.arch-banner:hover{background:var(--mg)}
+/* Empty state */
+.empty{display:flex;flex-direction:column;align-items:center;justify-content:center;padding:40px;text-align:center;flex:1}
+.empty svg{opacity:.3;margin-bottom:16px}.empty h3{font-size:16px;color:var(--dg);font-weight:600;margin-bottom:6px}.empty p{font-size:13px;color:var(--ts);line-height:1.5}
+/* Scrollbar */
+::-webkit-scrollbar{width:3px}::-webkit-scrollbar-thumb{background:#ccc;border-radius:4px}
+/* Settings footer */
+.sf{padding:20px 16px 80px;text-align:center}.sf .br{display:flex;align-items:center;justify-content:center;gap:6px;margin-bottom:6px}.sf .br span{font-size:13px;color:var(--ts);font-weight:600}.sf .ms{font-size:11px;color:var(--ts)}
+</style>
+</head>
+<body>
+<div id="phone">
+<div class="sbar lt" id="sbar"><span>9:41</span><div style="display:flex;gap:5px;align-items:center"><svg width="16" height="10" fill="currentColor" viewBox="0 0 16 10"><rect x="0" y="6" width="3" height="4" rx="1"/><rect x="4.5" y="4" width="3" height="6" rx="1"/><rect x="9" y="1.5" width="3" height="8.5" rx="1"/><rect x="13" y="0" width="3" height="10" rx="1" opacity=".3"/></svg><svg width="18" height="11" viewBox="0 0 18 11"><rect x="0" y="0" width="14" height="10" rx="2" fill="none" stroke="currentColor" stroke-width="1.2"/><rect x="1.5" y="1.5" width="9" height="7" rx="1" fill="currentColor"/><rect x="15" y="3" width="2" height="4" rx="1" fill="currentColor"/></svg></div></div>
+
+<!-- SPLASH -->
+<div id="splash" class="scr">
+<div class="sp-c"><svg width="72" height="72" viewBox="0 0 100 100" fill="none"><circle cx="50" cy="50" r="45" stroke="#E46C53" stroke-width="6" fill="none"/><text x="50" y="65" text-anchor="middle" font-size="48" font-weight="bold" fill="#E46C53" font-family="system-ui">z</text><path d="M30 70Q25 80 35 78" stroke="#E46C53" stroke-width="4" fill="none" stroke-linecap="round"/></svg>
+<div class="sp-t">z.chat</div><div class="sp-s">Secure Messaging</div>
+<div class="sp-l"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0110 0v4"/></svg>End-to-end encrypted</div></div>
+<div class="sp-f"><div>Redefining the game, one trade at a time</div><div style="margin-top:4px">by z.systems</div></div></div>
+
+<!-- WELCOME -->
+<div id="welcome" class="scr h">
+<div class="ab" style="justify-content:center;align-items:center">
+<div style="text-align:center;animation:fIn .6s ease-out">
+<svg width="56" height="56" viewBox="0 0 100 100" fill="none"><circle cx="50" cy="50" r="45" stroke="#E46C53" stroke-width="6" fill="none"/><text x="50" y="65" text-anchor="middle" font-size="48" font-weight="bold" fill="#E46C53" font-family="system-ui">z</text><path d="M30 70Q25 80 35 78" stroke="#E46C53" stroke-width="4" fill="none" stroke-linecap="round"/></svg>
+<h2 style="font-size:26px;font-weight:800;color:var(--dg);margin-top:14px">Welcome to z.chat</h2>
+<p style="font-size:14px;color:var(--ts);margin-top:10px;line-height:1.6;max-width:280px">Secure, encrypted messaging built for the z.systems team.</p></div>
+<div style="width:100%;margin-top:36px;animation:sUp .6s ease-out .2s both">
+<div id="welcome-features"></div>
+<button class="btn btn-p" onclick="go('phoneauth')">Get Started</button>
+<div class="terms">By continuing, you agree to our <a href="#">Terms of Service</a> and <a href="#">Privacy Policy</a></div>
+</div></div></div>
+
+<!-- PHONE AUTH -->
+<div id="phoneauth" class="scr h">
+<div class="ab">
+<div class="at"><svg width="48" height="48" viewBox="0 0 100 100" fill="none"><circle cx="50" cy="50" r="45" stroke="#E46C53" stroke-width="6" fill="none"/><text x="50" y="65" text-anchor="middle" font-size="48" font-weight="bold" fill="#E46C53" font-family="system-ui">z</text></svg>
+<h2>Enter your phone number</h2><p>z.chat will send you an SMS to verify your phone number.</p></div>
+<div class="fg"><label class="fl">Phone Number</label><div class="phi"><input class="cc" value="+1" id="ccode"><input class="fi" type="tel" placeholder="Phone number" id="pnum" oninput="$('vbtn').disabled=this.value.length<6" style="flex:1"></div></div>
+<div style="flex:1"></div>
+<button class="btn btn-p" id="vbtn" disabled onclick="go('otp')">Send Verification Code</button>
+<button class="btn-t" onclick="go('welcome')">Back</button></div></div>
+
+<!-- OTP -->
+<div id="otp" class="scr h">
+<div class="ab"><div class="at"><svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="var(--teal)" stroke-width="1.5"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><polyline points="9 12 11 14 15 10" stroke-width="2"/></svg>
+<h2>Verify your number</h2><p>Enter the 6-digit code sent to<br><strong id="otp-ph" style="color:var(--coral)"></strong></p></div>
+<div class="otp-c" id="otp-c"></div>
+<div style="flex:1"></div>
+<button class="btn btn-p" id="otp-btn" disabled onclick="go('profilesetup')">Verify</button>
+<div style="text-align:center;margin-top:16px"><span id="rtimer" style="font-size:13px;color:var(--ts)"></span></div>
+<button class="btn-t" onclick="go('phoneauth')">Change phone number</button></div></div>
+
+<!-- PROFILE SETUP -->
+<div id="profilesetup" class="scr h">
+<div class="ab"><div class="at" style="margin-top:0"><h2 style="margin-top:0">Set up your profile</h2><p>Add your name and photo so your team recognizes you.</p></div>
+<div class="paw" style="animation:fIn .5s ease-out"><div class="pav" id="pav-prev"><svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="1.5"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg></div>
+<div class="pac"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><path d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z"/><circle cx="12" cy="13" r="4"/></svg></div></div>
+<div class="fg"><label class="fl">Your Name</label><input class="fi" type="text" placeholder="Enter your name" id="pname" oninput="$('pdone').disabled=!this.value.trim()" value="Houda"></div>
+<div class="fg"><label class="fl">About</label><input class="fi" type="text" placeholder="Write something about yourself..." id="pabout" value="Redefining the game, one trade at a time"></div>
+<div style="flex:1"></div>
+<button class="btn btn-p" id="pdone" onclick="finishSetup()">Continue to z.chat</button></div></div>
+
+<!-- CHAT LIST -->
+<div id="chatlist" class="scr h">
+<div class="hdr"><div class="hdr-r"><div style="display:flex;align-items:center;gap:8px"><svg width="26" height="26" viewBox="0 0 100 100" fill="none"><circle cx="50" cy="50" r="45" stroke="#fff" stroke-width="6" fill="none"/><text x="50" y="65" text-anchor="middle" font-size="48" font-weight="bold" fill="#fff" font-family="system-ui">z</text><path d="M30 70Q25 80 35 78" stroke="#fff" stroke-width="4" fill="none" stroke-linecap="round"/></svg><span class="hdr-t">z.chat</span></div>
+<div class="hdr-ic"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="5" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="12" cy="19" r="1"/></svg></div></div>
+<div class="sb"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg><input placeholder="Search chats..." id="csrch" oninput="renderCL(this.value)"></div></div>
+<div class="cl" id="clc"></div>
+<button class="fab" onclick="go('newchat')"><svg width="24" height="24" viewBox="0 0 24 24" fill="#fff" stroke="#fff" stroke-width="1"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg></button>
+<div class="bnav" id="nav1"></div></div>
+
+<!-- CHAT VIEW -->
+<div id="chatview" class="scr h">
+<div class="ch" id="cvh"></div>
+<div class="ma" id="marea" onclick="hideCtx()"></div>
+<div class="att-menu" id="attm"></div>
+<div id="rp-area"></div>
+<div class="ia"><div class="iw">
+<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#888" stroke-width="2" style="cursor:pointer"><circle cx="12" cy="12" r="10"/><path d="M8 14s1.5 2 4 2 4-2 4-2"/><line x1="9" y1="9" x2="9.01" y2="9"/><line x1="15" y1="9" x2="15.01" y2="9"/></svg>
+<input type="text" placeholder="Message" id="minp" onkeydown="if(event.key==='Enter')sendMsg()">
+<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#888" stroke-width="2" style="cursor:pointer" onclick="toggleAtt()"><path d="M21.44 11.05l-9.19 9.19a6 6 0 01-8.49-8.49l9.19-9.19a4 4 0 015.66 5.66l-9.2 9.19a2 2 0 01-2.83-2.83l8.49-8.48"/></svg>
+<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#888" stroke-width="2" style="cursor:pointer"><path d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z"/><circle cx="12" cy="13" r="4"/></svg>
+</div><button class="sbtn" onclick="sendMsg()"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg></button></div>
+<div class="overlay" id="ov" onclick="hideCtx()"></div>
+<div class="ctx" id="ctxm"></div></div>
+
+<!-- CONTACT INFO -->
+<div id="cinfo" class="scr h" style="background:var(--lg)">
+<div class="hdr"><div class="hdr-b"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="cursor:pointer" onclick="go('chatview')"><path d="M19 12H5M12 19l-7-7 7-7"/></svg><span style="font-size:17px;font-weight:600">Contact Info</span></div></div>
+<div style="flex:1;overflow-y:auto" id="cinf-c"></div></div>
+
+<!-- SETTINGS -->
+<div id="settings" class="scr h" style="background:var(--lg)">
+<div class="hdr"><span class="hdr-t">Settings</span></div>
+<div style="flex:1;overflow-y:auto" id="set-c"></div>
+<div class="bnav" id="nav3"></div></div>
+
+<!-- EDIT PROFILE -->
+<div id="editprofile" class="scr h" style="background:var(--lg)">
+<div class="hdr"><div class="hdr-b"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="cursor:pointer" onclick="go('settings')"><path d="M19 12H5M12 19l-7-7 7-7"/></svg><span style="font-size:17px;font-weight:600">Profile</span></div></div>
+<div style="flex:1;overflow-y:auto" id="ep-c"></div></div>
+
+<!-- ACCOUNT SETTINGS -->
+<div id="account" class="scr h" style="background:var(--lg)">
+<div class="hdr"><div class="hdr-b"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="cursor:pointer" onclick="go('settings')"><path d="M19 12H5M12 19l-7-7 7-7"/></svg><span style="font-size:17px;font-weight:600">Account</span></div></div>
+<div style="flex:1;overflow-y:auto" id="acc-c"></div></div>
+
+<!-- PRIVACY SETTINGS -->
+<div id="privacy" class="scr h" style="background:var(--lg)">
+<div class="hdr"><div class="hdr-b"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="cursor:pointer" onclick="go('settings')"><path d="M19 12H5M12 19l-7-7 7-7"/></svg><span style="font-size:17px;font-weight:600">Privacy</span></div></div>
+<div style="flex:1;overflow-y:auto" id="priv-c"></div></div>
+
+<!-- SECURITY -->
+<div id="security" class="scr h" style="background:var(--lg)">
+<div class="hdr"><div class="hdr-b"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="cursor:pointer" onclick="go('settings')"><path d="M19 12H5M12 19l-7-7 7-7"/></svg><span style="font-size:17px;font-weight:600">Security</span></div></div>
+<div style="flex:1;overflow-y:auto" id="sec-c"></div></div>
+
+<!-- NOTIFICATIONS -->
+<div id="notifs" class="scr h" style="background:var(--lg)">
+<div class="hdr"><div class="hdr-b"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="cursor:pointer" onclick="go('settings')"><path d="M19 12H5M12 19l-7-7 7-7"/></svg><span style="font-size:17px;font-weight:600">Notifications</span></div></div>
+<div style="flex:1;overflow-y:auto" id="notif-c"></div></div>
+
+<!-- STORAGE -->
+<div id="storage" class="scr h" style="background:var(--lg)">
+<div class="hdr"><div class="hdr-b"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="cursor:pointer" onclick="go('settings')"><path d="M19 12H5M12 19l-7-7 7-7"/></svg><span style="font-size:17px;font-weight:600">Storage & Data</span></div></div>
+<div style="flex:1;overflow-y:auto" id="stor-c"></div></div>
+
+<!-- APPEARANCE -->
+<div id="appearance" class="scr h" style="background:var(--lg)">
+<div class="hdr"><div class="hdr-b"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="cursor:pointer" onclick="go('settings')"><path d="M19 12H5M12 19l-7-7 7-7"/></svg><span style="font-size:17px;font-weight:600">Appearance</span></div></div>
+<div style="flex:1;overflow-y:auto" id="app-c"></div></div>
+
+<!-- HELP -->
+<div id="help" class="scr h" style="background:var(--lg)">
+<div class="hdr"><div class="hdr-b"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="cursor:pointer" onclick="go('settings')"><path d="M19 12H5M12 19l-7-7 7-7"/></svg><span style="font-size:17px;font-weight:600">Help</span></div></div>
+<div style="flex:1;overflow-y:auto" id="help-c"></div></div>
+
+<!-- STARRED MESSAGES -->
+<div id="starred" class="scr h" style="background:var(--lg)">
+<div class="hdr"><div class="hdr-b"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="cursor:pointer" onclick="go('settings')"><path d="M19 12H5M12 19l-7-7 7-7"/></svg><span style="font-size:17px;font-weight:600">Starred Messages</span></div></div>
+<div style="flex:1;overflow-y:auto" id="star-c"></div></div>
+
+<!-- CALLS -->
+<div id="calls" class="scr h">
+<div class="hdr"><div class="hdr-r"><span class="hdr-t">Calls</span><div class="hdr-ic"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07 19.5 19.5 0 01-6-6 19.79 19.79 0 01-3.07-8.67A2 2 0 014.11 2h3a2 2 0 012 1.72c.127.96.361 1.903.7 2.81a2 2 0 01-.45 2.11L8.09 9.91a16 16 0 006 6l1.27-1.27a2 2 0 012.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0122 16.92z"/></svg></div></div></div>
+<div style="flex:1;overflow-y:auto" id="calls-c"></div>
+<div class="bnav" id="nav2"></div></div>
+
+<!-- ACTIVE CALL -->
+<div id="activecall" class="scr h call-scr">
+<div id="acall-c"></div></div>
+
+<!-- INCOMING CALL -->
+<div id="inccall" class="scr h inc-call">
+<div id="icall-c"></div></div>
+
+<!-- NEW CHAT -->
+<div id="newchat" class="scr h">
+<div class="hdr"><div class="hdr-b" style="margin-bottom:12px"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="cursor:pointer" onclick="go('chatlist')"><path d="M19 12H5M12 19l-7-7 7-7"/></svg><div><div style="font-size:17px;font-weight:600">New Chat</div><div style="font-size:12px;opacity:.8" id="ncnt"></div></div></div>
+<div class="sb"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg><input placeholder="Search contacts..." id="ncsrch" oninput="renderNC(this.value)"></div></div>
+<div style="flex:1;overflow-y:auto" id="nc-c"></div></div>
+
+<!-- ADD CONTACT -->
+<div id="addcontact" class="scr h">
+<div class="hdr"><div class="hdr-b"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="cursor:pointer" onclick="go('newchat')"><path d="M19 12H5M12 19l-7-7 7-7"/></svg><span style="font-size:17px;font-weight:600">Add Contact</span></div></div>
+<div style="flex:1;padding:24px;overflow-y:auto">
+<div style="width:80px;height:80px;border-radius:50%;background:linear-gradient(135deg,var(--pale-gold),var(--peach));display:flex;align-items:center;justify-content:center;margin:0 auto 24px;color:var(--coral)"><svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M16 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="8.5" cy="7" r="4"/><line x1="20" y1="8" x2="20" y2="14"/><line x1="23" y1="11" x2="17" y2="11"/></svg></div>
+<div class="fg"><label class="fl">First Name</label><input class="fi" id="afn" oninput="valAC()"></div>
+<div class="fg"><label class="fl">Last Name</label><input class="fi" id="aln" placeholder="Optional"></div>
+<div class="fg"><label class="fl">Phone Number</label><div class="phi"><input class="cc" value="+1"><input class="fi" type="tel" placeholder="Phone number" id="aph" oninput="valAC()" style="flex:1"></div></div>
+<button class="btn btn-p" id="acbtn" disabled onclick="doAddContact()">Save Contact</button></div></div>
+
+<!-- GROUP SELECT -->
+<div id="grpsel" class="scr h">
+<div class="hdr"><div class="hdr-b" style="margin-bottom:12px;width:100%"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="cursor:pointer" onclick="selGM.clear();go('newchat')"><path d="M19 12H5M12 19l-7-7 7-7"/></svg><div style="flex:1"><div style="font-size:17px;font-weight:600">New Group</div><div style="font-size:12px;opacity:.8" id="gmcnt">Add members</div></div><button style="background:none;border:none;color:#fff;font-weight:700;font-size:15px;cursor:pointer;opacity:.5" id="gnxt" disabled onclick="go('grpinfo')">Next</button></div>
+<div class="sb"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg><input placeholder="Search contacts..." id="gsrch" oninput="renderGS(this.value)"></div></div>
+<div class="sel-bar" id="selbar"></div>
+<div style="flex:1;overflow-y:auto" id="gs-c"></div></div>
+
+<!-- GROUP INFO -->
+<div id="grpinfo" class="scr h">
+<div class="hdr"><div class="hdr-b"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="cursor:pointer" onclick="go('grpsel')"><path d="M19 12H5M12 19l-7-7 7-7"/></svg><span style="font-size:17px;font-weight:600">New Group</span></div></div>
+<div style="flex:1;overflow-y:auto"><div class="gi-s"><div class="gs-r">
+<div class="g-ic"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/></svg><div class="cb"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.5"><path d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z"/><circle cx="12" cy="13" r="4"/></svg></div></div>
+<div style="flex:1"><input class="fi" placeholder="Group subject" id="gninp" oninput="$('gcbtn').disabled=!this.value.trim()" style="border-radius:0;border-left:none;border-right:none;border-top:none;background:transparent;padding:10px 0"><div style="font-size:12px;color:var(--ts);margin-top:4px">Provide a group subject and optional icon</div></div></div>
+<div class="fg"><label class="fl">Group Description (optional)</label><input class="fi" placeholder="Add group description" id="gdinp"></div></div>
+<div style="padding:0 16px 8px"><div style="display:flex;align-items:center;gap:8px;margin-bottom:12px"><span class="slb" style="padding:0">MEMBERS</span><span class="mcb" id="gi-mc">0</span></div><div id="gmprev"></div></div></div>
+<div style="padding:16px;flex-shrink:0"><button class="btn btn-p" id="gcbtn" disabled onclick="doCreateGroup()">Create Group</button></div></div>
+
+<!-- MEDIA GALLERY -->
+<div id="media" class="scr h" style="background:var(--lg)">
+<div class="hdr"><div class="hdr-b"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="cursor:pointer" onclick="go('cinfo')"><path d="M19 12H5M12 19l-7-7 7-7"/></svg><span style="font-size:17px;font-weight:600">Media, Links & Docs</span></div></div>
+<div style="flex:1;overflow-y:auto" id="media-c"></div></div>
+
+<!-- BLOCKED CONTACTS -->
+<div id="blocked" class="scr h" style="background:var(--lg)">
+<div class="hdr"><div class="hdr-b"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="cursor:pointer" onclick="go('privacy')"><path d="M19 12H5M12 19l-7-7 7-7"/></svg><span style="font-size:17px;font-weight:600">Blocked Contacts</span></div></div>
+<div style="flex:1;overflow-y:auto" id="blk-c"></div></div>
+
+</div>
+
+<script>
+// === UTILS ===
+const $=id=>document.getElementById(id);
+const I=(n,s='20',sw='2')=>{const m={lock:'<rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0110 0v4"/>',shield:'<path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>',key:'<path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 11-7.778 7.778 5.5 5.5 0 017.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4"/>',bell:'<path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 01-3.46 0"/>',db:'<ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/>',moon:'<path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z"/>',globe:'<circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 014 10 15.3 15.3 0 01-4 10 15.3 15.3 0 01-4-10 15.3 15.3 0 014-10z"/>',help:'<circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 015.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/>',user:'<path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/>',users:'<path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/>',phone:'<path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07 19.5 19.5 0 01-6-6 19.79 19.79 0 01-3.07-8.67A2 2 0 014.11 2h3a2 2 0 012 1.72c.127.96.361 1.903.7 2.81a2 2 0 01-.45 2.11L8.09 9.91a16 16 0 006 6l1.27-1.27a2 2 0 012.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0122 16.92z"/>',video:'<polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2"/>',search:'<circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/>',back:'<path d="M19 12H5M12 19l-7-7 7-7"/>',more:'<circle cx="12" cy="5" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="12" cy="19" r="1"/>',send:'<line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/>',cam:'<path d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z"/><circle cx="12" cy="13" r="4"/>',clip:'<path d="M21.44 11.05l-9.19 9.19a6 6 0 01-8.49-8.49l9.19-9.19a4 4 0 015.66 5.66l-9.2 9.19a2 2 0 01-2.83-2.83l8.49-8.48"/>',img:'<rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/>',star:'<polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>',chk2:'<polyline points="1 12 5 16 12 6"/><polyline points="8 12 12 16 20 6"/>',chk1:'<polyline points="20 6 9 17 4 12"/>',edit:'<path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/>',chev:'<polyline points="9 18 15 12 9 6"/>',x:'<line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>',reply:'<polyline points="14 7 19 12 14 17"/><path d="M15 12H5"/>',forward:'<polyline points="15 17 20 12 15 7"/><path d="M4 18v-2a4 4 0 014-4h12"/>',copy:'<rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/>',trash:'<polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/>',mic:'<path d="M12 1a3 3 0 00-3 3v8a3 3 0 006 0V4a3 3 0 00-3-3z"/><path d="M19 10v2a7 7 0 01-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/>',loc:'<path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z"/><circle cx="12" cy="10" r="3"/>',doc:'<path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/>',contact:'<path d="M16 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="8.5" cy="7" r="4"/><line x1="20" y1="8" x2="20" y2="14"/><line x1="23" y1="11" x2="17" y2="11"/>',block:'<circle cx="12" cy="12" r="10"/><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"/>',eye:'<path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>',mute:'<path d="M11 5L6 9H2v6h4l5 4V5z"/><line x1="23" y1="9" x2="17" y2="15"/><line x1="17" y1="9" x2="23" y2="15"/>',vol:'<polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M19.07 4.93a10 10 0 010 14.14M15.54 8.46a5 5 0 010 7.07"/>',wifi:'<path d="M5 12.55a11 11 0 0114.08 0"/><path d="M1.42 9a16 16 0 0121.16 0"/><path d="M8.53 16.11a6 6 0 016.95 0"/><line x1="12" y1="20" x2="12.01" y2="20"/>',clock:'<circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>',minus:'<circle cx="12" cy="12" r="10"/><line x1="8" y1="12" x2="16" y2="12"/>'};return`<svg width="${s}" height="${s}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${sw}">${m[n]||''}</svg>`};
+const chev=I('chev','18');
+
+// === DATA ===
+const C=[
+{id:1,name:"Sarah Chen",av:"SC",ls:"online",ab:"Living the dream",clr:'cr'},
+{id:2,name:"Marcus Johnson",av:"MJ",ls:"last seen today at 2:30 PM",ab:"At work",clr:'tl'},
+{id:3,name:"Amira Patel",av:"AP",ls:"online",ab:"Available",clr:'pc'},
+{id:4,name:"David Kowalski",av:"DK",ls:"last seen yesterday",ab:"Busy",clr:'cr'},
+{id:5,name:"Luna Reyes",av:"LR",ls:"online",ab:"Hey there! I'm using z.chat",clr:'gd'},
+{id:6,name:"z.systems Team",av:"ZT",ls:"online",ab:"Official team group",grp:1,mem:12,clr:'tl'},
+{id:7,name:"Trading Floor",av:"TF",ls:"online",ab:"Daily trading discussions",grp:1,mem:45,clr:'tl'},
+{id:8,name:"Yuki Tanaka",av:"YT",ls:"last seen today at 10:15 AM",ab:"Redefining the game",clr:'pc'}
+];
+let chats=[
+{cid:6,pin:1,ur:0,arch:0,mute:0,msgs:[
+{id:1,tx:"Welcome to z.chat! Your messages are end-to-end encrypted.",fr:"sys",tm:"9:00 AM",dt:"Today"},
+{id:2,tx:"Hey team, the Q1 report is looking great!",fr:3,tm:"9:15 AM",dt:"Today"},
+{id:3,tx:"Thanks Amira! The trading desk numbers are impressive.",fr:1,tm:"9:20 AM",dt:"Today"},
+{id:4,tx:"Agreed. Let's discuss in our standup at 10.",fr:"me",tm:"9:22 AM",dt:"Today",st:1}
+]},
+{cid:1,pin:0,ur:2,arch:0,mute:0,msgs:[
+{id:1,tx:"Hey! Did you see the new market analysis?",fr:1,tm:"10:30 AM",dt:"Today"},
+{id:2,tx:"Yes! The projections look really promising",fr:"me",tm:"10:32 AM",dt:"Today"},
+{id:3,tx:"Can we hop on a quick call to discuss?",fr:1,tm:"10:33 AM",dt:"Today"},
+{id:4,tx:"Sure, give me 5 minutes",fr:"me",tm:"10:34 AM",dt:"Today"},
+{id:5,tx:"Perfect! Talk soon",fr:1,tm:"10:34 AM",dt:"Today"}
+]},
+{cid:3,pin:0,ur:1,arch:0,mute:0,msgs:[
+{id:1,tx:"The presentation is ready for tomorrow",fr:3,tm:"4:20 PM",dt:"Yesterday"},
+{id:2,tx:"Awesome, I'll review it tonight",fr:"me",tm:"4:45 PM",dt:"Yesterday"},
+{id:3,tx:"Shared the deck in the team channel",fr:3,tm:"11:00 AM",dt:"Today"}
+]},
+{cid:7,pin:1,ur:3,arch:0,mute:0,msgs:[
+{id:1,tx:"EUR/USD showing strong momentum today",fr:4,tm:"8:00 AM",dt:"Today"},
+{id:2,tx:"Watching the Asian markets closely",fr:8,tm:"8:15 AM",dt:"Today"},
+{id:3,tx:"Good call on the USD position yesterday",fr:2,tm:"8:30 AM",dt:"Today"}
+]},
+{cid:2,pin:0,ur:0,arch:0,mute:0,msgs:[
+{id:1,tx:"Can you send me the compliance docs?",fr:2,tm:"3:45 PM",dt:"Yesterday"},
+{id:2,tx:"Sure, I'll send them over by EOD",fr:"me",tm:"4:00 PM",dt:"Yesterday"}
+]},
+{cid:5,pin:0,ur:0,arch:1,mute:0,msgs:[
+{id:1,tx:"Happy birthday!",fr:"me",tm:"9:00 AM",dt:"Monday"},
+{id:2,tx:"Thank you so much!!",fr:5,tm:"9:30 AM",dt:"Monday"}
+]}
+];
+let curChat=null,replyTo=null,selGM=new Set(),starredMsgs=[],callTimer=null,callSec=0;
+let UP={name:"Houda",ab:"Redefining the game, one trade at a time",ph:"+1 (555) 123-4567"};
+
+// === HELPERS ===
+const gc=id=>C.find(c=>c.id===id);
+const avH=(ini,cls,sz,on,grp)=>{
+const s=sz||'48',sc=`av${s}`;
+const c=grp?'tl':(cls||'cr');
+const icon=grp?I('users',Math.round(s*.4)):ini;
+const dot=on?'<div class="on-d"></div>':'';
+return`<div class="av ${c} ${sc}">${icon}${dot}</div>`;
+};
+const now=()=>new Date().toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'});
+
+// === SCREENS ===
+const screens=['splash','welcome','phoneauth','otp','profilesetup','chatlist','chatview','cinfo','settings','editprofile','account','privacy','security','notifs','storage','appearance','help','starred','calls','activecall','inccall','newchat','addcontact','grpsel','grpinfo','media','blocked'];
+const dkScreens=['chatlist','chatview','cinfo','settings','editprofile','account','privacy','security','notifs','storage','appearance','help','starred','calls','newchat','addcontact','grpsel','grpinfo','media','blocked'];
+
+function go(name){
+screens.forEach(s=>$(s).classList.toggle('h',s!==name));
+const sb=$('sbar');
+if(name==='activecall'||name==='inccall'){sb.className='sbar call-bar'}
+else if(dkScreens.includes(name)){sb.className='sbar dk'}
+else{sb.className='sbar lt'}
+const r={chatlist:()=>{renderCL();renderNav('nav1','chats')},chatview:()=>{renderCH();renderMsgs()},cinfo:()=>renderCI(),
+settings:()=>{renderSet();renderNav('nav3','settings')},editprofile:renderEP,account:renderAcc,privacy:renderPriv,
+security:renderSec,notifs:renderNotif,storage:renderStor,appearance:renderApp,help:renderHelp,starred:renderStarred,
+calls:()=>{renderCalls();renderNav('nav2','calls')},activecall:renderACall,inccall:renderICall,
+newchat:()=>renderNC(),addcontact:()=>{$('afn').value='';$('aln').value='';$('aph').value='';$('acbtn').disabled=true},
+grpsel:()=>renderGS(),grpinfo:renderGI,media:renderMedia,blocked:renderBlocked,
+otp:()=>{$('otp-ph').textContent=$('ccode').value+' '+$('pnum').value;renderOTP();startTimer()},
+welcome:renderWelcome};
+if(r[name])r[name]();
+}
+
+// === WELCOME ===
+function renderWelcome(){
+const feats=[{ic:I('shield','18'),clr:'var(--teal)',bg:'rgba(77,126,130,.1)',tx:'End-to-end encryption keeps your messages secure'},
+{ic:I('users','18'),clr:'var(--coral)',bg:'rgba(228,108,83,.1)',tx:'Connect with your team in groups and private chats'},
+{ic:I('phone','18'),clr:'var(--peach)',bg:'rgba(241,161,103,.15)',tx:'Voice & video calls with crystal clear quality'}];
+$('welcome-features').innerHTML=feats.map(f=>`<div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;padding:0 8px"><div style="width:36px;height:36px;border-radius:50%;background:${f.bg};display:flex;align-items:center;justify-content:center;color:${f.clr};flex-shrink:0">${f.ic}</div><div style="font-size:13px;color:var(--ts)">${f.tx}</div></div>`).join('');
+}
+
+// === OTP ===
+function renderOTP(){$('otp-c').innerHTML=Array(6).fill(0).map((_,i)=>`<input class="otp-i" type="text" maxlength="1" oninput="otpIn(this,${i})" onkeydown="otpKey(event,${i})">`).join('')}
+function otpIn(el,i){if(el.value){el.classList.add('ok');const inp=$('otp-c').querySelectorAll('input');if(i<5)inp[i+1].focus();$('otp-btn').disabled=![...inp].every(x=>x.value)}}
+function otpKey(e,i){if(e.key==='Backspace'&&!e.target.value&&i>0){const inp=$('otp-c').querySelectorAll('input');inp[i-1].focus();inp[i-1].classList.remove('ok')}}
+let rtI;function startTimer(){let s=30;clearInterval(rtI);$('rtimer').textContent='Resend code in 0:30';rtI=setInterval(()=>{s--;if(s<=0){clearInterval(rtI);$('rtimer').innerHTML='<button class="btn-t" style="margin:0;padding:0" onclick="startTimer()">Resend Code</button>';return}$('rtimer').textContent=`Resend code in 0:${s<10?'0'+s:s}`},1000)}
+function finishSetup(){UP.name=$('pname').value.trim();UP.ab=$('pabout').value.trim()||"Hey there! I'm using z.chat";go('chatlist')}
+
+// === CHAT LIST ===
+function renderCL(f=''){
+const sorted=[...chats].filter(c=>!c.arch).sort((a,b)=>(b.pin?1:0)-(a.pin?1:0));
+const flt=f?sorted.filter(c=>{const ct=gc(c.cid);return ct&&ct.name.toLowerCase().includes(f.toLowerCase())}):sorted;
+const archCount=chats.filter(c=>c.arch).length;
+let h='';
+if(archCount>0)h+=`<div class="arch-banner" onclick="go('starred')"><div style="width:36px;height:36px;border-radius:50%;background:var(--lg);display:flex;align-items:center;justify-content:center;color:var(--teal)">${I('clock','18')}</div><div style="flex:1"><span style="font-size:15px;font-weight:500;color:var(--dg)">Archived</span></div><span style="font-size:13px;color:var(--ts)">${archCount}</span></div>`;
+h+=flt.map(ch=>{
+const ct=gc(ch.cid);if(!ct)return'';
+const lm=ch.msgs[ch.msgs.length-1];
+let sn=lm.fr==='me'?'You':lm.fr==='sys'?'':(gc(lm.fr)?.name.split(' ')[0]||'');
+const td=lm.dt==='Today'?lm.tm:(lm.dt||lm.tm);
+const pv=(ct.grp&&sn?sn+': ':'')+lm.tx;
+const rc=lm.fr==='me'?`<span style="color:var(--teal);margin-right:2px">${I('chk2','14','2.5')}</span>`:'';
+const mu=ch.mute?`<span style="color:var(--ts);margin-left:4px">${I('mute','14')}</span>`:'';
+return`<div class="ci${ch.pin?' pin':''}" onclick="openChat(${ch.cid})">
+${avH(ct.av,ct.clr,'48',ct.ls==='online',ct.grp)}
+<div class="ci-i"><div class="ci-t"><span class="cn">${ct.name}${mu}</span><span class="ct${ch.ur>0?' ur':''}">${td}</span></div>
+<div class="ci-b"><span class="cp">${rc}${pv}</span>${ch.ur>0?`<div class="ub">${ch.ur}</div>`:''}</div></div></div>`}).join('');
+$('clc').innerHTML=h;
+}
+
+// === CHAT VIEW ===
+function renderCH(){
+const ct=gc(curChat);if(!ct)return;
+const ch=chats.find(c=>c.cid===curChat);
+let status=ct.grp?`${ct.mem} members`:ct.ls;
+if(!ct.grp&&ct.ls==='online')status='online';
+$('cvh').innerHTML=`<div style="cursor:pointer;flex-shrink:0" onclick="go('chatlist')">${I('back','22')}</div>
+<div class="ch-i" onclick="go('cinfo')">${avH(ct.av,ct.clr,'38',false,ct.grp)}<div><div class="ch-n">${ct.name}</div><div class="ch-s">${status}</div></div></div>
+<div class="ch-a"><div style="cursor:pointer" onclick="startCall(true)">${I('video','20')}</div><div style="cursor:pointer" onclick="startCall(false)">${I('phone','20')}</div><div style="cursor:pointer">${I('more','20')}</div></div>`;
+}
+
+function renderMsgs(){
+const ch=chats.find(c=>c.cid===curChat);const ct=gc(curChat);if(!ch)return;
+let h=`<div class="eb">${I('lock','12')} Messages are end-to-end encrypted.</div>`;
+let lastDt='';
+ch.msgs.forEach((m,idx)=>{
+if(m.dt&&m.dt!==lastDt){h+=`<div class="ds"><div class="ds-i">${m.dt}</div></div>`;lastDt=m.dt}
+if(m.fr==='sys'){h+=`<div class="sm"><div class="sm-i">${I('shield','12')} ${m.tx}</div></div>`;return}
+const mine=m.fr==='me';
+let sn='';if(ct.grp&&!mine){const s=gc(m.fr);sn=s?`<div class="sn">${s.name.split(' ')[0]}</div>`:''}
+const rp=m.rp?`<div style="padding:6px 8px;margin-bottom:4px;background:rgba(0,0,0,.04);border-radius:6px;border-left:3px solid var(--coral)"><div style="font-size:11px;font-weight:600;color:var(--coral)">${m.rp.name}</div><div style="font-size:11px;color:var(--ts)">${m.rp.tx}</div></div>`:'';
+const st=m.st?`<span class="star">${I('star','12','2')}</span>`:'';
+h+=`<div class="br ${mine?'me':'th'}"><div class="bb ${mine?'se':'re'}" onclick="showCtx(event,${idx})">${sn}${rp}<div class="tx">${m.tx}</div><div class="mt">${st}<span class="tm">${m.tm}</span>${mine?`<span style="color:var(--teal)">${I('chk2','14','2.5')}</span>`:''}</div></div></div>`;
+});
+// Typing indicator for non-group chats after sending
+if(!ct.grp&&ch._typing){h+=`<div class="br th"><div class="bb re" style="padding:10px 14px"><div class="typing"><span></span><span></span><span></span></div></div></div>`}
+$('marea').innerHTML=h;
+$('marea').scrollTop=$('marea').scrollHeight;
+renderRpBar();
+}
+
+function renderRpBar(){
+if(!replyTo){$('rp-area').innerHTML='';return}
+const ct=gc(curChat);const ch=chats.find(c=>c.cid===curChat);const m=ch.msgs[replyTo];
+const name=m.fr==='me'?'You':(gc(m.fr)?.name||'');
+$('rp-area').innerHTML=`<div class="rp-bar"><div class="rp-content"><div class="rp-name">${name}</div><div class="rp-text">${m.tx}</div></div><div style="cursor:pointer" onclick="replyTo=null;renderRpBar()">${I('x','20')}</div></div>`;
+}
+
+function sendMsg(){
+const inp=$('minp');const tx=inp.value.trim();if(!tx)return;
+const ch=chats.find(c=>c.cid===curChat);if(!ch)return;
+const m={id:Date.now(),tx,fr:'me',tm:now(),dt:'Today'};
+if(replyTo!==null){const rm=ch.msgs[replyTo];m.rp={name:rm.fr==='me'?'You':(gc(rm.fr)?.name||''),tx:rm.tx.slice(0,60)};replyTo=null}
+ch.msgs.push(m);inp.value='';renderMsgs();hideAtt();
+// Auto reply
+ch._typing=true;renderMsgs();
+setTimeout(()=>{ch._typing=false;const replies=["Got it, thanks!","Sounds good!","I'll look into that.","Great point!","Noted!","On it!","Let's sync up later.","Perfect!","Will do!","Absolutely!"];
+ch.msgs.push({id:Date.now()+1,tx:replies[Math.floor(Math.random()*replies.length)],fr:curChat,tm:now(),dt:'Today'});
+if(!$('chatview').classList.contains('h'))renderMsgs()},1200+Math.random()*1500);
+}
+
+function showCtx(e,idx){
+e.stopPropagation();
+const ch=chats.find(c=>c.cid===curChat);const m=ch.msgs[idx];if(m.fr==='sys')return;
+const items=[
+{ic:I('reply','18'),lb:'Reply',fn:`replyTo=${idx};hideCtx();renderRpBar();$('minp').focus()`},
+{ic:I('forward','18'),lb:'Forward',fn:'hideCtx()'},
+{ic:I('copy','18'),lb:'Copy',fn:'hideCtx()'},
+{ic:I('star','18'),lb:m.st?'Unstar':'Star',fn:`chats.find(c=>c.cid===curChat).msgs[${idx}].st=${m.st?0:1};hideCtx();renderMsgs()`},
+{ic:I('trash','18'),lb:'Delete',fn:`chats.find(c=>c.cid===curChat).msgs.splice(${idx},1);hideCtx();renderMsgs()`}
+];
+$('ctxm').innerHTML=items.map(i=>`<div class="ctx-item" onclick="${i.fn}">${i.ic}<span>${i.lb}</span></div>`).join('');
+const rect=e.target.closest('.bb').getBoundingClientRect();
+const phone=$('phone').getBoundingClientRect();
+let top=rect.top-phone.top-60;let left=rect.left-phone.left;
+if(top<60)top=rect.bottom-phone.top+4;if(top>600)top=600;if(left>200)left=200;
+$('ctxm').style.top=top+'px';$('ctxm').style.left=Math.max(12,left)+'px';
+$('ctxm').classList.add('show');$('ov').classList.add('show');
+}
+function hideCtx(){$('ctxm').classList.remove('show');$('ov').classList.remove('show')}
+
+function toggleAtt(){$('attm').classList.toggle('show');
+if($('attm').classList.contains('show')){
+const items=[
+{ic:'var(--teal)',lb:'Document',i:I('doc','22')},{ic:'var(--coral)',lb:'Camera',i:I('cam','22')},
+{ic:'var(--peach)',lb:'Gallery',i:I('img','22')},{ic:'var(--green)',lb:'Location',i:I('loc','22')},
+{ic:'var(--teal)',lb:'Contact',i:I('contact','22')},{ic:'var(--pale-gold)',lb:'Audio',i:I('mic','22')}
+];
+$('attm').innerHTML=items.map(a=>`<div class="att-item" onclick="hideAtt()"><div class="att-ic" style="background:${a.ic};color:#fff">${a.i}</div><span>${a.lb}</span></div>`).join('')}
+}
+function hideAtt(){$('attm').classList.remove('show')}
+
+// === CONTACT INFO ===
+function renderCI(){
+const ct=gc(curChat);const ch=chats.find(c=>c.cid===curChat);
+const starCount=ch?ch.msgs.filter(m=>m.st).length:0;
+$('cinf-c').innerHTML=`
+<div class="inf-p">${avH(ct.av,ct.clr,'80',ct.ls==='online',ct.grp)}<div class="inf-n">${ct.name}</div><div class="inf-s">${ct.grp?`Group · ${ct.mem} members`:ct.ls}</div>
+<div style="display:flex;gap:24px;margin-top:16px">
+<div style="text-align:center;cursor:pointer" onclick="startCall(false)"><div style="width:40px;height:40px;border-radius:50%;background:rgba(77,126,130,.1);display:flex;align-items:center;justify-content:center;color:var(--teal);margin:0 auto">${I('phone','20')}</div><div style="font-size:11px;color:var(--teal);margin-top:4px">Call</div></div>
+<div style="text-align:center;cursor:pointer" onclick="startCall(true)"><div style="width:40px;height:40px;border-radius:50%;background:rgba(77,126,130,.1);display:flex;align-items:center;justify-content:center;color:var(--teal);margin:0 auto">${I('video','20')}</div><div style="font-size:11px;color:var(--teal);margin-top:4px">Video</div></div>
+<div style="text-align:center;cursor:pointer"><div style="width:40px;height:40px;border-radius:50%;background:rgba(77,126,130,.1);display:flex;align-items:center;justify-content:center;color:var(--teal);margin:0 auto">${I('search','20')}</div><div style="font-size:11px;color:var(--teal);margin-top:4px">Search</div></div>
+<div style="text-align:center;cursor:pointer" onclick="toggleMute()"><div style="width:40px;height:40px;border-radius:50%;background:rgba(77,126,130,.1);display:flex;align-items:center;justify-content:center;color:var(--teal);margin:0 auto">${ch&&ch.mute?I('mute','20'):I('vol','20')}</div><div style="font-size:11px;color:var(--teal);margin-top:4px">${ch&&ch.mute?'Unmute':'Mute'}</div></div>
+</div></div>
+<div class="inf-sec"><div class="inf-lb">About</div><div style="font-size:15px;color:var(--dg)">${ct.ab}</div></div>
+<div class="inf-sec">
+<div class="inf-r" onclick="go('media')"><span style="color:var(--ts)">${I('img','20')}</span><div class="inf-tx"><div class="lb">Media, Links, and Docs</div></div><span class="inf-dt">124</span>${chev}</div>
+<div class="inf-r"><span style="color:var(--ts)">${I('star','20')}</span><div class="inf-tx"><div class="lb">Starred Messages</div></div><span class="inf-dt">${starCount}</span>${chev}</div>
+</div>
+<div class="inf-sec">
+<div class="inf-r"><div class="inf-ic" style="color:var(--teal)">${I('shield','20')}</div><div class="inf-tx"><div class="lb">Encryption</div><div class="ds">Messages are end-to-end encrypted</div></div></div>
+<div class="inf-r"><div class="inf-ic" style="color:var(--teal)">${I('clock','20')}</div><div class="inf-tx"><div class="lb">Disappearing Messages</div></div><span class="inf-dt">Off</span>${chev}</div>
+<div class="inf-r"><div class="inf-ic" style="color:var(--teal)">${I('lock','20')}</div><div class="inf-tx"><div class="lb">Chat Lock</div></div><span class="inf-dt">Off</span>${chev}</div>
+</div>
+<div class="inf-sec"><div class="inf-r" style="border:none;color:var(--crimson)"><span>${I('block','20')}</span><div class="inf-tx"><div class="lb" style="color:var(--crimson)">Block ${ct.name.split(' ')[0]}</div></div></div></div>
+<div class="inf-sec"><div class="inf-r" style="border:none;color:var(--crimson)"><span>${I('trash','20')}</span><div class="inf-tx"><div class="lb" style="color:var(--crimson)">Delete Chat</div></div></div></div>
+<div style="height:20px"></div>`;
+}
+function toggleMute(){const ch=chats.find(c=>c.cid===curChat);if(ch)ch.mute=ch.mute?0:1;renderCI()}
+
+// === CALLS ===
+function renderCalls(){
+const calls=[{cid:1,tp:'in',vid:1,tm:'Today, 11:02 AM'},{cid:3,tp:'out',vid:0,tm:'Today, 9:45 AM'},
+{cid:5,tp:'miss',vid:0,tm:'Yesterday, 4:30 PM'},{cid:4,tp:'in',vid:1,tm:'Monday, 2:15 PM'},
+{cid:2,tp:'out',vid:0,tm:'Wednesday, 3:00 PM'},{cid:8,tp:'miss',vid:1,tm:'Last week'}];
+$('calls-c').innerHTML=`<div class="slb">RECENT</div>`+calls.map(cl=>{
+const ct=gc(cl.cid);const clr=cl.tp==='miss'?'var(--crimson)':cl.tp==='in'?'var(--teal)':'var(--coral)';
+const rot=cl.tp==='out'?'rotate(135deg)':'rotate(-45deg)';
+return`<div class="call-item" style="display:flex;align-items:center;gap:12px;padding:12px 16px;border-bottom:1px solid var(--lg)">
+${avH(ct.av,ct.clr,'48',ct.ls==='online')}<div style="flex:1"><div style="font-weight:600;font-size:15px;color:${cl.tp==='miss'?'var(--crimson)':'var(--dg)'}">${ct.name}</div>
+<div style="display:flex;align-items:center;gap:4px;margin-top:2px;font-size:13px;color:var(--ts)"><span style="color:${clr};transform:${rot};display:inline-flex">${I('back','12','2.5')}</span>${cl.tm}</div></div>
+<div style="cursor:pointer;color:var(--teal)" onclick="startCall(${cl.vid})">${cl.vid?I('video','20'):I('phone','20')}</div></div>`}).join('');
+}
+
+function startCall(vid){
+const ct=gc(curChat||1);callSec=0;
+$('acall-c').innerHTML=`
+<div class="call-av" style="background:linear-gradient(135deg,var(--coral),var(--teal))">${ct.av}</div>
+<div class="call-name">${ct.name}</div>
+<div class="call-status" id="call-st">${vid?'Video Call':'Voice Call'} · Connecting...</div>
+<div class="call-timer" id="call-tm" style="display:none">00:00</div>
+<div class="call-actions">
+<div class="call-btn" style="background:rgba(255,255,255,.15);color:#fff" onclick="this.style.background=this.style.background==='rgba(255, 255, 255, 0.3)'?'rgba(255,255,255,.15)':'rgba(255,255,255,.3)'"><span style="font-size:10px">${I('mute','22')}</span><span>Mute</span></div>
+${vid?`<div class="call-btn" style="background:rgba(255,255,255,.15);color:#fff"><span>${I('video','22')}</span><span>Camera</span></div>`:''}
+<div class="call-btn" style="background:rgba(255,255,255,.15);color:#fff"><span>${I('vol','22')}</span><span>Speaker</span></div>
+</div>
+<div class="call-end" onclick="endCall()"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07 19.5 19.5 0 01-6-6 19.79 19.79 0 01-3.07-8.67A2 2 0 014.11 2h3"/><line x1="23" y1="1" x2="1" y2="23"/></svg></div>`;
+go('activecall');
+setTimeout(()=>{$('call-st').textContent=(vid?'Video':'Voice')+' Call';$('call-tm').style.display='block';
+callTimer=setInterval(()=>{callSec++;const m=Math.floor(callSec/60);const s=callSec%60;$('call-tm').textContent=`${m<10?'0'+m:m}:${s<10?'0'+s:s}`},1000)},2000);
+}
+function endCall(){clearInterval(callTimer);go('chatview')}
+function renderACall(){}
+function renderICall(){
+const ct=gc(1);
+$('icall-c').innerHTML=`
+<div style="font-size:13px;color:rgba(255,255,255,.6);margin-bottom:8px;letter-spacing:1px;text-transform:uppercase">z.chat voice call</div>
+<div class="call-av" style="background:linear-gradient(135deg,var(--coral),var(--teal));animation:ring 2s infinite">${ct.av}</div>
+<div class="call-name">${ct.name}</div>
+<div class="call-status">Incoming call...</div>
+<div class="inc-btns">
+<div class="inc-btn" style="background:var(--crimson)" onclick="go('chatlist')"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2">${I('x','28').replace(/<\/?svg[^>]*>/g,'')}</svg><span>Decline</span></div>
+<div class="inc-btn" style="background:var(--green)" onclick="curChat=1;startCall(false)"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2">${I('phone','28').replace(/<\/?svg[^>]*>/g,'')}</svg><span>Accept</span></div>
+</div>`}
+
+// === SETTINGS ===
+function renderSet(){
+const ini=UP.name.split(' ').map(n=>n[0]).join('').toUpperCase().slice(0,2);
+const main=[{ic:'key',lb:'Account',ds:'Security, two-step verification',clr:'var(--teal)',to:'account'},
+{ic:'lock',lb:'Privacy',ds:'Last seen, blocked contacts',clr:'var(--teal)',to:'privacy'},
+{ic:'shield',lb:'Security',ds:'Encryption, device verification',clr:'var(--coral)',to:'security'},
+{ic:'bell',lb:'Notifications',ds:'Message, group & call tones',clr:'var(--peach)',to:'notifs'},
+{ic:'db',lb:'Storage & Data',ds:'Network usage, auto-download',clr:'var(--teal)',to:'storage'}];
+const extra=[{ic:'moon',lb:'Appearance',ds:'Theme, font size',clr:'var(--teal)',to:'appearance'},
+{ic:'globe',lb:'App Language',ds:'English',clr:'var(--coral)',to:'settings'},
+{ic:'help',lb:'Help',ds:'FAQ, contact us',clr:'var(--teal)',to:'help'},
+{ic:'star',lb:'Starred Messages',ds:'View your starred messages',clr:'var(--pale-gold)',to:'starred'}];
+const row=items=>items.map(i=>`<div class="sr" onclick="go('${i.to}')"><div class="inf-ic" style="background:${i.clr}18;color:${i.clr}">${I(i.ic,'20')}</div><div style="flex:1"><div style="font-size:15px;font-weight:500;color:var(--dg)">${i.lb}</div><div style="font-size:12.5px;color:var(--ts)">${i.ds}</div></div>${chev}</div>`).join('');
+$('set-c').innerHTML=`<div class="settings-profile" style="display:flex;align-items:center;gap:14px;padding:16px;background:#fff;margin-bottom:8px;cursor:pointer" onclick="go('editprofile')">
+<div class="av cr av56">${ini}</div><div style="flex:1"><div class="name" style="font-weight:700;font-size:17px;color:var(--dg)">${UP.name}</div><div class="about" style="font-size:13px;color:var(--ts)">${UP.ab}</div></div>${chev}</div>
+<div class="sct">${row(main)}</div><div class="sct">${row(extra)}</div>
+<div class="sf"><div class="br"><svg width="18" height="18" viewBox="0 0 100 100" fill="none"><circle cx="50" cy="50" r="45" stroke="#888" stroke-width="6" fill="none"/><text x="50" y="65" text-anchor="middle" font-size="48" font-weight="bold" fill="#888" font-family="system-ui">z</text></svg><span>z.chat</span></div><div class="ms">Redefining the game, one trade at a time</div><div class="ms" style="margin-top:2px">v1.0.0 · by z.systems</div></div>`;
+}
+
+// === EDIT PROFILE ===
+function renderEP(){
+const ini=UP.name.split(' ').map(n=>n[0]).join('').toUpperCase().slice(0,2);
+$('ep-c').innerHTML=`<div style="text-align:center;padding:24px 0"><div class="paw" style="margin:0 auto"><div class="pav">${ini}</div><div class="pac"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><path d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z"/><circle cx="12" cy="13" r="4"/></svg></div></div></div>
+<div style="background:#fff;padding:14px 16px;margin-bottom:8px"><div style="font-size:13px;color:var(--teal);font-weight:600;margin-bottom:4px">Name</div><div style="display:flex;align-items:center;justify-content:space-between"><span style="font-size:16px;color:var(--dg)">${UP.name}</span><span style="color:var(--coral)">${I('edit','18')}</span></div></div>
+<div style="background:#fff;padding:14px 16px;margin-bottom:8px"><div style="font-size:13px;color:var(--teal);font-weight:600;margin-bottom:4px">About</div><div style="display:flex;align-items:center;justify-content:space-between"><span style="font-size:15px;color:var(--dg)">${UP.ab}</span><span style="color:var(--coral)">${I('edit','18')}</span></div></div>
+<div style="background:#fff;padding:14px 16px"><div style="font-size:13px;color:var(--teal);font-weight:600;margin-bottom:4px">Phone</div><span style="font-size:16px;color:var(--dg)">${UP.ph}</span></div>`}
+
+// === ACCOUNT ===
+function renderAcc(){
+$('acc-c').innerHTML=`<div class="sct" style="margin-top:8px">
+<div class="sr"><div class="inf-ic" style="background:var(--teal)18;color:var(--teal)">${I('shield','20')}</div><div style="flex:1"><div style="font-size:15px;font-weight:500;color:var(--dg)">Two-Step Verification</div><div style="font-size:12.5px;color:var(--ts)">Enabled</div></div>${chev}</div>
+<div class="sr"><div class="inf-ic" style="background:var(--coral)18;color:var(--coral)">${I('key','20')}</div><div style="flex:1"><div style="font-size:15px;font-weight:500;color:var(--dg)">Change Number</div><div style="font-size:12.5px;color:var(--ts)">Change your phone number</div></div>${chev}</div>
+<div class="sr"><div class="inf-ic" style="background:var(--peach)18;color:var(--peach)">${I('wifi','20')}</div><div style="flex:1"><div style="font-size:15px;font-weight:500;color:var(--dg)">Request Account Info</div><div style="font-size:12.5px;color:var(--ts)">Request a report of your account</div></div>${chev}</div>
+</div><div class="sct"><div class="sr" style="border:none"><div class="inf-ic" style="background:rgba(237,47,60,.1);color:var(--crimson)">${I('trash','20')}</div><div style="flex:1"><div style="font-size:15px;font-weight:500;color:var(--crimson)">Delete My Account</div></div></div></div>`}
+
+// === PRIVACY ===
+function renderPriv(){
+const tgl=(id,on)=>`<label class="tgl"><input type="checkbox" ${on?'checked':''}><span class="sl"></span></label>`;
+$('priv-c').innerHTML=`<div class="sct" style="margin-top:8px">
+<div class="sr"><div style="flex:1"><div style="font-size:15px;font-weight:500;color:var(--dg)">Last Seen & Online</div><div style="font-size:12.5px;color:var(--ts)">Everyone</div></div>${chev}</div>
+<div class="sr"><div style="flex:1"><div style="font-size:15px;font-weight:500;color:var(--dg)">Profile Photo</div><div style="font-size:12.5px;color:var(--ts)">My Contacts</div></div>${chev}</div>
+<div class="sr"><div style="flex:1"><div style="font-size:15px;font-weight:500;color:var(--dg)">About</div><div style="font-size:12.5px;color:var(--ts)">Everyone</div></div>${chev}</div>
+<div class="sr"><div style="flex:1"><div style="font-size:15px;font-weight:500;color:var(--dg)">Read Receipts</div></div>${tgl('rr',true)}</div>
+</div><div class="sct">
+<div class="sr"><div style="flex:1"><div style="font-size:15px;font-weight:500;color:var(--dg)">Groups</div><div style="font-size:12.5px;color:var(--ts)">Everyone</div></div>${chev}</div>
+<div class="sr"><div style="flex:1"><div style="font-size:15px;font-weight:500;color:var(--dg)">Live Location</div><div style="font-size:12.5px;color:var(--ts)">None</div></div>${chev}</div>
+<div class="sr" onclick="go('blocked')"><div style="flex:1"><div style="font-size:15px;font-weight:500;color:var(--dg)">Blocked Contacts</div><div style="font-size:12.5px;color:var(--ts)">0</div></div>${chev}</div>
+</div><div class="sct">
+<div class="sr"><div style="flex:1"><div style="font-size:15px;font-weight:500;color:var(--dg)">App Lock</div></div>${tgl('al',false)}</div>
+<div class="sr"><div style="flex:1"><div style="font-size:15px;font-weight:500;color:var(--dg)">Chat Lock</div><div style="font-size:12.5px;color:var(--ts)">Lock and hide specific chats</div></div>${chev}</div>
+</div>`}
+
+// === SECURITY ===
+function renderSec(){
+$('sec-c').innerHTML=`<div style="padding:24px;text-align:center">
+<div style="width:64px;height:64px;border-radius:50%;background:rgba(77,126,130,.1);display:flex;align-items:center;justify-content:center;color:var(--teal);margin:0 auto 16px">${I('shield','32')}</div>
+<h3 style="font-size:18px;color:var(--dg);margin-bottom:8px">Your chats are secure</h3>
+<p style="font-size:13px;color:var(--ts);line-height:1.6">z.chat uses the Signal Protocol for end-to-end encryption. Messages, calls, photos, and videos are secured with encryption keys unique to each conversation.</p></div>
+<div class="sct">
+<div class="sr"><div class="inf-ic" style="color:var(--teal)">${I('lock','20')}</div><div style="flex:1"><div style="font-size:15px;font-weight:500;color:var(--dg)">Encryption Overview</div><div style="font-size:12.5px;color:var(--ts)">All chats are encrypted by default</div></div></div>
+<div class="sr"><div class="inf-ic" style="color:var(--teal)">${I('key','20')}</div><div style="flex:1"><div style="font-size:15px;font-weight:500;color:var(--dg)">Security Notifications</div><div style="font-size:12.5px;color:var(--ts)">Get notified when security codes change</div></div><label class="tgl"><input type="checkbox" checked><span class="sl"></span></label></div>
+<div class="sr"><div class="inf-ic" style="color:var(--teal)">${I('eye','20')}</div><div style="flex:1"><div style="font-size:15px;font-weight:500;color:var(--dg)">Show Security Notifications</div></div><label class="tgl"><input type="checkbox" checked><span class="sl"></span></label></div>
+</div>`}
+
+// === NOTIFICATIONS ===
+function renderNotif(){
+const tgl=(on)=>`<label class="tgl"><input type="checkbox" ${on?'checked':''}><span class="sl"></span></label>`;
+$('notif-c').innerHTML=`<div class="sct" style="margin-top:8px">
+<div style="padding:8px 16px 4px;font-size:13px;font-weight:600;color:var(--teal)">MESSAGE NOTIFICATIONS</div>
+<div class="sr"><div style="flex:1"><div style="font-size:15px;font-weight:500;color:var(--dg)">Show Notifications</div></div>${tgl(true)}</div>
+<div class="sr"><div style="flex:1"><div style="font-size:15px;font-weight:500;color:var(--dg)">Sound</div><div style="font-size:12.5px;color:var(--ts)">Default (z.chat tone)</div></div>${chev}</div>
+<div class="sr"><div style="flex:1"><div style="font-size:15px;font-weight:500;color:var(--dg)">Vibrate</div><div style="font-size:12.5px;color:var(--ts)">Default</div></div>${chev}</div>
+<div class="sr"><div style="flex:1"><div style="font-size:15px;font-weight:500;color:var(--dg)">High Priority</div></div>${tgl(true)}</div>
+</div><div class="sct">
+<div style="padding:8px 16px 4px;font-size:13px;font-weight:600;color:var(--teal)">GROUP NOTIFICATIONS</div>
+<div class="sr"><div style="flex:1"><div style="font-size:15px;font-weight:500;color:var(--dg)">Show Notifications</div></div>${tgl(true)}</div>
+<div class="sr"><div style="flex:1"><div style="font-size:15px;font-weight:500;color:var(--dg)">Sound</div><div style="font-size:12.5px;color:var(--ts)">Default (z.chat tone)</div></div>${chev}</div>
+</div><div class="sct">
+<div style="padding:8px 16px 4px;font-size:13px;font-weight:600;color:var(--teal)">CALLS</div>
+<div class="sr"><div style="flex:1"><div style="font-size:15px;font-weight:500;color:var(--dg)">Ringtone</div><div style="font-size:12.5px;color:var(--ts)">Default</div></div>${chev}</div>
+<div class="sr"><div style="flex:1"><div style="font-size:15px;font-weight:500;color:var(--dg)">Vibrate</div><div style="font-size:12.5px;color:var(--ts)">Default</div></div>${chev}</div>
+</div>`}
+
+// === STORAGE ===
+function renderStor(){
+$('stor-c').innerHTML=`<div style="padding:20px 16px;background:#fff;margin-top:8px;text-align:center">
+<div style="width:120px;height:120px;border-radius:50%;border:8px solid var(--teal);margin:0 auto;position:relative;display:flex;align-items:center;justify-content:center">
+<div><div style="font-size:24px;font-weight:800;color:var(--dg)">2.4</div><div style="font-size:12px;color:var(--ts)">GB used</div></div></div>
+<div style="display:flex;justify-content:center;gap:16px;margin-top:16px;font-size:12px">
+<div style="display:flex;align-items:center;gap:4px"><div style="width:10px;height:10px;border-radius:50%;background:var(--teal)"></div>Photos (1.2 GB)</div>
+<div style="display:flex;align-items:center;gap:4px"><div style="width:10px;height:10px;border-radius:50%;background:var(--coral)"></div>Videos (0.8 GB)</div>
+<div style="display:flex;align-items:center;gap:4px"><div style="width:10px;height:10px;border-radius:50%;background:var(--pale-gold)"></div>Other (0.4 GB)</div>
+</div></div>
+<div class="sct">
+<div style="padding:8px 16px 4px;font-size:13px;font-weight:600;color:var(--teal)">AUTO-DOWNLOAD</div>
+<div class="sr"><div style="flex:1"><div style="font-size:15px;font-weight:500;color:var(--dg)">When using mobile data</div><div style="font-size:12.5px;color:var(--ts)">Photos</div></div>${chev}</div>
+<div class="sr"><div style="flex:1"><div style="font-size:15px;font-weight:500;color:var(--dg)">When connected to Wi-Fi</div><div style="font-size:12.5px;color:var(--ts)">All media</div></div>${chev}</div>
+<div class="sr"><div style="flex:1"><div style="font-size:15px;font-weight:500;color:var(--dg)">When roaming</div><div style="font-size:12.5px;color:var(--ts)">No media</div></div>${chev}</div>
+</div>`}
+
+// === APPEARANCE ===
+function renderApp(){
+$('app-c').innerHTML=`<div class="sct" style="margin-top:8px">
+<div class="sr"><div style="flex:1"><div style="font-size:15px;font-weight:500;color:var(--dg)">Theme</div><div style="font-size:12.5px;color:var(--ts)">Light</div></div>${chev}</div>
+<div class="sr"><div style="flex:1"><div style="font-size:15px;font-weight:500;color:var(--dg)">Wallpaper</div><div style="font-size:12.5px;color:var(--ts)">Default</div></div>${chev}</div>
+<div class="sr"><div style="flex:1"><div style="font-size:15px;font-weight:500;color:var(--dg)">Font Size</div><div style="font-size:12.5px;color:var(--ts)">Medium</div></div>${chev}</div>
+</div>
+<div style="padding:16px"><div style="font-size:13px;font-weight:600;color:var(--teal);margin-bottom:12px">ACCENT COLOR</div>
+<div style="display:flex;gap:12px;flex-wrap:wrap">
+${['#E46C53','#4D7E82','#ED2F3C','#F1A167','#F3D292'].map((c,i)=>`<div style="width:44px;height:44px;border-radius:50%;background:${c};display:flex;align-items:center;justify-content:center;cursor:pointer;${i===0?'border:3px solid var(--dg)':''}">${i===0?'<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg>':''}</div>`).join('')}
+</div></div>`}
+
+// === HELP ===
+function renderHelp(){
+$('help-c').innerHTML=`<div class="sct" style="margin-top:8px">
+<div class="sr"><div style="flex:1"><div style="font-size:15px;font-weight:500;color:var(--dg)">FAQ</div></div>${chev}</div>
+<div class="sr"><div style="flex:1"><div style="font-size:15px;font-weight:500;color:var(--dg)">Contact Us</div></div>${chev}</div>
+<div class="sr"><div style="flex:1"><div style="font-size:15px;font-weight:500;color:var(--dg)">Terms & Privacy Policy</div></div>${chev}</div>
+<div class="sr"><div style="flex:1"><div style="font-size:15px;font-weight:500;color:var(--dg)">Licenses</div></div>${chev}</div>
+</div><div style="padding:24px;text-align:center">
+<svg width="48" height="48" viewBox="0 0 100 100" fill="none"><circle cx="50" cy="50" r="45" stroke="var(--ts)" stroke-width="4" fill="none"/><text x="50" y="65" text-anchor="middle" font-size="48" font-weight="bold" fill="var(--ts)" font-family="system-ui">z</text></svg>
+<div style="font-size:14px;font-weight:600;color:var(--ts);margin-top:8px">z.chat v1.0.0</div>
+<div style="font-size:12px;color:var(--ts);margin-top:4px">Made with care by z.systems</div>
+<div style="font-size:11px;color:var(--ts);margin-top:2px">Redefining the game, one trade at a time</div></div>`}
+
+// === STARRED ===
+function renderStarred(){
+const all=[];chats.forEach(ch=>{ch.msgs.forEach(m=>{if(m.st){const ct=gc(ch.cid);all.push({msg:m,chat:ct})}})});
+if(!all.length){$('star-c').innerHTML=`<div class="empty"><svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="var(--ts)" stroke-width="1.5">${I('star','48').replace(/<\/?svg[^>]*>/g,'')}</svg><h3>No Starred Messages</h3><p>Tap and hold on any message to star it for easy access later.</p></div>`;return}
+$('star-c').innerHTML=all.map(s=>`<div class="star-item"><div style="flex:1"><div style="font-size:12px;font-weight:600;color:var(--coral)">${s.msg.fr==='me'?'You':gc(s.msg.fr)?.name||''}</div><div style="font-size:14px;color:var(--dg);margin-top:2px">${s.msg.tx}</div><div style="font-size:11px;color:var(--ts);margin-top:4px">${s.chat.name} · ${s.msg.tm}</div></div><span style="color:var(--pale-gold)">${I('star','16','2')}</span></div>`).join('')}
+
+// === MEDIA GALLERY ===
+function renderMedia(){
+const colors=['var(--coral)','var(--teal)','var(--peach)','var(--pale-gold)','var(--crimson)','var(--teal)','var(--coral)','var(--peach)','var(--pale-gold)'];
+let html=`<div style="display:flex;border-bottom:2px solid var(--coral);background:#fff">
+<div style="flex:1;text-align:center;padding:12px;font-size:14px;font-weight:600;color:var(--coral)">Media</div>
+<div style="flex:1;text-align:center;padding:12px;font-size:14px;color:var(--ts)">Docs</div>
+<div style="flex:1;text-align:center;padding:12px;font-size:14px;color:var(--ts)">Links</div></div>
+<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:2px;padding:2px">`;
+for(let i=0;i<9;i++){html+=`<div style="aspect-ratio:1;background:${colors[i]};display:flex;align-items:center;justify-content:center;color:rgba(255,255,255,.5)">${I('img','32')}</div>`}
+html+='</div>';$('media-c').innerHTML=html}
+
+// === BLOCKED ===
+function renderBlocked(){
+$('blk-c').innerHTML=`<div class="empty"><svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="var(--ts)" stroke-width="1.5">${I('block','48').replace(/<\/?svg[^>]*>/g,'')}</svg><h3>No Blocked Contacts</h3><p>Blocked contacts can't send you messages or call you.</p></div>`}
+
+// === NEW CHAT ===
+function renderNC(f=''){
+$('ncnt').textContent=C.length+' contacts';
+const ppl=C.filter(c=>!c.grp);const fl=f?ppl.filter(c=>c.name.toLowerCase().includes(f.toLowerCase())):ppl;
+$('nc-c').innerHTML=`<div style="padding:8px 0">
+<div class="aci" onclick="go('grpsel')"><div class="aic">${I('users','20')}</div><span style="font-size:15px;font-weight:500;color:var(--dg)">New Group</span></div>
+<div class="aci" onclick="go('addcontact')"><div class="aic">${I('contact','20')}</div><span style="font-size:15px;font-weight:500;color:var(--dg)">New Contact</span></div>
+</div><div class="slb">CONTACTS ON Z.CHAT</div>`+fl.map(c=>`<div class="cti" onclick="openChat(${c.id})">${avH(c.av,c.clr,'48',c.ls==='online')}<div><div style="font-weight:600;font-size:15px;color:var(--dg)">${c.name}</div><div style="font-size:13px;color:var(--ts)">${c.ab}</div></div></div>`).join('')}
+
+// === ADD CONTACT ===
+function valAC(){$('acbtn').disabled=!($('afn').value.trim()&&$('aph').value.trim().length>=6)}
+function doAddContact(){
+const f=$('afn').value.trim(),l=$('aln').value.trim(),n=l?`${f} ${l}`:f;
+const ini=(f[0]+(l?l[0]:f[1]||'')).toUpperCase();
+const id=C.length+1;C.push({id,name:n,av:ini,ls:'online',ab:"Hey there! I'm using z.chat",clr:'cr'});
+openChat(id)}
+
+// === GROUP ===
+function renderGS(f=''){
+const ppl=C.filter(c=>!c.grp);const fl=f?ppl.filter(c=>c.name.toLowerCase().includes(f.toLowerCase())):ppl;
+$('gs-c').innerHTML=fl.map(c=>{const sel=selGM.has(c.id);
+return`<div class="cti" style="position:relative" onclick="tglGM(${c.id})">${avH(c.av,c.clr,'48',c.ls==='online')}<div style="flex:1"><div style="font-weight:600;font-size:15px;color:var(--dg)">${c.name}</div><div style="font-size:13px;color:var(--ts)">${c.ab}</div></div><div class="ck-c${sel?' on':''}">${sel?'<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg>':''}</div></div>`}).join('');
+const bar=$('selbar');bar.innerHTML=selGM.size?[...selGM].map(id=>{const c=gc(id);return`<div class="sel-c">${avH(c.av,c.clr,'38')}<div class="rm" onclick="event.stopPropagation();tglGM(${id})">x</div><span>${c.name.split(' ')[0]}</span></div>`}).join(''):'';
+$('gmcnt').textContent=selGM.size?selGM.size+' selected':'Add members';
+$('gnxt').disabled=!selGM.size;$('gnxt').style.opacity=selGM.size?'1':'.5'}
+function tglGM(id){selGM.has(id)?selGM.delete(id):selGM.add(id);renderGS($('gsrch').value)}
+
+function renderGI(){
+$('gi-mc').textContent=selGM.size;
+$('gmprev').innerHTML=[...selGM].map(id=>{const c=gc(id);return`<div style="display:flex;align-items:center;gap:12px;padding:8px 0;border-bottom:1px solid var(--lg)">${avH(c.av,c.clr,'38',c.ls==='online')}<div><div style="font-weight:600;font-size:14px;color:var(--dg)">${c.name}</div><div style="font-size:12px;color:var(--ts)">${c.ab}</div></div></div>`}).join('')}
+
+function doCreateGroup(){
+const n=$('gninp').value.trim();const id=C.length+1;
+C.push({id,name:n,av:n.slice(0,2).toUpperCase(),ls:'online',ab:$('gdinp').value||'Group chat',grp:1,mem:selGM.size+1,clr:'tl'});
+chats.unshift({cid:id,pin:0,ur:0,arch:0,mute:0,msgs:[{id:1,tx:`${UP.name} created group "${n}"`,fr:'sys',tm:now(),dt:'Today'}]});
+selGM.clear();$('gninp').value='';$('gdinp').value='';openChat(id)}
+
+// === NAV ===
+function renderNav(id,ac){
+const items=[{k:'chats',lb:'Chats',ic:I('phone','22').replace('phone','').replace(/<svg[^>]*>/,'<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">')},{k:'calls',lb:'Calls'},{k:'settings',lb:'Settings'}];
+const icons={chats:'<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>',
+calls:I('phone','22'),settings:'<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83 0 2 2 0 010-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 010-2.83 2 2 0 012.83 0l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 0 2 2 0 010 2.83l-.06.06a1.65 1.65 0 00-.33 1.82V9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg>'};
+const dest={chats:'chatlist',calls:'calls',settings:'settings'};
+$(id).innerHTML=['chats','calls','settings'].map(k=>`<button class="ni${k===ac?' ac':''}" onclick="go('${dest[k]}')">${icons[k]}<span>${k.charAt(0).toUpperCase()+k.slice(1)}</span>${k===ac?'<div class="nd"></div>':''}</button>`).join('')}
+
+function openChat(cid){
+curChat=cid;const ch=chats.find(c=>c.cid===cid);
+if(ch)ch.ur=0;
+if(!ch)chats.unshift({cid,pin:0,ur:0,arch:0,mute:0,msgs:[{id:1,tx:"Messages are end-to-end encrypted.",fr:'sys',tm:now(),dt:'Today'}]});
+replyTo=null;go('chatview')}
+
+// === INIT ===
+setTimeout(()=>go('welcome'),2400);
+</script>
+</body>
+</html>

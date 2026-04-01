@@ -12,6 +12,7 @@ import {
 import { useRouter } from 'expo-router';
 import { colors, spacing, typography, borderRadius } from '../theme';
 import { contactApi, groupApi, ContactItem, tokenStorage } from '../services/api';
+import { generateGroupKey, generateGroupKeyBundle } from '../services/crypto';
 
 type Step = 'select-members' | 'group-details';
 
@@ -94,6 +95,17 @@ export default function CreateGroupScreen() {
         description: groupDescription.trim() || undefined,
         memberIds: [...selectedIds],
       });
+
+      // Generate group key and distribute to all participants who have a public key
+      const recipients = chat.participants
+        .filter((p) => p.user?.publicKey)
+        .map((p) => ({ userId: p.userId, publicKeyB64: p.user!.publicKey! }));
+
+      if (recipients.length > 0) {
+        const groupKey = generateGroupKey();
+        const keyBundles = generateGroupKeyBundle(groupKey, recipients);
+        await groupApi.distributeKeys(chat.id, keyBundles, 1).catch(() => {});
+      }
 
       router.replace({
         pathname: '/chat',

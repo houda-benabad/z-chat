@@ -13,6 +13,7 @@ model User {
   name          String?
   about         String?
   avatar        String?
+  publicKey     String?            @map("public_key")
   lastSeen      DateTime           @default(now()) @map("last_seen")
   isOnline      Boolean            @default(false) @map("is_online")
   createdAt     DateTime           @default(now()) @map("created_at")
@@ -46,6 +47,10 @@ model RefreshToken {
 model Chat {
   id           String            @id @default(uuid())
   type         String            @default("direct") // "direct" | "group"
+  name         String?
+  description  String?
+  avatar       String?
+  createdBy    String?           @map("created_by")
   createdAt    DateTime          @default(now()) @map("created_at")
   updatedAt    DateTime          @updatedAt @map("updated_at")
   participants ChatParticipant[]
@@ -58,10 +63,13 @@ model ChatParticipant {
   id                String    @id @default(uuid())
   chatId            String    @map("chat_id")
   userId            String    @map("user_id")
+  role              String    @default("member") // "admin" | "member"
   joinedAt          DateTime  @default(now()) @map("joined_at")
   lastReadMessageId String?   @map("last_read_message_id")
   isPinned          Boolean   @default(false) @map("is_pinned")
   deletedAt         DateTime? @map("deleted_at")
+  encryptedGroupKey String?   @map("encrypted_group_key")
+  groupKeyVersion   Int       @default(0) @map("group_key_version")
 
   chat Chat @relation(fields: [chatId], references: [id], onDelete: Cascade)
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)

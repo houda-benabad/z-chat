@@ -12,6 +12,7 @@ import {
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { colors, spacing, typography, borderRadius } from '../theme';
 import { contactApi, groupApi, ContactItem, GroupInfo, tokenStorage } from '../services/api';
+import { decryptGroupKey, generateGroupKeyBundle } from '../services/crypto';
 
 export default function AddGroupMembersScreen() {
   const { chatId } = useLocalSearchParams<{ chatId: string }>();
@@ -23,6 +24,7 @@ export default function AddGroupMembersScreen() {
   const [adding, setAdding] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [existingMemberIds, setExistingMemberIds] = useState<Set<string>>(new Set());
+  const [groupInfo, setGroupInfo] = useState<GroupInfo | null>(null);
 
   useEffect(() => {
     const init = async () => {
@@ -34,6 +36,7 @@ export default function AddGroupMembersScreen() {
         setContacts(contactsRes.contacts);
         setFiltered(contactsRes.contacts);
         if (groupRes) {
+          setGroupInfo(groupRes.group);
           setExistingMemberIds(new Set(groupRes.group.participants.map((p) => p.userId)));
         }
       } catch {
@@ -72,14 +75,36 @@ export default function AddGroupMembersScreen() {
     if (!chatId || selectedIds.size === 0) return;
     setAdding(true);
     try {
-      await groupApi.addMembers(chatId, [...selectedIds]);
+      const { chat } = await groupApi.addMembers(chatId, [...selectedIds]);
+
+      // Distribute the current group key to newly added members
+      if (groupInfo?.myEncryptedGroupKey) {
+        const currentGroupKey = await decryptGroupKey(groupInfo.myEncryptedGroupKey);
+        if (currentGroupKey) {
+          const newParticipants = chat.participants
+            .filter((p) => selectedIds.has(p.userId) && p.user?.publicKey);
+          const recipients = newParticipants.map((p) => ({
+            userId: p.userId,
+            publicKeyB64: p.user!.publicKey!,
+          }));
+          if (recipients.length > 0) {
+            const keyBundles = generateGroupKeyBundle(currentGroupKey, recipients);
+            await groupApi.distributeKeys(
+              chatId,
+              keyBundles,
+              groupInfo.groupKeyVersion ?? 1,
+            ).catch(() => {});
+          }
+        }
+      }
+
       router.back();
     } catch {
       Alert.alert('Error', 'Failed to add members');
     } finally {
       setAdding(false);
     }
-  }, [chatId, selectedIds, router]);
+  }, [chatId, selectedIds, router, groupInfo]);
 
   const renderContact = useCallback(
     ({ item }: { item: ContactItem }) => {

@@ -74,6 +74,7 @@ export interface ChatParticipantUser {
   avatar: string | null;
   isOnline: boolean;
   lastSeen: string;
+  publicKey?: string | null;
 }
 
 export interface ChatParticipant {
@@ -82,6 +83,8 @@ export interface ChatParticipant {
   userId: string;
   lastReadMessageId: string | null;
   isPinned: boolean;
+  encryptedGroupKey?: string | null;
+  groupKeyVersion?: number;
   user: ChatParticipantUser;
 }
 
@@ -141,7 +144,7 @@ export const chatApi = {
       body: JSON.stringify({ participantId }),
     }),
 
-  getMessages: (chatId: string, cursor?: string): Promise<{ messages: ChatMessage[]; nextCursor: string | null; participants: { userId: string; lastReadMessageId: string | null; user: { isOnline: boolean } }[] }> =>
+  getMessages: (chatId: string, cursor?: string): Promise<{ messages: ChatMessage[]; nextCursor: string | null; participants: { userId: string; lastReadMessageId: string | null; encryptedGroupKey?: string | null; groupKeyVersion?: number; user: { isOnline: boolean; publicKey?: string | null } }[] }> =>
     request(`/chats/${chatId}/messages${cursor ? `?cursor=${cursor}` : ''}`),
 
   searchUser: (phone: string): Promise<{ user: ChatParticipantUser }> =>
@@ -161,6 +164,8 @@ export interface GroupInfo {
   createdAt: string;
   participants: (ChatParticipant & { role: string })[];
   memberCount: number;
+  myEncryptedGroupKey?: string | null;
+  groupKeyVersion?: number;
 }
 
 export const groupApi = {
@@ -201,6 +206,16 @@ export const groupApi = {
     request(`/groups/${chatId}/members/${userId}/role`, {
       method: 'PATCH',
       body: JSON.stringify({ role }),
+    }),
+
+  distributeKeys: (
+    chatId: string,
+    keys: { userId: string; encryptedKey: string }[],
+    version: number,
+  ): Promise<{ message: string; version: number }> =>
+    request(`/groups/${chatId}/keys`, {
+      method: 'POST',
+      body: JSON.stringify({ keys, version }),
     }),
 };
 
@@ -360,6 +375,7 @@ export interface PublicUserProfile {
   avatar: string | null;
   isOnline: boolean;
   lastSeen: string;
+  publicKey?: string | null;
 }
 
 export const userApi = {
@@ -373,6 +389,12 @@ export const userApi = {
     request('/users/me', {
       method: 'PATCH',
       body: JSON.stringify(data),
+    }),
+
+  uploadPublicKey: (publicKey: string): Promise<{ user: { id: string; publicKey: string } }> =>
+    request('/users/me/keys', {
+      method: 'PATCH',
+      body: JSON.stringify({ publicKey }),
     }),
 };
 

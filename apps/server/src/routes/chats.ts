@@ -151,6 +151,10 @@ export function createChatRouter(prisma: PrismaClient, jwtSecret: string): Route
           return {
             id: chat.id,
             type: chat.type,
+            name: chat.name ?? null,
+            avatar: chat.avatar ?? null,
+            description: chat.description ?? null,
+            createdBy: chat.createdBy ?? null,
             participants: chat.participants,
             lastMessage,
             unreadCount,
@@ -237,20 +241,32 @@ export function createChatRouter(prisma: PrismaClient, jwtSecret: string): Route
       const hasMore = messages.length > limit;
       if (hasMore) messages.pop();
 
-      // Return participants' read status and online state so the client can render read receipts and online indicator
+      // Return participants' read status, online state, public key, and (for groups)
+      // the requesting user's own encrypted group key so the client can decrypt messages.
       const participants = await prisma.chatParticipant.findMany({
         where: { chatId },
         select: {
           userId: true,
           lastReadMessageId: true,
-          user: { select: { isOnline: true } },
+          encryptedGroupKey: true,
+          groupKeyVersion: true,
+          user: { select: { isOnline: true, publicKey: true } },
         },
       });
+
+      // Only expose each participant's own encrypted group key — never expose others'
+      const sanitizedParticipants = participants.map((p) => ({
+        userId: p.userId,
+        lastReadMessageId: p.lastReadMessageId,
+        encryptedGroupKey: p.userId === userId ? p.encryptedGroupKey : undefined,
+        groupKeyVersion: p.userId === userId ? p.groupKeyVersion : undefined,
+        user: p.user,
+      }));
 
       res.json({
         messages,
         nextCursor: hasMore ? messages[messages.length - 1]?.id : null,
-        participants,
+        participants: sanitizedParticipants,
       });
     }),
   );

@@ -13,6 +13,12 @@ interface AuthenticatedSocket extends Socket {
 // Map userId -> Set of socket IDs (user can have multiple connections)
 const userSockets = new Map<string, Set<string>>();
 
+let ioInstance: Server | null = null;
+
+export function getIO(): Server | null {
+  return ioInstance;
+}
+
 export function getUserSocketIds(userId: string): Set<string> | undefined {
   return userSockets.get(userId);
 }
@@ -41,6 +47,8 @@ export function createSocketServer(httpServer: HttpServer, prisma: PrismaClient,
     }
   });
 
+  ioInstance = io;
+
   io.on("connection", async (rawSocket) => {
     const socket = rawSocket as AuthenticatedSocket;
     const userId = socket.userId;
@@ -50,6 +58,9 @@ export function createSocketServer(httpServer: HttpServer, prisma: PrismaClient,
       userSockets.set(userId, new Set());
     }
     userSockets.get(userId)!.add(socket.id);
+
+    // Join personal room so we can target this user from HTTP routes
+    socket.join(`user:${userId}`);
 
     // Set user online
     await prisma.user.update({

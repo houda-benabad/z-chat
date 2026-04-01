@@ -12,6 +12,7 @@ import {
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { colors, spacing, typography, borderRadius } from '../theme';
 import { groupApi, GroupInfo, tokenStorage } from '../services/api';
+import { generateGroupKey, generateGroupKeyBundle } from '../services/crypto';
 
 export default function GroupInfoScreen() {
   const { chatId } = useLocalSearchParams<{ chatId: string }>();
@@ -66,7 +67,23 @@ export default function GroupInfoScreen() {
             onPress: async () => {
               try {
                 await groupApi.removeMember(chatId, userId);
-                loadGroup();
+                // Refresh group info after removal
+                const { group: refreshed } = await groupApi.getGroupInfo(chatId);
+                setGroup(refreshed);
+
+                // Admin: rotate group key so removed member can't decrypt future messages
+                if (isAdmin) {
+                  const remaining = refreshed.participants.filter((p) => p.user?.publicKey);
+                  if (remaining.length > 0) {
+                    const newGroupKey = generateGroupKey();
+                    const newVersion = (refreshed.groupKeyVersion ?? 0) + 1;
+                    const keyBundles = generateGroupKeyBundle(
+                      newGroupKey,
+                      remaining.map((p) => ({ userId: p.userId, publicKeyB64: p.user!.publicKey! })),
+                    );
+                    await groupApi.distributeKeys(chatId, keyBundles, newVersion).catch(() => {});
+                  }
+                }
               } catch {
                 Alert.alert('Error', 'Failed to remove member');
               }

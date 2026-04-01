@@ -17,8 +17,12 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { colors, spacing, typography, borderRadius } from '../theme';
-import { chatApi, ChatMessage, tokenStorage, settingsApi } from '../services/api';
+import { chatApi, ChatMessage, tokenStorage, settingsApi, userApi } from '../services/api';
 import { getSocket, connectSocket } from '../services/socket';
+import {
+  getOrCreateKeyPair, encryptMessage, decryptMessage, isEncrypted,
+  decryptGroupKey, encryptGroupMessage, decryptGroupMessage,
+} from '../services/crypto';
 import type { Socket } from 'socket.io-client';
 
 const CHAT_BG = '#ECE5DD';
@@ -125,10 +129,16 @@ export default function ChatScreen() {
   const [myUserId, setMyUserId] = useState('');
   const [isTyping, setIsTyping] = useState(false);
   const [isOnline, setIsOnline] = useState(recipientIsOnline === '1');
+  const onlineSetBySocket = useRef(false);
   const [isBlocked, setIsBlocked] = useState(false);
   const [socket, setSocket] = useState<Socket | null>(() => getSocket());
-  const [participantsData, setParticipantsData] = useState<{ userId: string; lastReadMessageId: string | null }[]>([]);
+  const [participantsData, setParticipantsData] = useState<{ userId: string; lastReadMessageId: string | null; encryptedGroupKey?: string | null; groupKeyVersion?: number; user: { isOnline: boolean; publicKey?: string | null } }[]>([]);
+  // Decrypted group key (base64) — null for 1-on-1 or while loading
+  const [groupKey, setGroupKey] = useState<string | null>(null);
   const [recipientLastReadMsgId, setRecipientLastReadMsgId] = useState<string | null>(null);
+  const [deliveredUpToMsgId, setDeliveredUpToMsgId] = useState<string | null>(null);
+  // E2E: recipient's X25519 public key (fetched once from participants data)
+  const [recipientPublicKey, setRecipientPublicKey] = useState<string | null>(null);
   const typingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const flatListRef = useRef<FlatList>(null);
 
@@ -143,6 +153,13 @@ export default function ChatScreen() {
     });
   }, []);
 
+  // Ensure this device has a key pair; upload if it was just generated
+  useEffect(() => {
+    getOrCreateKeyPair()
+      .then((publicKey) => userApi.uploadPublicKey(publicKey))
+      .catch(() => {});
+  }, []);
+
   // Check if this recipient is blocked
   useEffect(() => {
     if (!isGroup && recipientId) {
@@ -152,15 +169,41 @@ export default function ChatScreen() {
     }
   }, [isGroup, recipientId]);
 
-  // Extract recipient's last-read message ID and online status once we know who we are
+  // Extract recipient's last-read message ID, online status, and encryption keys
   useEffect(() => {
     if (!myUserId || !participantsData.length) return;
     const recipient = participantsData.find((p) => p.userId !== myUserId);
+    const me = participantsData.find((p) => p.userId === myUserId);
+
     if (recipient) {
       setRecipientLastReadMsgId(recipient.lastReadMessageId);
-      setIsOnline(recipient.user.isOnline);
+      if (recipient.user.publicKey) setRecipientPublicKey(recipient.user.publicKey);
+      if (!onlineSetBySocket.current) {
+        setIsOnline(recipient.user.isOnline);
+      }
     }
-  }, [myUserId, participantsData]);
+
+    // For group chats: decrypt the group key from our own participant entry
+    if (isGroup && me?.encryptedGroupKey) {
+      decryptGroupKey(me.encryptedGroupKey).then((key) => {
+        if (key) setGroupKey(key);
+      });
+    }
+  }, [myUserId, participantsData, isGroup]);
+
+  // Advance the delivered watermark whenever the recipient is online.
+  // Scans for the latest message sent by me — only moves forward, never back.
+  // When the recipient goes offline isOnline becomes false and this effect
+  // stops running, so previously delivered messages keep their double-gray tick.
+  useEffect(() => {
+    if (!isOnline || !myUserId || messages.length === 0) return;
+    for (let i = messages.length - 1; i >= 0; i--) {
+      if (messages[i]?.senderId === myUserId) {
+        setDeliveredUpToMsgId(messages[i]!.id);
+        break;
+      }
+    }
+  }, [isOnline, messages, myUserId]);
 
   // Index of the last message the recipient has read (-1 if unknown / none)
   const readUpToIndex = useMemo(() => {
@@ -171,6 +214,15 @@ export default function ChatScreen() {
     return -1;
   }, [messages, recipientLastReadMsgId]);
 
+  // Index of the last message delivered to the recipient (-1 if unknown / none)
+  const deliveredUpToIndex = useMemo(() => {
+    if (!deliveredUpToMsgId) return -1;
+    for (let i = 0; i < messages.length; i++) {
+      if (messages[i]?.id === deliveredUpToMsgId) return i;
+    }
+    return -1;
+  }, [messages, deliveredUpToMsgId]);
+
   // Ensure socket is available — connect if ChatListScreen hasn't done so yet
   useEffect(() => {
     const s = getSocket();
@@ -178,27 +230,78 @@ export default function ChatScreen() {
     connectSocket().then(setSocket).catch(() => {});
   }, []);
 
+  // Decrypt a batch of messages using the other party's public key.
+  // In a NaCl box 1-on-1 chat the shared secret is symmetric, so the same
+  // public key decrypts both sent AND received messages.
+  const decryptBatch = useCallback(async (
+    msgs: ChatMessage[],
+    otherPublicKey: string,
+  ): Promise<ChatMessage[]> => {
+    return Promise.all(msgs.map(async (msg) => {
+      if (!isEncrypted(msg.content)) return msg;
+      const plain = await decryptMessage(msg.content!, otherPublicKey);
+      return { ...msg, content: plain ?? '🔒 Unable to decrypt message' };
+    }));
+  }, []);
+
   const loadMessages = useCallback(async () => {
     if (!chatId) return;
     try {
       const data = await chatApi.getMessages(chatId);
-      setMessages(data.messages.reverse());
-      setNextCursor(data.nextCursor);
       if (data.participants) setParticipantsData(data.participants);
+
+      let msgs = data.messages.reverse();
+
+      if (!isGroup) {
+        // 1-on-1: decrypt using the other party's public key
+        const other = data.participants?.find((p) => p.userId === recipientId);
+        const pubKey = other?.user.publicKey;
+        if (pubKey) {
+          setRecipientPublicKey(pubKey);
+          msgs = await decryptBatch(msgs, pubKey);
+        }
+      } else {
+        // Group: decrypt using the group key stored in our participant entry
+        const myEntry = data.participants?.find((p) => p.encryptedGroupKey != null);
+        if (myEntry?.encryptedGroupKey) {
+          const gKey = await decryptGroupKey(myEntry.encryptedGroupKey);
+          if (gKey) {
+            setGroupKey(gKey);
+            msgs = msgs.map((msg) => {
+              if (!isEncrypted(msg.content)) return msg;
+              const plain = decryptGroupMessage(msg.content!, gKey);
+              return { ...msg, content: plain ?? '🔒 Unable to decrypt message' };
+            });
+          }
+        }
+      }
+
+      setMessages(msgs);
+      setNextCursor(data.nextCursor);
     } catch { /* ignore */ }
     finally { setLoading(false); }
-  }, [chatId]);
+  }, [chatId, isGroup, recipientId, decryptBatch]);
 
   const loadOlderMessages = useCallback(async () => {
     if (!chatId || !nextCursor || loadingMore) return;
     setLoadingMore(true);
     try {
       const data = await chatApi.getMessages(chatId, nextCursor);
-      setMessages((prev) => [...data.messages.reverse(), ...prev]);
+      let older = data.messages.reverse();
+      if (!isGroup && recipientPublicKey) {
+        older = await decryptBatch(older, recipientPublicKey);
+      } else if (isGroup && groupKey) {
+        older = older.map((msg) => {
+          if (!isEncrypted(msg.content)) return msg;
+          const plain = decryptGroupMessage(msg.content!, groupKey);
+          return { ...msg, content: plain ?? '🔒 Unable to decrypt message' };
+        });
+      }
+      setMessages((prev) => [...older, ...prev]);
       setNextCursor(data.nextCursor);
     } catch { /* ignore */ }
     finally { setLoadingMore(false); }
-  }, [chatId, nextCursor, loadingMore]);
+  }, [chatId, nextCursor, loadingMore, isGroup, recipientPublicKey, groupKey, decryptBatch]);
 
   useEffect(() => { loadMessages(); }, [loadMessages]);
 
@@ -206,9 +309,19 @@ export default function ChatScreen() {
   useEffect(() => {
     if (!socket || !chatId) return;
 
-    const handleNew = (message: ChatMessage) => {
+    const handleNew = async (message: ChatMessage) => {
       if (message.chatId !== chatId) return;
-      setMessages((prev) => prev.some((m) => m.id === message.id) ? prev : [...prev, message]);
+      let decrypted = message;
+      if (isEncrypted(message.content)) {
+        if (!isGroup && recipientPublicKey) {
+          const plain = await decryptMessage(message.content!, recipientPublicKey);
+          decrypted = { ...message, content: plain ?? '🔒 Unable to decrypt message' };
+        } else if (isGroup && groupKey) {
+          const plain = decryptGroupMessage(message.content!, groupKey);
+          decrypted = { ...message, content: plain ?? '🔒 Unable to decrypt message' };
+        }
+      }
+      setMessages((prev) => prev.some((m) => m.id === decrypted.id) ? prev : [...prev, decrypted]);
       if (message.senderId !== myUserId) {
         socket.emit('message:read', { chatId, messageId: message.id });
       }
@@ -221,11 +334,21 @@ export default function ChatScreen() {
       if (d.chatId !== chatId) return;
       setIsTyping(false);
     };
-    const handleOnline = (d: { userId: string }) => { if (d.userId === recipientId) setIsOnline(true); };
-    const handleOffline = (d: { userId: string }) => { if (d.userId === recipientId) setIsOnline(false); };
+    const handleOnline = (d: { userId: string }) => {
+      if (d.userId === recipientId) { onlineSetBySocket.current = true; setIsOnline(true); }
+    };
+    const handleOffline = (d: { userId: string }) => {
+      if (d.userId === recipientId) { onlineSetBySocket.current = true; setIsOnline(false); }
+    };
     const handleRead = (d: { chatId: string; userId: string; messageId: string }) => {
       if (d.chatId !== chatId || d.userId === myUserId) return;
       setRecipientLastReadMsgId(d.messageId);
+    };
+    // When the group key is rotated (member removed), re-fetch messages so
+    // they're decrypted with the current key. The server will return the new
+    // encrypted key in the participants list.
+    const handleKeyUpdated = (d: { chatId: string }) => {
+      if (d.chatId === chatId) loadMessages();
     };
 
     socket.on('message:new', handleNew);
@@ -234,6 +357,7 @@ export default function ChatScreen() {
     socket.on('user:online', handleOnline);
     socket.on('user:offline', handleOffline);
     socket.on('message:read', handleRead);
+    socket.on('group:key_updated', handleKeyUpdated);
 
     return () => {
       socket.off('message:new', handleNew);
@@ -242,6 +366,7 @@ export default function ChatScreen() {
       socket.off('user:online', handleOnline);
       socket.off('user:offline', handleOffline);
       socket.off('message:read', handleRead);
+      socket.off('group:key_updated', handleKeyUpdated);
     };
   }, [socket, chatId, myUserId, recipientId]);
 
@@ -261,7 +386,7 @@ export default function ChatScreen() {
     } catch { /* ignore */ }
   }, [recipientId]);
 
-  const handleSend = useCallback(() => {
+  const handleSend = useCallback(async () => {
     const content = inputText.trim();
     if (!content || !chatId || !socket) return;
 
@@ -269,15 +394,30 @@ export default function ChatScreen() {
     socket.emit('typing:stop', { chatId });
     if (typingTimeoutRef.current) { clearTimeout(typingTimeoutRef.current); typingTimeoutRef.current = null; }
 
-    // Use ack to add sender's own message immediately without waiting for the broadcast
-    socket.emit('message:send', { chatId, type: 'text', content }, (res: { message?: ChatMessage; error?: string }) => {
+    // Encrypt the message before sending
+    let payload = content;
+    try {
+      if (!isGroup && recipientPublicKey) {
+        payload = await encryptMessage(content, recipientPublicKey);
+      } else if (isGroup && groupKey) {
+        payload = encryptGroupMessage(content, groupKey);
+      }
+    } catch {
+      // Encryption failed — fall back to plaintext rather than blocking the send
+    }
+
+    // Use ack — store plaintext locally so sender sees readable content,
+    // while the server (and DB) only ever sees the ciphertext.
+    socket.emit('message:send', { chatId, type: 'text', content: payload }, (res: { message?: ChatMessage; error?: string }) => {
       if (res?.message) {
         setMessages((prev) =>
-          prev.some((m) => m.id === res.message!.id) ? prev : [...prev, res.message!]
+          prev.some((m) => m.id === res.message!.id)
+            ? prev
+            : [...prev, { ...res.message!, content }] // ← display plaintext, not ciphertext
         );
       }
     });
-  }, [socket, inputText, chatId]);
+  }, [socket, inputText, chatId, isGroup, recipientPublicKey, groupKey]);
 
   const handleTextChange = useCallback((text: string) => {
     setInputText(text);
@@ -341,9 +481,13 @@ export default function ChatScreen() {
               </Text>
               {isMine && !isGroup && (() => {
                 const isRead = readUpToIndex >= 0 && index <= readUpToIndex;
+                // Single check  = sent (recipient was offline, not yet delivered)
+                // Double gray   = delivered (recipient was online when message arrived)
+                // Double coral  = read (recipient opened the chat)
+                const delivered = isRead || (deliveredUpToIndex >= 0 && index <= deliveredUpToIndex);
                 return (
                   <Ionicons
-                    name="checkmark-done"
+                    name={delivered ? 'checkmark-done' : 'checkmark'}
                     size={14}
                     color={isRead ? CORAL : 'rgba(0,0,0,0.35)'}
                     style={{ marginLeft: 2 }}
@@ -355,7 +499,7 @@ export default function ChatScreen() {
         </View>
       </>
     );
-  }, [myUserId, messages, isGroup, readUpToIndex]);
+  }, [myUserId, messages, isGroup, readUpToIndex, deliveredUpToIndex]);
 
   if (loading) {
     return (

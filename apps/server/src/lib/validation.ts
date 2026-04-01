@@ -33,6 +33,18 @@ export const sendMessageSchema = z.object({
   replyToId: z.string().uuid().optional(),
 });
 
+export const uploadPublicKeySchema = z.object({
+  publicKey: z.string().min(40).max(100), // base64 X25519 public key (44 chars)
+});
+
+export const distributeGroupKeysSchema = z.object({
+  keys: z.array(z.object({
+    userId: z.string().uuid(),
+    encryptedKey: z.string().min(1),
+  })).min(1).max(256),
+  version: z.number().int().min(1),
+});
+
 export const markReadSchema = z.object({
   chatId: z.string().uuid("Invalid chat ID"),
   messageId: z.string().uuid("Invalid message ID"),
@@ -46,6 +58,32 @@ export const addContactSchema = z.object({
 export const syncContactsSchema = z.object({
   phones: z.array(z.string().regex(phoneRegex)).min(1).max(500),
 });
+
+export const createGroupSchema = z.object({
+  name: z.string().min(1, "Group name is required").max(100),
+  description: z.string().max(500).optional(),
+  avatar: z.string().url().optional(),
+  memberIds: z.array(z.string().uuid()).min(1, "At least one member required").max(256),
+});
+
+export const updateGroupSchema = z.object({
+  name: z.string().min(1).max(100).optional(),
+  description: z.string().max(500).nullable().optional(),
+  avatar: z.string().url().nullable().optional(),
+});
+
+export const addMembersSchema = z.object({
+  memberIds: z.array(z.string().uuid()).min(1).max(256),
+});
+
+export const updateMemberRoleSchema = z.object({
+  role: z.enum(["admin", "member"]),
+});
+
+export type CreateGroupInput = z.infer<typeof createGroupSchema>;
+export type UpdateGroupInput = z.infer<typeof updateGroupSchema>;
+export type AddMembersInput = z.infer<typeof addMembersSchema>;
+export type UpdateMemberRoleInput = z.infer<typeof updateMemberRoleSchema>;
 
 export type AddContactInput = z.infer<typeof addContactSchema>;
 export type SyncContactsInput = z.infer<typeof syncContactsSchema>;

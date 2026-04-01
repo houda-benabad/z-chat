@@ -17,6 +17,7 @@ import { useRouter } from 'expo-router';
 import { MAX_DISPLAY_NAME_LENGTH, MAX_ABOUT_LENGTH } from '@z-chat/shared';
 import { colors, spacing, typography, borderRadius } from '../theme';
 import { userApi, uploadAvatar, ApiError } from '../services/api';
+import { getOrCreateKeyPair } from '../services/crypto';
 
 const DEFAULT_AVATAR = require('../../assets/default-avatar.png');
 
@@ -69,6 +70,11 @@ export default function ProfileSetupScreen() {
         about: about.trim() || undefined,
         avatar: avatarUrl,
       });
+
+      // Generate E2E key pair (or retrieve existing) and publish the public key
+      const publicKey = await getOrCreateKeyPair();
+      await userApi.uploadPublicKey(publicKey);
+
       router.replace('/chat-list');
     } catch (err) {
       setError(

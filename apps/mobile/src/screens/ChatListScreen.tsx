@@ -10,8 +10,16 @@ import {
   ActivityIndicator,
   RefreshControl,
   Image,
+  Alert,
+  LayoutAnimation,
+  Platform,
+  UIManager,
 } from 'react-native';
-import { Swipeable } from 'react-native-gesture-handler';
+
+if (Platform.OS === 'android') {
+  UIManager.setLayoutAnimationEnabledExperimental?.(true);
+}
+import { Swipeable, TouchableOpacity } from 'react-native-gesture-handler';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
@@ -92,12 +100,17 @@ export default function ChatListScreen() {
   const socketRef = useRef<Socket | null>(null);
   const chatsRef = useRef<ChatListItem[]>([]);
   const myUserIdRef = useRef('');
+  const swipeableRefs = useRef<Map<string, Swipeable | null>>(new Map());
+  const deletingIdsRef = useRef<Set<string>>(new Set());
+  const swipeActiveRef = useRef(false);
 
   const loadChats = useCallback(async () => {
     try {
       const { chats: data } = await chatApi.getChats();
-      chatsRef.current = data;
-      setChats(data);
+      // Filter out any chats mid-deletion so a concurrent loadChats can't undo an optimistic removal
+      const filtered = data.filter((c) => !deletingIdsRef.current.has(c.id));
+      chatsRef.current = filtered;
+      setChats(filtered);
     } catch {
       // Silently handle — will retry on refresh
     }
@@ -241,13 +254,25 @@ export default function ChatListScreen() {
   }, [router]);
 
   const handleDeleteConversation = useCallback(async (chatId: string) => {
-    setDeleteTarget(null);
+    deletingIdsRef.current.add(chatId);
+    swipeableRefs.current.get(chatId)?.close();
+
+    LayoutAnimation.configureNext({
+      duration: 250,
+      update: { type: 'easeInEaseOut' },
+      delete: { type: 'easeInEaseOut', property: 'opacity' },
+    });
+    setChats((prev) => prev.filter((c) => c.id !== chatId));
+    chatsRef.current = chatsRef.current.filter((c) => c.id !== chatId);
+
     try {
       await chatApi.deleteConversation(chatId);
-      setChats((prev) => prev.filter((c) => c.id !== chatId));
-      chatsRef.current = chatsRef.current.filter((c) => c.id !== chatId);
-    } catch { /* ignore */ }
-  }, []);
+    } catch {
+      loadChats(); // revert on failure
+    } finally {
+      deletingIdsRef.current.delete(chatId);
+    }
+  }, [loadChats]);
 
   const renderChat = useCallback(
     ({ item }: { item: ChatListItem }) => {
@@ -284,28 +309,46 @@ export default function ChatListScreen() {
         }
       }
 
+      const confirmDelete = () => {
+        Alert.alert(
+          'Delete conversation',
+          `Delete your chat with ${displayName}? This cannot be undone.`,
+          [
+            {
+              text: 'Cancel',
+              style: 'cancel',
+              onPress: () => swipeableRefs.current.get(item.id)?.close(),
+            },
+            {
+              text: 'Delete',
+              style: 'destructive',
+              onPress: () => handleDeleteConversation(item.id),
+            },
+          ],
+        );
+      };
+
       const renderDeleteAction = () => (
-        <Pressable
-          style={styles.swipeDeleteAction}
-          onPress={() => handleDeleteConversation(item.id)}
-        >
+        <TouchableOpacity style={styles.swipeDeleteAction} onPress={confirmDelete}>
           <Ionicons name="trash-outline" size={22} color="#fff" />
           <Text style={styles.swipeDeleteText}>Delete</Text>
-        </Pressable>
+        </TouchableOpacity>
       );
 
       return (
         <Swipeable
+          ref={(ref) => swipeableRefs.current.set(item.id, ref)}
           renderRightActions={renderDeleteAction}
-          onSwipeableOpen={(direction) => {
-            if (direction === 'right') handleDeleteConversation(item.id);
-          }}
+          onSwipeableWillOpen={() => { swipeActiveRef.current = true; }}
+          onSwipeableClose={() => { swipeActiveRef.current = false; }}
           overshootRight={false}
           rightThreshold={80}
         >
         <Pressable
           style={({ pressed }) => [styles.chatItem, pressed && styles.chatItemPressed]}
           onPress={() => {
+            // Ignore tap if triggered by the swipe gesture
+            if (swipeActiveRef.current) return;
             // Optimistically clear the unread badge before entering the chat
             if (item.unreadCount > 0) {
               setChats((prev) => {
@@ -371,7 +414,7 @@ export default function ChatListScreen() {
         </Swipeable>
       );
     },
-    [myUserId, router, handleDeleteConversation],
+    [myUserId, router, handleDeleteConversation, swipeableRefs],
   );
 
   if (loading) {

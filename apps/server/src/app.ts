@@ -6,6 +6,7 @@ import { PrismaClient } from "@prisma/client";
 import { createAuthRouter } from "./routes/auth";
 import { createUserRouter } from "./routes/users";
 import { createChatRouter } from "./routes/chats";
+import { createGroupRouter } from "./routes/groups";
 import { createContactRouter } from "./routes/contacts";
 import { createSettingsRouter } from "./routes/settings";
 import { createUploadRouter } from "./routes/upload";
@@ -26,6 +27,7 @@ export function createApp(prisma: PrismaClient, jwtSecret: string, jwtRefreshSec
   app.use("/auth", createAuthRouter(prisma, jwtSecret, jwtRefreshSecret));
   app.use("/users", createUserRouter(prisma, jwtSecret));
   app.use("/chats", createChatRouter(prisma, jwtSecret));
+  app.use("/groups", createGroupRouter(prisma, jwtSecret));
   app.use("/contacts", createContactRouter(prisma, jwtSecret));
   app.use("/settings", createSettingsRouter(prisma, jwtSecret));
   app.use("/upload", createUploadRouter(jwtSecret));
