@@ -200,13 +200,14 @@ export function useGroupInfo(): UseGroupInfoReturn {
               router.replace('/chat-list');
             } catch {
               Alert.alert('Error', 'Failed to leave group');
+            } finally {
               setActionLoading(false);
             }
           },
         },
       ],
     );
-  }, [chatId, myUserId, router]);
+  }, [chatId, myUserId, actionLoading, router]);
 
   const handleAddMembers = useCallback(() => {
     router.push({

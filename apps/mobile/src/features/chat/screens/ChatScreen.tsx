@@ -121,7 +121,8 @@ export default function ChatScreen() {
 
   // ─── Block status ──────────────────────────────────────────────────────────
   const { isBlocked, handleUnblock } = useBlockStatus({ recipientId, isGroup });
-  const { isContact, handleAddContact: handleAddUnknownContact } = useContactStatus({ recipientId, isGroup });
+  const { isContact, contactNickname, handleAddContact: handleAddUnknownContact } = useContactStatus({ recipientId, isGroup });
+  const displayName = contactNickname ?? name ?? '';
 
   // ─── Message actions (long-press) ──────────────────────────────────────────
   const [actionMessage, setActionMessage] = useState<ChatMessage | null>(null);
@@ -299,7 +300,7 @@ export default function ChatScreen() {
   return (
     <View style={styles.container}>
       <ChatHeader
-        name={name ?? ''}
+        name={displayName}
         recipientAvatar={recipientAvatar || undefined}
         isOnline={isOnline}
         isTyping={isTyping}
@@ -310,7 +311,7 @@ export default function ChatScreen() {
           isGroup
             ? () => router.push({ pathname: '/group-info', params: { chatId } })
             : recipientId
-            ? () => router.push({ pathname: '/user-profile', params: { userId: recipientId, name: name ?? '' } })
+            ? () => router.push({ pathname: '/user-profile', params: { userId: recipientId, name: displayName } })
             : undefined
         }
         onSearchPress={() => setSearchOpen((o) => !o)}

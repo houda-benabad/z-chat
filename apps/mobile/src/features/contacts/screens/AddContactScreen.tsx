@@ -34,6 +34,8 @@ export default function AddContactScreen() {
     isValidPhone,
     handleSearch,
     handleAddContact,
+    handleMessage,
+    messagingLoading,
   } = useAddContact();
 
   const canAdd = contactName.trim().length > 0 && !saving && !added;
@@ -128,10 +130,15 @@ export default function AddContactScreen() {
                 </View>
 
                 <Pressable
-                  style={styles.messageButton}
-                  onPress={() => router.push({ pathname: '/chat', params: { recipientId: foundUser.id, recipientName: foundUser.name ?? foundUser.phone } })}
+                  style={[styles.messageButton, messagingLoading && styles.addButtonDisabled]}
+                  onPress={handleMessage}
+                  disabled={messagingLoading}
                 >
-                  <Text style={styles.addButtonText}>Message</Text>
+                  {messagingLoading ? (
+                    <ActivityIndicator size="small" color={appColors.white} />
+                  ) : (
+                    <Text style={styles.addButtonText}>Message</Text>
+                  )}
                 </Pressable>
               </>
             ) : (

@@ -94,15 +94,29 @@ async function tryRefreshToken(): Promise<string | null> {
 
 // ─── HTTP client ──────────────────────────────────────────────────────────────
 
+const TIMEOUT_MS = 15_000;
+
 async function fetchWithAuth(path: string, options: RequestInit, token: string | null): Promise<Response> {
-  return fetch(`${API_BASE_URL}${path}`, {
-    ...options,
-    headers: {
-      'Content-Type': 'application/json',
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
-      ...options.headers,
-    },
-  });
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), TIMEOUT_MS);
+  try {
+    return await fetch(`${API_BASE_URL}${path}`, {
+      ...options,
+      signal: controller.signal,
+      headers: {
+        'Content-Type': 'application/json',
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        ...options.headers,
+      },
+    });
+  } catch (err: unknown) {
+    if (err instanceof Error && err.name === 'AbortError') {
+      throw new ApiError(0, 'Request timed out. Check your connection.');
+    }
+    throw err;
+  } finally {
+    clearTimeout(timer);
+  }
 }
 
 export async function request<T>(path: string, options: RequestInit = {}): Promise<T> {

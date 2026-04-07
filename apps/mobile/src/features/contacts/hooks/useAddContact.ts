@@ -1,6 +1,6 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
 import { useRouter, useLocalSearchParams } from 'expo-router';
-import { contactApi, ApiError } from '@/shared/services/api';
+import { contactApi, chatApi, ApiError } from '@/shared/services/api';
 
 export interface FoundUser {
   id: string;
@@ -22,8 +22,10 @@ export interface UseAddContactReturn {
   foundUser: FoundUser | null;
   searched: boolean;
   isValidPhone: boolean;
+  messagingLoading: boolean;
   handleSearch: () => Promise<void>;
   handleAddContact: () => Promise<void>;
+  handleMessage: () => Promise<void>;
 }
 
 export function useAddContact(): UseAddContactReturn {
@@ -41,6 +43,7 @@ export function useAddContact(): UseAddContactReturn {
   const [nameError, setNameError] = useState<string | null>(null);
   const [foundUser, setFoundUser] = useState<FoundUser | null>(null);
   const [searched, setSearched] = useState(false);
+  const [messagingLoading, setMessagingLoading] = useState(false);
   const existingNamesRef = useRef<Set<string>>(new Set());
   const didPrefillSearch = useRef(false);
 
@@ -125,6 +128,27 @@ export function useAddContact(): UseAddContactReturn {
     }
   }, [foundUser, contactName, router]);
 
+  const handleMessage = useCallback(async () => {
+    if (!foundUser) return;
+    setMessagingLoading(true);
+    try {
+      const { chat } = await chatApi.createChat(foundUser.id);
+      router.push({
+        pathname: '/chat',
+        params: {
+          chatId: chat.id,
+          recipientId: foundUser.id,
+          name: foundUser.name ?? foundUser.phone,
+          ...(foundUser.avatar ? { recipientAvatar: foundUser.avatar } : {}),
+        },
+      });
+    } catch {
+      setAddError('Failed to open chat. Please try again.');
+    } finally {
+      setMessagingLoading(false);
+    }
+  }, [foundUser, router]);
+
   return {
     phone,
     setPhone,
@@ -137,7 +161,9 @@ export function useAddContact(): UseAddContactReturn {
     foundUser,
     searched,
     isValidPhone,
+    messagingLoading,
     handleSearch,
     handleAddContact,
+    handleMessage,
   };
 }
