@@ -1,3 +1,3 @@
-import SettingsAccountScreen from '../src/screens/SettingsAccountScreen';
+import SettingsAccountScreen from '../src/features/settings/screens/SettingsAccountScreen';
 
 export default SettingsAccountScreen;

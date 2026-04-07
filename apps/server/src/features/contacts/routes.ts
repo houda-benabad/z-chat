@@ -1,0 +1,24 @@
+import { Router } from "express";
+import { PrismaClient } from "@prisma/client";
+import { ContactRepository } from "./repository";
+import { ContactService } from "./service";
+import { ContactController } from "./controller";
+import { authMiddleware } from "../../shared/middleware/auth";
+import { validate } from "../../shared/middleware/validate";
+import { addContactSchema, syncContactsSchema } from "../../shared/utils/validation";
+
+export function createContactRouter(prisma: PrismaClient, jwtSecret: string): Router {
+  const repo = new ContactRepository(prisma);
+  const service = new ContactService(repo);
+  const controller = new ContactController(service);
+  const router = Router();
+
+  router.use(authMiddleware(jwtSecret));
+
+  router.post("/", validate(addContactSchema), controller.addContact);
+  router.get("/", controller.listContacts);
+  router.delete("/:id", controller.removeContact);
+  router.post("/sync", validate(syncContactsSchema), controller.syncContacts);
+
+  return router;
+}

@@ -2,7 +2,7 @@ import request from "supertest";
 import express from "express";
 import jwt from "jsonwebtoken";
 import { createApp } from "../app";
-import { setRedisInstance } from "../lib/redis";
+import { setRedisInstance } from "../shared/database/redis";
 
 // ── Mocks ──────────────────────────────────────────────────────────
 
@@ -94,7 +94,7 @@ const mockPrisma = {
 let app: express.Express;
 
 beforeAll(() => {
-  app = createApp(mockPrisma, JWT_SECRET, JWT_REFRESH_SECRET);
+  app = createApp(mockPrisma, mockRedis, JWT_SECRET, JWT_REFRESH_SECRET, "*", "http://localhost:3000");
 });
 
 beforeEach(() => {

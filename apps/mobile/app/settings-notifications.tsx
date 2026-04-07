@@ -1,3 +1,3 @@
-import SettingsNotificationsScreen from '../src/screens/SettingsNotificationsScreen';
+import SettingsNotificationsScreen from '../src/features/settings/screens/SettingsNotificationsScreen';
 
 export default SettingsNotificationsScreen;

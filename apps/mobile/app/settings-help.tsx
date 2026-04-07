@@ -1,3 +1,3 @@
-import SettingsHelpScreen from '../src/screens/SettingsHelpScreen';
+import SettingsHelpScreen from '../src/features/settings/screens/SettingsHelpScreen';
 
 export default SettingsHelpScreen;

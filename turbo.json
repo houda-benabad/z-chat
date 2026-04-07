@@ -11,6 +11,17 @@
     },
     "clean": {
       "cache": false
+    },
+    "type-check": {
+      "dependsOn": ["^build"],
+      "cache": true
+    },
+    "lint": {
+      "cache": true
+    },
+    "test": {
+      "cache": false,
+      "dependsOn": ["^build"]
     }
   }
 }

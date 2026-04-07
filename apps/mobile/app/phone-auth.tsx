@@ -1,3 +1,3 @@
-import PhoneAuthScreen from '../src/screens/PhoneAuthScreen';
+import PhoneAuthScreen from '../src/features/auth/screens/PhoneAuthScreen';
 
 export default PhoneAuthScreen;

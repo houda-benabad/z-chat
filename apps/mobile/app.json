@@ -34,7 +34,8 @@
           "icon": "./assets/default-avatar.png",
           "color": "#E46C53"
         }
-      ]
+      ],
+      "@sentry/react-native/expo"
     ]
   }
 }

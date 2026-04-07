@@ -1,3 +1,3 @@
-import SettingsStorageScreen from '../src/screens/SettingsStorageScreen';
+import SettingsStorageScreen from '../src/features/settings/screens/SettingsStorageScreen';
 
 export default SettingsStorageScreen;

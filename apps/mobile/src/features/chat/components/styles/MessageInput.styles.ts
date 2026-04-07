@@ -1,0 +1,75 @@
+import { StyleSheet } from 'react-native';
+import { typography } from '@/theme';
+import type { AppColors } from '@/shared/context/AppSettingsContext';
+
+export const createStyles = (colors: AppColors) => StyleSheet.create({
+  container: {
+    flexDirection: 'column',
+    gap: 0,
+    paddingHorizontal: 10,
+    paddingTop: 8,
+    backgroundColor: colors.surface,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: colors.border,
+  },
+  replyBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: 'rgba(228,108,83,0.1)',
+    borderLeftWidth: 3,
+    borderLeftColor: '#E46C53',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 4,
+    marginBottom: 6,
+  },
+  replyBarContent: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  replyBarText: {
+    flex: 1,
+    fontSize: 13,
+    color: colors.textSecondary,
+    fontFamily: undefined,
+  },
+  inputRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    gap: 8,
+  },
+  inputWrap: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    backgroundColor: colors.background,
+    borderRadius: 24,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    gap: 8,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 3,
+    elevation: 1,
+  },
+  textInput: {
+    flex: 1,
+    fontSize: 15,
+    fontFamily: typography.fontFamily,
+    color: colors.text,
+    maxHeight: 110,
+    padding: 0,
+    lineHeight: 20,
+  },
+  sendBtn: { marginBottom: 2 },
+  sendBtnGrad: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+});

@@ -14,6 +14,7 @@ model User {
   about         String?
   avatar        String?
   publicKey     String?            @map("public_key")
+  pushToken     String?            @map("push_token")
   lastSeen      DateTime           @default(now()) @map("last_seen")
   isOnline      Boolean            @default(false) @map("is_online")
   createdAt     DateTime           @default(now()) @map("created_at")
@@ -132,7 +133,7 @@ model UserSettings {
   notificationSound      Boolean  @default(true) @map("notification_sound")
   notificationVibrate    Boolean  @default(true) @map("notification_vibrate")
   notificationPreview    Boolean  @default(true) @map("notification_preview")
-  theme                  String   @default("system")
+  theme                  String   @default("light")
   accentColor            String   @default("#E46C53") @map("accent_color")
   fontSize               String   @default("medium") @map("font_size")
   autoDownloadPhotos     Boolean  @default(true) @map("auto_download_photos")

@@ -1,3 +1,3 @@
-import ProfileSetupScreen from '../src/screens/ProfileSetupScreen';
+import ProfileSetupScreen from '../src/features/user/screens/ProfileSetupScreen';
 
 export default ProfileSetupScreen;

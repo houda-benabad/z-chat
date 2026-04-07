@@ -1,3 +1,3 @@
-import CreateGroupScreen from '../src/screens/CreateGroupScreen';
+import CreateGroupScreen from '../src/features/groups/screens/CreateGroupScreen';
 
 export default CreateGroupScreen;

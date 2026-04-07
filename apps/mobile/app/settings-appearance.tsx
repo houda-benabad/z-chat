@@ -1,3 +1,3 @@
-import SettingsAppearanceScreen from '../src/screens/SettingsAppearanceScreen';
+import SettingsAppearanceScreen from '../src/features/settings/screens/SettingsAppearanceScreen';
 
 export default SettingsAppearanceScreen;

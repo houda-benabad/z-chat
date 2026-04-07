@@ -1,3 +1,3 @@
-import SettingsPrivacyScreen from '../src/screens/SettingsPrivacyScreen';
+import SettingsPrivacyScreen from '../src/features/settings/screens/SettingsPrivacyScreen';
 
 export default SettingsPrivacyScreen;

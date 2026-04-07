@@ -1,3 +1,3 @@
-import GroupInfoScreen from '../src/screens/GroupInfoScreen';
+import GroupInfoScreen from '../src/features/groups/screens/GroupInfoScreen';
 
 export default GroupInfoScreen;

@@ -1,38 +1,69 @@
-import express from "express";
+import * as Sentry from "@sentry/node";
+import express, { Request, Response, NextFunction } from "express";
 import helmet from "helmet";
 import cors from "cors";
 import path from "path";
+import { randomUUID } from "crypto";
 import { PrismaClient } from "@prisma/client";
-import { createAuthRouter } from "./routes/auth";
-import { createUserRouter } from "./routes/users";
-import { createChatRouter } from "./routes/chats";
-import { createGroupRouter } from "./routes/groups";
-import { createContactRouter } from "./routes/contacts";
-import { createSettingsRouter } from "./routes/settings";
-import { createUploadRouter } from "./routes/upload";
-import { errorHandler } from "./middleware/errorHandler";
+import Redis from "ioredis";
+import { createAuthRouter } from "./features/auth/routes";
+import { createUserRouter } from "./features/users/routes";
+import { createChatRouter } from "./features/chats/routes";
+import { createGroupRouter } from "./features/groups/routes";
+import { createContactRouter } from "./features/contacts/routes";
+import { createSettingsRouter } from "./features/settings/routes";
+import { createUploadRouter } from "./features/upload/routes";
+import { errorHandler } from "./shared/middleware/errorHandler";
+import { globalRateLimit } from "./shared/middleware/rateLimit";
 
-export function createApp(prisma: PrismaClient, jwtSecret: string, jwtRefreshSecret: string) {
+export function createApp(
+  prisma: PrismaClient,
+  redis: Redis,
+  jwtSecret: string,
+  jwtRefreshSecret: string,
+  allowedOrigin: string,
+  uploadBaseUrl: string,
+) {
   const app = express();
 
   app.use(helmet({ crossOriginResourcePolicy: { policy: "cross-origin" } }));
-  app.use(cors());
-  app.use(express.json());
+  app.use(cors({ origin: allowedOrigin, credentials: true }));
+  app.use(express.json({ limit: "1mb" }));
+
+  // Attach a unique request ID to every request for traceability
+  app.use((req: Request, _res: Response, next: NextFunction) => {
+    req.headers["x-request-id"] ??= randomUUID();
+    next();
+  });
+
   app.use("/uploads", express.static(path.join(process.cwd(), "public/uploads")));
 
   app.get("/health", (_req, res) => {
     res.json({ status: "ok" });
   });
 
-  app.use("/auth", createAuthRouter(prisma, jwtSecret, jwtRefreshSecret));
+  app.get("/health/ready", async (_req, res) => {
+    try {
+      await prisma.$queryRaw`SELECT 1`;
+      await redis.ping();
+      res.json({ status: "ready", db: "ok", cache: "ok" });
+    } catch (err) {
+      res.status(503).json({ status: "not ready", error: err instanceof Error ? err.message : "unknown" });
+    }
+  });
+
+  app.use(globalRateLimit);
+
+  app.use("/auth", createAuthRouter(prisma, redis, jwtSecret, jwtRefreshSecret));
   app.use("/users", createUserRouter(prisma, jwtSecret));
   app.use("/chats", createChatRouter(prisma, jwtSecret));
   app.use("/groups", createGroupRouter(prisma, jwtSecret));
   app.use("/contacts", createContactRouter(prisma, jwtSecret));
   app.use("/settings", createSettingsRouter(prisma, jwtSecret));
-  app.use("/upload", createUploadRouter(jwtSecret));
+  app.use("/upload", createUploadRouter(jwtSecret, uploadBaseUrl));
 
   app.use(errorHandler);
+  Sentry.setupExpressErrorHandler(app);
 
   return app;
 }

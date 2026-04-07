@@ -1,3 +1,3 @@
-import AddContactScreen from '../src/screens/AddContactScreen';
+import AddContactScreen from '../src/features/contacts/screens/AddContactScreen';
 
 export default AddContactScreen;

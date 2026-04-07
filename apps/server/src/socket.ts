@@ -1,9 +1,15 @@
 import { Server as HttpServer } from "http";
 import { Server, Socket } from "socket.io";
 import { PrismaClient } from "@prisma/client";
-import { verifyAccessToken } from "./lib/tokens";
-import { sendMessageSchema, markReadSchema } from "./lib/validation";
-import { getRedis } from "./lib/redis";
+import { verifyAccessToken } from "./shared/utils/tokens";
+import { sendMessageSchema, markReadSchema } from "./shared/utils/validation";
+import { getRedis } from "./shared/database/redis";
+import { ChatRepository } from "./features/chats/repository";
+import { ChatService } from "./features/chats/service";
+import { UserRepository } from "./features/users/repository";
+import { SettingsRepository } from "./features/settings/repository";
+import { sendPushNotification, messagePreviewText } from "./shared/utils/pushNotifications";
+import { logger } from "./shared/utils/logger";
 
 interface AuthenticatedSocket extends Socket {
   userId: string;
@@ -12,6 +18,24 @@ interface AuthenticatedSocket extends Socket {
 
 // Map userId -> Set of socket IDs (user can have multiple connections)
 const userSockets = new Map<string, Set<string>>();
+
+// ─── Per-user event throttle state ────────────────────────────────────────────
+interface ThrottleEntry { count: number; windowStart: number }
+const msgThrottle  = new Map<string, ThrottleEntry>(); // 60 messages/min
+const readThrottle = new Map<string, ThrottleEntry>(); // 30 read receipts/min
+const typingThrottle = new Map<string, number>();       // last typing:start timestamp
+
+function isRateLimited(map: Map<string, ThrottleEntry>, userId: string, limit: number, windowMs: number): boolean {
+  const now = Date.now();
+  const entry = map.get(userId) ?? { count: 0, windowStart: now };
+  if (now - entry.windowStart > windowMs) {
+    entry.count = 0;
+    entry.windowStart = now;
+  }
+  entry.count += 1;
+  map.set(userId, entry);
+  return entry.count > limit;
+}
 
 let ioInstance: Server | null = null;
 
@@ -23,12 +47,17 @@ export function getUserSocketIds(userId: string): Set<string> | undefined {
   return userSockets.get(userId);
 }
 
-export function createSocketServer(httpServer: HttpServer, prisma: PrismaClient, jwtSecret: string): Server {
+export function createSocketServer(httpServer: HttpServer, prisma: PrismaClient, jwtSecret: string, allowedOrigin: string): Server {
   const io = new Server(httpServer, {
-    cors: { origin: "*" },
+    cors: { origin: allowedOrigin, credentials: true },
     pingInterval: 25000,
     pingTimeout: 20000,
   });
+
+  const chatRepo = new ChatRepository(prisma);
+  const chatService = new ChatService(chatRepo);
+  const userRepo = new UserRepository(prisma);
+  const settingsRepo = new SettingsRepository(prisma);
 
   // Auth middleware — verify JWT on connection
   io.use((socket, next) => {
@@ -63,16 +92,10 @@ export function createSocketServer(httpServer: HttpServer, prisma: PrismaClient,
     socket.join(`user:${userId}`);
 
     // Set user online
-    await prisma.user.update({
-      where: { id: userId },
-      data: { isOnline: true, lastSeen: new Date() },
-    });
+    await userRepo.setOnlineStatus(userId, true);
 
     // Join all chat rooms this user belongs to
-    const participations = await prisma.chatParticipant.findMany({
-      where: { userId },
-      select: { chatId: true },
-    });
+    const participations = await chatRepo.getUserChatIds(userId);
     for (const p of participations) {
       socket.join(`chat:${p.chatId}`);
     }
@@ -84,21 +107,16 @@ export function createSocketServer(httpServer: HttpServer, prisma: PrismaClient,
 
     // --- Event: message:send ---
     socket.on("message:send", async (data, ack) => {
+      if (isRateLimited(msgThrottle, userId, 60, 60_000)) {
+        ack?.({ error: "Too many messages. Please slow down." });
+        return;
+      }
       try {
         const parsed = sendMessageSchema.parse(data);
+        const redis = getRedis();
 
-        // Verify sender is participant
-        const participant = await prisma.chatParticipant.findUnique({
-          where: { chatId_userId: { chatId: parsed.chatId, userId } },
-        });
-        if (!participant) {
-          ack?.({ error: "Not a participant of this chat" });
-          return;
-        }
-
-        // Create message
-        const message = await prisma.message.create({
-          data: {
+        const { message, chatParticipants } = await chatService.sendMessage(
+          {
             chatId: parsed.chatId,
             senderId: userId,
             type: parsed.type,
@@ -106,25 +124,9 @@ export function createSocketServer(httpServer: HttpServer, prisma: PrismaClient,
             mediaUrl: parsed.mediaUrl,
             replyToId: parsed.replyToId,
           },
-          include: {
-            sender: { select: { id: true, name: true, avatar: true } },
-            replyTo: {
-              select: { id: true, content: true, senderId: true, type: true },
-            },
-          },
-        });
-
-        // Update chat's updatedAt
-        await prisma.chat.update({
-          where: { id: parsed.chatId },
-          data: { updatedAt: new Date() },
-        });
-
-        // Fetch all participants
-        const chatParticipants = await prisma.chatParticipant.findMany({
-          where: { chatId: parsed.chatId },
-          select: { userId: true },
-        });
+          redis,
+          new Set(userSockets.keys()),
+        );
 
         // Ensure every connected participant is in the room and notify if needed
         for (const cp of chatParticipants) {
@@ -147,16 +149,23 @@ export function createSocketServer(httpServer: HttpServer, prisma: PrismaClient,
         // Broadcast to all participants in the chat room
         io.to(`chat:${parsed.chatId}`).emit("message:new", message);
 
-        const redis = getRedis();
-        for (const cp of chatParticipants) {
-          if (cp.userId !== userId && !userSockets.has(cp.userId)) {
-            // Queue message for offline user
-            await redis.lpush(`offline:${cp.userId}`, JSON.stringify(message));
+        // Send push notifications to offline participants
+        const offlineIds = (chatParticipants as Array<{ userId: string }>)
+          .filter((cp) => cp.userId !== userId && !userSockets.has(cp.userId))
+          .map((cp) => cp.userId);
+
+        if (offlineIds.length > 0) {
+          const pushTokens = await userRepo.getPushTokensByUserIds(offlineIds);
+          const senderName = (message as { sender?: { name?: string | null } }).sender?.name ?? "New message";
+          const body = messagePreviewText(parsed.type ?? "text");
+          for (const [, token] of pushTokens) {
+            sendPushNotification(token, senderName, body, { chatId: parsed.chatId });
           }
         }
 
         ack?.({ message });
       } catch (err) {
+        logger.error({ err, userId, chatId: (data as { chatId?: string })?.chatId }, "message:send failed");
         const errorMessage = err instanceof Error ? err.message : "Failed to send message";
         ack?.({ error: errorMessage });
       }
@@ -164,20 +173,27 @@ export function createSocketServer(httpServer: HttpServer, prisma: PrismaClient,
 
     // --- Event: message:read ---
     socket.on("message:read", async (data) => {
+      if (isRateLimited(readThrottle, userId, 30, 60_000)) return;
       try {
         const parsed = markReadSchema.parse(data);
 
-        await prisma.chatParticipant.update({
-          where: { chatId_userId: { chatId: parsed.chatId, userId } },
-          data: { lastReadMessageId: parsed.messageId },
-        });
+        // Validate the user is actually a participant in this chat
+        const participant = await chatRepo.findParticipant(parsed.chatId, userId);
+        if (!participant) return;
 
-        // Notify others that this user has read up to this message
-        socket.to(`chat:${parsed.chatId}`).emit("message:read", {
-          chatId: parsed.chatId,
-          userId,
-          messageId: parsed.messageId,
-        });
+        await chatRepo.markMessageRead(parsed.chatId, userId, parsed.messageId);
+
+        // Only broadcast the read receipt if the user has readReceipts enabled.
+        // Matching WhatsApp behaviour: disabling readReceipts means neither
+        // party can see read status.
+        const userSettings = await settingsRepo.getOrCreateSettings(userId);
+        if (userSettings.readReceipts !== false) {
+          socket.to(`chat:${parsed.chatId}`).emit("message:read", {
+            chatId: parsed.chatId,
+            userId,
+            messageId: parsed.messageId,
+          });
+        }
       } catch {
         // Silently ignore invalid read receipts
       }
@@ -185,6 +201,10 @@ export function createSocketServer(httpServer: HttpServer, prisma: PrismaClient,
 
     // --- Event: typing:start ---
     socket.on("typing:start", (data: { chatId: string }) => {
+      const now = Date.now();
+      const last = typingThrottle.get(userId) ?? 0;
+      if (now - last < 2000) return; // max one broadcast per 2 s per user
+      typingThrottle.set(userId, now);
       if (data.chatId) {
         socket.to(`chat:${data.chatId}`).emit("typing:start", {
           chatId: data.chatId,
@@ -211,11 +231,13 @@ export function createSocketServer(httpServer: HttpServer, prisma: PrismaClient,
         if (sockets.size === 0) {
           userSockets.delete(userId);
 
+          // Clean up per-user throttle state
+          typingThrottle.delete(userId);
+          msgThrottle.delete(userId);
+          readThrottle.delete(userId);
+
           // Set user offline
-          await prisma.user.update({
-            where: { id: userId },
-            data: { isOnline: false, lastSeen: new Date() },
-          });
+          await userRepo.setOnlineStatus(userId, false);
 
           // Broadcast offline status
           for (const p of participations) {

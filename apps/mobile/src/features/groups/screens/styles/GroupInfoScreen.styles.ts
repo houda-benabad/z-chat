@@ -1,0 +1,225 @@
+import { StyleSheet } from 'react-native';
+import { spacing, typography, borderRadius } from '@/theme';
+import type { AppColors } from '@/shared/context/AppSettingsContext';
+
+export const createStyles = (colors: AppColors) => StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: colors.background,
+  },
+  centered: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: colors.background,
+  },
+  errorText: {
+    fontSize: typography.sizes.md,
+    fontFamily: typography.fontFamily,
+    color: colors.textSecondary,
+  },
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: spacing.md,
+    paddingTop: 60,
+    paddingBottom: spacing.md,
+    backgroundColor: colors.background,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
+  },
+  backButton: {
+    padding: spacing.sm,
+    marginRight: spacing.sm,
+  },
+  backArrow: {
+    fontSize: 24,
+    color: colors.primary,
+  },
+  headerTitle: {
+    fontSize: typography.sizes.xl,
+    fontFamily: typography.fontFamily,
+    fontWeight: typography.weights.bold,
+    color: colors.text,
+  },
+  scrollContent: {
+    paddingBottom: 40,
+  },
+  profileSection: {
+    alignItems: 'center',
+    paddingVertical: spacing.xl,
+    borderBottomWidth: 8,
+    borderBottomColor: colors.surface,
+  },
+  groupAvatarLarge: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: colors.secondary,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: spacing.md,
+  },
+  groupAvatarLargeText: {
+    fontSize: 32,
+    fontFamily: typography.fontFamily,
+    fontWeight: typography.weights.bold,
+    color: colors.white,
+  },
+  groupName: {
+    fontSize: typography.sizes.xl,
+    fontFamily: typography.fontFamily,
+    fontWeight: typography.weights.bold,
+    color: colors.text,
+    marginBottom: spacing.xs,
+  },
+  groupDescription: {
+    fontSize: typography.sizes.sm,
+    fontFamily: typography.fontFamily,
+    color: colors.textSecondary,
+    textAlign: 'center',
+    paddingHorizontal: spacing.xl,
+    marginBottom: spacing.sm,
+  },
+  memberCountText: {
+    fontSize: typography.sizes.sm,
+    fontFamily: typography.fontFamily,
+    color: colors.textSecondary,
+  },
+  section: {
+    borderBottomWidth: 8,
+    borderBottomColor: colors.surface,
+  },
+  sectionTitle: {
+    fontSize: typography.sizes.sm,
+    fontFamily: typography.fontFamily,
+    fontWeight: typography.weights.semibold,
+    color: colors.textSecondary,
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.md,
+    paddingBottom: spacing.sm,
+    textTransform: 'uppercase',
+  },
+  actionRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: spacing.lg,
+    paddingVertical: 14,
+  },
+  actionRowPressed: {
+    backgroundColor: colors.surface,
+  },
+  actionIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: spacing.md,
+  },
+  actionIconText: {
+    fontSize: 22,
+    color: colors.white,
+    fontWeight: typography.weights.bold,
+  },
+  actionText: {
+    fontSize: typography.sizes.md,
+    fontFamily: typography.fontFamily,
+    fontWeight: typography.weights.semibold,
+    color: colors.primary,
+  },
+  memberRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: spacing.lg,
+    paddingVertical: 10,
+  },
+  memberAvatar: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: colors.secondary,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: spacing.md,
+  },
+  memberAvatarText: {
+    fontSize: typography.sizes.md,
+    fontFamily: typography.fontFamily,
+    fontWeight: typography.weights.semibold,
+    color: colors.white,
+  },
+  memberInfo: {
+    flex: 1,
+  },
+  memberName: {
+    fontSize: typography.sizes.md,
+    fontFamily: typography.fontFamily,
+    fontWeight: typography.weights.semibold,
+    color: colors.text,
+  },
+  memberPhone: {
+    fontSize: typography.sizes.xs,
+    fontFamily: typography.fontFamily,
+    color: colors.textSecondary,
+    marginTop: 1,
+  },
+  memberActions: {
+    alignItems: 'flex-end',
+  },
+  adminBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: borderRadius.sm,
+    backgroundColor: colors.secondary,
+    marginBottom: 4,
+  },
+  adminBadgeText: {
+    fontSize: 10,
+    fontFamily: typography.fontFamily,
+    fontWeight: typography.weights.semibold,
+    color: colors.white,
+  },
+  memberButtons: {
+    flexDirection: 'row',
+    gap: spacing.xs,
+  },
+  memberActionButton: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: borderRadius.sm,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  memberActionButtonText: {
+    fontSize: 11,
+    fontFamily: typography.fontFamily,
+    color: colors.textSecondary,
+  },
+  memberRemoveButton: {
+    borderColor: colors.crimson,
+  },
+  memberRemoveText: {
+    fontSize: 11,
+    fontFamily: typography.fontFamily,
+    color: colors.crimson,
+  },
+  leaveButton: {
+    marginHorizontal: spacing.lg,
+    marginTop: spacing.xl,
+    paddingVertical: 16,
+    borderRadius: borderRadius.lg,
+    borderWidth: 1,
+    borderColor: colors.crimson,
+    alignItems: 'center',
+  },
+  leaveButtonPressed: {
+    backgroundColor: 'rgba(237, 47, 60, 0.05)',
+  },
+  leaveButtonText: {
+    fontSize: typography.sizes.md,
+    fontFamily: typography.fontFamily,
+    fontWeight: typography.weights.semibold,
+    color: colors.crimson,
+  },
+});
