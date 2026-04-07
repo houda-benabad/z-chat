@@ -1,10 +1,10 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { Alert } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { groupApi, tokenStorage } from '@/shared/services/api';
+import { groupApi } from '@/shared/services/api';
 import { getSocket, connectSocket } from '@/shared/services/socket';
 import { generateGroupKey, generateGroupKeyBundle } from '@/shared/services/crypto';
-import { parseJwtUserId } from '@/shared/utils';
+import { useCurrentUser } from '@/shared/hooks';
 import type { GroupInfo } from '@/types';
 
 export interface UseGroupInfoReturn {
@@ -22,10 +22,10 @@ export interface UseGroupInfoReturn {
 export function useGroupInfo(): UseGroupInfoReturn {
   const { chatId } = useLocalSearchParams<{ chatId: string }>();
   const router = useRouter();
+  const { userId: myUserId } = useCurrentUser();
   const [group, setGroup] = useState<GroupInfo | null>(null);
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState(false);
-  const [myUserId, setMyUserId] = useState('');
   const myUserIdRef = useRef('');
   const groupRef = useRef<GroupInfo | null>(null);
 
@@ -42,16 +42,13 @@ export function useGroupInfo(): UseGroupInfoReturn {
     }
   }, [chatId]);
 
+  // Keep the ref in sync for socket handlers that close over it
   useEffect(() => {
-    const init = async () => {
-      const token = await tokenStorage.get();
-      if (token) {
-        const id = parseJwtUserId(token);
-        if (id) { setMyUserId(id); myUserIdRef.current = id; }
-      }
-      await loadGroup();
-    };
-    init();
+    myUserIdRef.current = myUserId;
+  }, [myUserId]);
+
+  useEffect(() => {
+    loadGroup();
   }, [loadGroup]);
 
   // Re-load when server emits group membership or role changes
