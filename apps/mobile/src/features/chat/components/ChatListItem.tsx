@@ -11,7 +11,7 @@ import { createStyles } from './styles/ChatListItem.styles';
 
 interface Props {
   item: ChatListItemType;
-  nicknames: Map<string, string>;
+  nicknames: Map<string, string | null>;
   myUserId: string;
   onPress: (item: ChatListItemType) => void;
   onDelete: (chatId: string) => void;
@@ -31,10 +31,13 @@ export function ChatListItem({
   const styles = useThemedStyles(createStyles);
   const isGroup = item.type === 'group';
   const otherUser = isGroup ? null : getOtherParticipantUser(item.participants, myUserId);
-  const nickname = otherUser ? (nicknames.get(otherUser.id) ?? null) : null;
+  const inContacts = otherUser ? nicknames.has(otherUser.id) : false;
+  const nickname   = otherUser ? (nicknames.get(otherUser.id) ?? null) : null;
   const displayName = isGroup
     ? (item.name ?? 'Group')
-    : (nickname ?? otherUser?.name ?? otherUser?.phone ?? 'Unknown');
+    : inContacts
+      ? (nickname ?? otherUser?.name ?? 'Unknown')
+      : (otherUser?.phone ?? 'Unknown');
   const avatarUri = isGroup ? item.avatar : (otherUser?.avatar ?? null);
   const isOnline = !isGroup && (otherUser?.isOnline ?? false);
   const preview = getChatPreview(item.lastMessage, isGroup, myUserId); // ! I am on here - -

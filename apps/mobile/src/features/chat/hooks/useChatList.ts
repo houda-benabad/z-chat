@@ -35,13 +35,14 @@ async function decryptLastMessage(chat: ChatListItem, myUserId: string): Promise
 
 export interface UseChatListReturn {
   chats: ChatListItem[];
-  nicknames: Map<string, string>;
+  nicknames: Map<string, string | null>;
   loading: boolean;
   refreshing: boolean;
   loadingMore: boolean;
   hasMore: boolean;
   pendingDelete: { chatId: string; undo: () => void } | null;
   loadChats: () => Promise<void>;
+  loadNicknames: () => Promise<void>;
   loadMore: () => Promise<void>;
   onRefresh: () => Promise<void>;
   deleteConversation: (chatId: string) => void;
@@ -55,7 +56,7 @@ export function useChatList(myUserId: string): UseChatListReturn {
   const [loadingMore, setLoadingMore] = useState(false);
   const [hasMore, setHasMore] = useState(false);
   const [pendingDelete, setPendingDelete] = useState<{ chatId: string; undo: () => void } | null>(null);
-  const [nicknames, setNicknames] = useState<Map<string, string>>(new Map());
+  const [nicknames, setNicknames] = useState<Map<string, string | null>>(new Map());
   const undoTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const nextCursorRef = useRef<string | null>(null);
 
@@ -150,15 +151,18 @@ export function useChatList(myUserId: string): UseChatListReturn {
   }, [setAndMirror]);
 
   // ─── Nickname map (contact nicknames keyed by userId) ──────────────────────
-  useEffect(() => {
-    contactApi.getContacts(0, 1000).then(({ contacts }) => {
-      const map = new Map<string, string>();
+  const loadNicknames = useCallback(async () => {
+    try {
+      const { contacts } = await contactApi.getContacts(0, 1000);
+      const map = new Map<string, string | null>();
       for (const c of contacts) {
-        if (c.nickname) map.set(c.contactUserId, c.nickname);
+        map.set(c.contactUserId, c.nickname ?? null);
       }
       setNicknames(map);
-    }).catch(() => {});
+    } catch {}
   }, []);
+
+  useEffect(() => { loadNicknames(); }, [loadNicknames]);
 
   // ─── Socket ─────────────────────────────────────────────────────────────────
 
@@ -257,5 +261,5 @@ export function useChatList(myUserId: string): UseChatListReturn {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  return { chats, nicknames, loading, refreshing, loadingMore, hasMore, pendingDelete, loadChats, loadMore, onRefresh, deleteConversation, markAsRead };
+  return { chats, nicknames, loading, refreshing, loadingMore, hasMore, pendingDelete, loadChats, loadNicknames, loadMore, onRefresh, deleteConversation, markAsRead };
 }

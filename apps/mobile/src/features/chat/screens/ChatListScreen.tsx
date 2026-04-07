@@ -30,13 +30,12 @@ export default function ChatListScreen() {
   const [searchQuery, setSearchQuery] = useState('');
   const searchRef = useRef<TextInput>(null);
 
-  const { chats, nicknames, loading, refreshing, loadingMore, hasMore, pendingDelete, loadChats, loadMore, onRefresh, deleteConversation, markAsRead } =
+  const { chats, nicknames, loading, refreshing, loadingMore, hasMore, pendingDelete, loadChats, loadNicknames, loadMore, onRefresh, deleteConversation, markAsRead } =
     useChatList(myUserId);
 
   const { profile, loading: profileLoading } = useChatListProfile();
 
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  useFocusEffect(useCallback(() => { loadChats(); }, []));
+  useFocusEffect(useCallback(() => { loadChats(); loadNicknames(); }, [loadChats, loadNicknames]));
 
   const handleLogout = useCallback(async () => {
     clearCurrentUserIdCache();
@@ -63,10 +62,13 @@ export default function ChatListScreen() {
         const otherParticipant = isGroup
           ? null
           : c.participants.find((p) => p.userId !== myUserId)?.user ?? null;
-        const nickname = otherParticipant ? (nicknames.get(otherParticipant.id) ?? null) : null;
+        const inContacts  = otherParticipant ? nicknames.has(otherParticipant.id) : false;
+        const nickname    = otherParticipant ? (nicknames.get(otherParticipant.id) ?? null) : null;
         const displayName = isGroup
           ? (c.name ?? 'Group')
-          : (nickname ?? otherParticipant?.name ?? otherParticipant?.phone ?? '');
+          : inContacts
+            ? (nickname ?? otherParticipant?.name ?? '')
+            : (otherParticipant?.phone ?? '');
         return displayName.toLowerCase().includes(q);
       })
     : chats;

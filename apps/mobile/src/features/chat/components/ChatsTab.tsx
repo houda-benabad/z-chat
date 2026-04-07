@@ -11,7 +11,7 @@ import type { ChatListItem as ChatListItemType } from '@/types';
 
 interface ChatsTabProps {
   chats: ChatListItemType[];
-  nicknames: Map<string, string>;
+  nicknames: Map<string, string | null>;
   myUserId: string;
   refreshing: boolean;
   loadingMore: boolean;
@@ -48,10 +48,13 @@ export function ChatsTab({
       ? null
       : item.participants.find((p) => p.userId !== myUserId)?.user ?? null;
 
+    const inContacts  = otherUser ? nicknames.has(otherUser.id) : false;
     const nickname    = otherUser ? (nicknames.get(otherUser.id) ?? null) : null;
     const displayName = isGroup
       ? (item.name ?? 'Group')
-      : (nickname ?? otherUser?.name ?? otherUser?.phone ?? 'Unknown');
+      : inContacts
+        ? (nickname ?? otherUser?.name ?? 'Unknown')
+        : (otherUser?.phone ?? 'Unknown');
 
     markAsRead(item.id);
 
