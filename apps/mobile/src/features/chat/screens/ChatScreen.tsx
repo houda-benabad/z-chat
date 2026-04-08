@@ -58,6 +58,10 @@ export default function ChatScreen() {
   const { accentColor, settings, appColors } = useAppSettings();
   const CORAL = accentColor;
 
+  // Live group metadata (updated via socket when admin changes name/avatar)
+  const [liveGroupName, setLiveGroupName] = useState(name || '');
+  const [liveAvatar, setLiveAvatar]       = useState<string | undefined>(recipientAvatar || undefined);
+
   // ─── Socket ───────────────────────────────────────────────────────────────
   const [socket, setSocket] = useState<Socket | null>(() => getSocket());
   const [isConnected, setIsConnected] = useState(() => !!getSocket()?.connected);
@@ -78,6 +82,17 @@ export default function ChatScreen() {
     socket.on('disconnect', onDisconnect);
     return () => { socket.off('connect', onConnect); socket.off('disconnect', onDisconnect); };
   }, [socket]);
+
+  useEffect(() => {
+    if (!socket || !isGroup || !chatId) return;
+    const handler = (d: { chatId: string; name?: string; avatar?: string | null }) => {
+      if (d.chatId !== chatId) return;
+      if (d.name   !== undefined) setLiveGroupName(d.name);
+      if (d.avatar !== undefined) setLiveAvatar(d.avatar || undefined);
+    };
+    socket.on('group:updated', handler);
+    return () => { socket.off('group:updated', handler); };
+  }, [socket, chatId, isGroup]);
 
   // ─── Ensure device key pair exists ────────────────────────────────────────
   const { encryptionError } = useKeyPair();
@@ -318,8 +333,8 @@ export default function ChatScreen() {
   return (
     <View style={styles.container}>
       <ChatHeader
-        name={displayName}
-        recipientAvatar={recipientAvatar || undefined}
+        name={isGroup ? liveGroupName : displayName}
+        recipientAvatar={isGroup ? liveAvatar : (recipientAvatar || undefined)}
         isOnline={isOnline}
         isTyping={isTyping}
         isGroup={isGroup}

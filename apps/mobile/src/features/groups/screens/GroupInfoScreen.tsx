@@ -182,7 +182,7 @@ export default function GroupInfoScreen() {
                 </View>
                 <View style={styles.memberInfo}>
                   <Text style={styles.memberName} numberOfLines={1}>
-                    {displayName}{isMe ? ' (You)' : ''}
+                    {isMe ? 'You' : displayName}
                   </Text>
                   <Text style={styles.memberPhone}>{user.phone}</Text>
                 </View>

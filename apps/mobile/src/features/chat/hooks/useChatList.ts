@@ -240,18 +240,36 @@ export function useChatList(myUserId: string): UseChatListReturn {
       const handleChatNew    = () => loadChats();
       const handleMessageRead = () => loadChats();
 
-      sock.on('message:new',  handleMessageNew);
-      sock.on('message:read', handleMessageRead);
-      sock.on('user:online',  handleUserOnline);
-      sock.on('user:offline', handleUserOffline);
-      sock.on('chat:new',     handleChatNew);
+      const handleGroupUpdated = ({ chatId: id, name: newName, avatar: newAvatar }: {
+        chatId: string; name?: string; avatar?: string | null;
+      }) => {
+        setAndMirror(
+          chatsRef.current.map((c) =>
+            c.id === id
+              ? {
+                  ...c,
+                  ...(newName !== undefined && { name: newName }),
+                  ...(newAvatar !== undefined && { avatar: newAvatar }),
+                }
+              : c,
+          ),
+        );
+      };
+
+      sock.on('message:new',   handleMessageNew);
+      sock.on('message:read',  handleMessageRead);
+      sock.on('user:online',   handleUserOnline);
+      sock.on('user:offline',  handleUserOffline);
+      sock.on('chat:new',      handleChatNew);
+      sock.on('group:updated', handleGroupUpdated);
 
       off = () => {
-        sock.off('message:new',  handleMessageNew);
-        sock.off('message:read', handleMessageRead);
-        sock.off('user:online',  handleUserOnline);
-        sock.off('user:offline', handleUserOffline);
-        sock.off('chat:new',     handleChatNew);
+        sock.off('message:new',   handleMessageNew);
+        sock.off('message:read',  handleMessageRead);
+        sock.off('user:online',   handleUserOnline);
+        sock.off('user:offline',  handleUserOffline);
+        sock.off('chat:new',      handleChatNew);
+        sock.off('group:updated', handleGroupUpdated);
       };
     }).catch(() => { setLoading(false); });
 
