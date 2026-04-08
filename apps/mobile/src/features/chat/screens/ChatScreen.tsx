@@ -44,11 +44,12 @@ const CHAT_BG = '#ECE5DD';
 export default function ChatScreen() {
   const styles = useThemedStyles(createStyles);
   const {
-    chatId, name, recipientId = '', chatType, recipientIsOnline, forwardContent, recipientAvatar,
+    chatId, name, recipientId = '', chatType, recipientIsOnline, forwardContent, recipientAvatar, backTo,
   } = useLocalSearchParams<{
     chatId: string; name: string; recipientId: string;
     chatType?: string; recipientIsOnline?: string;
     forwardContent?: string; recipientAvatar?: string;
+    backTo?: string;
   }>();
   const isGroup = chatType === 'group';
   const router  = useRouter();
@@ -323,7 +324,7 @@ export default function ChatScreen() {
         isGroup={isGroup}
         topInset={insets.top}
         typingLabel={typingLabel}
-        onBack={() => router.back()}
+        onBack={() => backTo ? router.navigate(backTo as any) : router.back()}
         onHeaderPress={
           isGroup
             ? () => router.push({ pathname: '/group-info', params: { chatId } })

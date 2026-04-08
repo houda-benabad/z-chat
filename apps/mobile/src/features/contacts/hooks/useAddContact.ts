@@ -133,13 +133,14 @@ export function useAddContact(): UseAddContactReturn {
     setMessagingLoading(true);
     try {
       const { chat } = await chatApi.createChat(foundUser.id);
-      router.push({
+      router.replace({
         pathname: '/chat',
         params: {
           chatId: chat.id,
           recipientId: foundUser.id,
           name: foundUser.name ?? foundUser.phone,
           ...(foundUser.avatar ? { recipientAvatar: foundUser.avatar } : {}),
+          backTo: '/chat-list',
         },
       });
     } catch {
