@@ -1,5 +1,5 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
-import { Alert } from 'react-native';
+import { Alert, Platform } from 'react-native';
 import { Audio } from 'expo-av';
 
 export interface UseVoiceRecorderReturn {
@@ -13,43 +13,82 @@ export interface UseVoiceRecorderReturn {
 export function useVoiceRecorder(): UseVoiceRecorderReturn {
   const [isRecording, setIsRecording] = useState(false);
   const [durationMs, setDurationMs] = useState(0);
-  const recordingRef = useRef<Audio.Recording | null>(null);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  // Native refs (expo-av)
+  const recordingRef = useRef<Audio.Recording | null>(null);
+
+  // Web refs (MediaRecorder)
+  const webRecorderRef = useRef<MediaRecorder | null>(null);
+  const webChunksRef = useRef<Blob[]>([]);
+  const webStreamRef = useRef<MediaStream | null>(null);
 
   // Cleanup on unmount
   useEffect(() => {
     return () => {
       if (timerRef.current) clearInterval(timerRef.current);
-      recordingRef.current?.stopAndUnloadAsync().catch(() => {});
+      if (Platform.OS === 'web') {
+        webStreamRef.current?.getTracks().forEach(t => t.stop());
+      } else {
+        recordingRef.current?.stopAndUnloadAsync().catch(() => {});
+      }
     };
   }, []);
 
   const startRecording = useCallback(async () => {
-    try {
-      const { granted } = await Audio.requestPermissionsAsync();
-      if (!granted) {
-        Alert.alert('Microphone Access Required', 'Please enable microphone access in Settings to send voice messages.');
-        return;
+    if (Platform.OS === 'web') {
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        webStreamRef.current = stream;
+
+        const mediaRecorder = new MediaRecorder(stream);
+        webRecorderRef.current = mediaRecorder;
+        webChunksRef.current = [];
+
+        mediaRecorder.ondataavailable = (e) => {
+          if (e.data.size > 0) webChunksRef.current.push(e.data);
+        };
+
+        mediaRecorder.start();
+        setDurationMs(0);
+        setIsRecording(true);
+
+        timerRef.current = setInterval(() => {
+          setDurationMs((d) => d + 100);
+        }, 100);
+      } catch (err) {
+        setIsRecording(false);
+        if (err instanceof Error && err.name === 'NotAllowedError') {
+          Alert.alert('Microphone Access Required', 'Please allow microphone access in your browser to send voice messages.');
+        }
       }
+    } else {
+      try {
+        const { granted } = await Audio.requestPermissionsAsync();
+        if (!granted) {
+          Alert.alert('Microphone Access Required', 'Please enable microphone access in Settings to send voice messages.');
+          return;
+        }
 
-      await Audio.setAudioModeAsync({
-        allowsRecordingIOS: true,
-        playsInSilentModeIOS: true,
-      });
+        await Audio.setAudioModeAsync({
+          allowsRecordingIOS: true,
+          playsInSilentModeIOS: true,
+        });
 
-      const { recording } = await Audio.Recording.createAsync(
-        Audio.RecordingOptionsPresets.HIGH_QUALITY,
-      );
+        const { recording } = await Audio.Recording.createAsync(
+          Audio.RecordingOptionsPresets.HIGH_QUALITY,
+        );
 
-      recordingRef.current = recording;
-      setDurationMs(0);
-      setIsRecording(true);
+        recordingRef.current = recording;
+        setDurationMs(0);
+        setIsRecording(true);
 
-      timerRef.current = setInterval(() => {
-        setDurationMs((d) => d + 100);
-      }, 100);
-    } catch {
-      setIsRecording(false);
+        timerRef.current = setInterval(() => {
+          setDurationMs((d) => d + 100);
+        }, 100);
+      } catch {
+        setIsRecording(false);
+      }
     }
   }, []);
 
@@ -60,16 +99,33 @@ export function useVoiceRecorder(): UseVoiceRecorderReturn {
     }
     setIsRecording(false);
 
-    const recording = recordingRef.current;
-    recordingRef.current = null;
-    if (!recording) return null;
+    if (Platform.OS === 'web') {
+      const mediaRecorder = webRecorderRef.current;
+      webRecorderRef.current = null;
+      if (!mediaRecorder || mediaRecorder.state === 'inactive') return null;
 
-    try {
-      await recording.stopAndUnloadAsync();
-      await Audio.setAudioModeAsync({ allowsRecordingIOS: false });
-      return recording.getURI() ?? null;
-    } catch {
-      return null;
+      return new Promise((resolve) => {
+        mediaRecorder.onstop = () => {
+          const blob = new Blob(webChunksRef.current, { type: 'audio/webm' });
+          webChunksRef.current = [];
+          webStreamRef.current?.getTracks().forEach(t => t.stop());
+          webStreamRef.current = null;
+          resolve(URL.createObjectURL(blob));
+        };
+        mediaRecorder.stop();
+      });
+    } else {
+      const recording = recordingRef.current;
+      recordingRef.current = null;
+      if (!recording) return null;
+
+      try {
+        await recording.stopAndUnloadAsync();
+        await Audio.setAudioModeAsync({ allowsRecordingIOS: false });
+        return recording.getURI() ?? null;
+      } catch {
+        return null;
+      }
     }
   }, []);
 
@@ -81,10 +137,23 @@ export function useVoiceRecorder(): UseVoiceRecorderReturn {
     setIsRecording(false);
     setDurationMs(0);
 
-    const recording = recordingRef.current;
-    recordingRef.current = null;
-    if (recording) {
-      await recording.stopAndUnloadAsync().catch(() => {});
+    if (Platform.OS === 'web') {
+      const mediaRecorder = webRecorderRef.current;
+      webRecorderRef.current = null;
+      if (mediaRecorder && mediaRecorder.state !== 'inactive') {
+        mediaRecorder.ondataavailable = null;
+        mediaRecorder.onstop = null;
+        mediaRecorder.stop();
+      }
+      webChunksRef.current = [];
+      webStreamRef.current?.getTracks().forEach(t => t.stop());
+      webStreamRef.current = null;
+    } else {
+      const recording = recordingRef.current;
+      recordingRef.current = null;
+      if (recording) {
+        await recording.stopAndUnloadAsync().catch(() => {});
+      }
     }
   }, []);
 

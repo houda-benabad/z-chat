@@ -51,6 +51,14 @@ export const createStyles = (colors: AppColors) => StyleSheet.create({
     borderBottomWidth: 8,
     borderBottomColor: colors.surface,
   },
+  // Avatar wrapper (needed for overlay positioning)
+  groupAvatarWrapper: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    marginBottom: spacing.md,
+    position: 'relative',
+  },
   groupAvatarLarge: {
     width: 80,
     height: 80,
@@ -58,7 +66,6 @@ export const createStyles = (colors: AppColors) => StyleSheet.create({
     backgroundColor: colors.secondary,
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: spacing.md,
   },
   groupAvatarLargeText: {
     fontSize: 32,
@@ -66,12 +73,102 @@ export const createStyles = (colors: AppColors) => StyleSheet.create({
     fontWeight: typography.weights.bold,
     color: colors.white,
   },
+  groupAvatarImage: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+  },
+  groupAvatarEditOverlay: {
+    position: 'absolute',
+    bottom: 0,
+    right: 0,
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: colors.primary,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  groupAvatarEditIcon: {
+    fontSize: 12,
+    color: colors.white,
+  },
+  groupAvatarUploadOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: 'rgba(0,0,0,0.45)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  // Group name row (text + pencil icon)
+  groupNameRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: spacing.xs,
+  },
   groupName: {
     fontSize: typography.sizes.xl,
     fontFamily: typography.fontFamily,
     fontWeight: typography.weights.bold,
     color: colors.text,
+  },
+  editNameIconBtn: {
+    marginLeft: spacing.sm,
+    padding: 4,
+  },
+  editNameIconText: {
+    fontSize: 16,
+    color: colors.primary,
+  },
+  // Inline name editing
+  editNameContainer: {
+    alignItems: 'center',
     marginBottom: spacing.xs,
+  },
+  editNameInput: {
+    fontSize: typography.sizes.xl,
+    fontFamily: typography.fontFamily,
+    fontWeight: typography.weights.bold,
+    color: colors.text,
+    borderBottomWidth: 2,
+    borderBottomColor: colors.primary,
+    width: 220,
+    textAlign: 'center',
+    paddingVertical: 4,
+  },
+  editNameActionsRow: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+    marginTop: spacing.sm,
+  },
+  editNameBtn: {
+    paddingHorizontal: spacing.md,
+    paddingVertical: 6,
+    borderRadius: borderRadius.md,
+    minWidth: 72,
+    alignItems: 'center',
+  },
+  editNameCancelBtn: {
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  editNameSaveBtn: {
+    backgroundColor: colors.primary,
+  },
+  editNameCancelText: {
+    fontSize: typography.sizes.sm,
+    fontFamily: typography.fontFamily,
+    color: colors.textSecondary,
+  },
+  editNameSaveText: {
+    fontSize: typography.sizes.sm,
+    fontFamily: typography.fontFamily,
+    fontWeight: typography.weights.semibold,
+    color: colors.white,
   },
   groupDescription: {
     fontSize: typography.sizes.sm,

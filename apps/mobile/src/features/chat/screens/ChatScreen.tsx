@@ -181,7 +181,8 @@ export default function ChatScreen() {
   const handleVoiceStop = useCallback(async () => {
     const uri = await stopRecording();
     if (!uri) return;
-    await sendMedia(uri, 'audio/m4a', 'voice_note');
+    const mimeType = Platform.OS === 'web' ? 'audio/webm' : 'audio/m4a';
+    await sendMedia(uri, mimeType, 'voice_note');
   }, [stopRecording, sendMedia]);
 
   const handleMediaSelected = useCallback(async (uri: string, mimeType: string) => {

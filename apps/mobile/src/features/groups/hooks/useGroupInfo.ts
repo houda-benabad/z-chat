@@ -1,7 +1,8 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { Alert } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { groupApi } from '@/shared/services/api';
+import * as ImagePicker from 'expo-image-picker';
+import { groupApi, contactApi, uploadMedia } from '@/shared/services/api';
 import { getSocket, connectSocket } from '@/shared/services/socket';
 import { generateGroupKey, generateGroupKeyBundle } from '@/shared/services/crypto';
 import { useCurrentUser } from '@/shared/hooks';
@@ -13,6 +14,16 @@ export interface UseGroupInfoReturn {
   myUserId: string;
   isAdmin: boolean;
   actionLoading: boolean;
+  contactMap: Record<string, string>;
+  editingName: boolean;
+  nameInput: string;
+  setNameInput: (s: string) => void;
+  savingName: boolean;
+  uploadingAvatar: boolean;
+  handleStartEditName: () => void;
+  handleSaveName: () => Promise<void>;
+  handleCancelEditName: () => void;
+  handlePickAvatar: () => Promise<void>;
   handleRemoveMember: (userId: string, userName: string) => void;
   handleToggleAdmin: (userId: string, currentRole: string) => Promise<void>;
   handleLeaveGroup: () => void;
@@ -26,6 +37,11 @@ export function useGroupInfo(): UseGroupInfoReturn {
   const [group, setGroup] = useState<GroupInfo | null>(null);
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState(false);
+  const [contactMap, setContactMap] = useState<Record<string, string>>({});
+  const [editingName, setEditingName] = useState(false);
+  const [nameInput, setNameInput] = useState('');
+  const [savingName, setSavingName] = useState(false);
+  const [uploadingAvatar, setUploadingAvatar] = useState(false);
   const myUserIdRef = useRef('');
   const groupRef = useRef<GroupInfo | null>(null);
 
@@ -42,6 +58,17 @@ export function useGroupInfo(): UseGroupInfoReturn {
     }
   }, [chatId]);
 
+  const loadContacts = useCallback(async () => {
+    try {
+      const { contacts } = await contactApi.getContacts();
+      const map: Record<string, string> = {};
+      for (const c of contacts) {
+        map[c.contactUserId] = c.nickname ?? c.contactUser.name ?? c.contactUser.phone;
+      }
+      setContactMap(map);
+    } catch {}
+  }, []);
+
   // Keep the ref in sync for socket handlers that close over it
   useEffect(() => {
     myUserIdRef.current = myUserId;
@@ -49,7 +76,8 @@ export function useGroupInfo(): UseGroupInfoReturn {
 
   useEffect(() => {
     loadGroup();
-  }, [loadGroup]);
+    loadContacts();
+  }, [loadGroup, loadContacts]);
 
   // Re-load when server emits group membership or role changes
   useEffect(() => {
@@ -114,6 +142,60 @@ export function useGroupInfo(): UseGroupInfoReturn {
 
   const isAdmin =
     group?.participants.some((p) => p.userId === myUserId && p.role === 'admin') ?? false;
+
+  const handleStartEditName = useCallback(() => {
+    if (!group) return;
+    setNameInput(group.name);
+    setEditingName(true);
+  }, [group]);
+
+  const handleSaveName = useCallback(async () => {
+    const trimmed = nameInput.trim();
+    if (!trimmed || !chatId) return;
+    setSavingName(true);
+    try {
+      await groupApi.updateGroup(chatId, { name: trimmed });
+      setGroup((prev) => prev ? { ...prev, name: trimmed } : null);
+      if (groupRef.current) groupRef.current = { ...groupRef.current, name: trimmed };
+      setEditingName(false);
+    } catch {
+      Alert.alert('Error', 'Failed to update group name');
+    } finally {
+      setSavingName(false);
+    }
+  }, [chatId, nameInput]);
+
+  const handleCancelEditName = useCallback(() => {
+    setEditingName(false);
+  }, []);
+
+  const handlePickAvatar = useCallback(async () => {
+    if (!chatId) return;
+    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (status !== 'granted') {
+      Alert.alert('Permission denied', 'Allow photo access to set a group picture');
+      return;
+    }
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsEditing: true,
+      aspect: [1, 1],
+      quality: 0.8,
+    });
+    if (result.canceled || !result.assets[0]) return;
+    const uri = result.assets[0].uri;
+    setUploadingAvatar(true);
+    try {
+      const url = await uploadMedia(uri, 'image/jpeg');
+      await groupApi.updateGroup(chatId, { avatar: url });
+      setGroup((prev) => prev ? { ...prev, avatar: url } : null);
+      if (groupRef.current) groupRef.current = { ...groupRef.current, avatar: url };
+    } catch {
+      Alert.alert('Upload failed', 'Could not upload group picture. Please try again.');
+    } finally {
+      setUploadingAvatar(false);
+    }
+  }, [chatId]);
 
   const handleRemoveMember = useCallback(
     (userId: string, userName: string) => {
@@ -219,6 +301,16 @@ export function useGroupInfo(): UseGroupInfoReturn {
     myUserId,
     isAdmin,
     actionLoading,
+    contactMap,
+    editingName,
+    nameInput,
+    setNameInput,
+    savingName,
+    uploadingAvatar,
+    handleStartEditName,
+    handleSaveName,
+    handleCancelEditName,
+    handlePickAvatar,
     handleRemoveMember,
     handleToggleAdmin,
     handleLeaveGroup,

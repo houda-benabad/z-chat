@@ -4,6 +4,8 @@ import {
   Pressable,
   ActivityIndicator,
   ScrollView,
+  Image,
+  TextInput,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useGroupInfo } from '../hooks/useGroupInfo';
@@ -22,6 +24,16 @@ export default function GroupInfoScreen() {
     myUserId,
     isAdmin,
     actionLoading,
+    contactMap,
+    editingName,
+    nameInput,
+    setNameInput,
+    savingName,
+    uploadingAvatar,
+    handleStartEditName,
+    handleSaveName,
+    handleCancelEditName,
+    handlePickAvatar,
     handleRemoveMember,
     handleToggleAdmin,
     handleLeaveGroup,
@@ -57,12 +69,76 @@ export default function GroupInfoScreen() {
       <ScrollView contentContainerStyle={styles.scrollContent}>
         {/* Group avatar & name */}
         <View style={styles.profileSection}>
-          <View style={styles.groupAvatarLarge}>
-            <Text style={styles.groupAvatarLargeText}>
-              {group.name[0]?.toUpperCase() ?? 'G'}
-            </Text>
-          </View>
-          <Text style={styles.groupName}>{group.name}</Text>
+          {/* Avatar */}
+          <Pressable
+            onPress={isAdmin ? handlePickAvatar : undefined}
+            style={styles.groupAvatarWrapper}
+            disabled={!isAdmin || uploadingAvatar}
+          >
+            {group.avatar ? (
+              <Image source={{ uri: group.avatar }} style={styles.groupAvatarImage} />
+            ) : (
+              <View style={styles.groupAvatarLarge}>
+                <Text style={styles.groupAvatarLargeText}>
+                  {group.name[0]?.toUpperCase() ?? 'G'}
+                </Text>
+              </View>
+            )}
+            {uploadingAvatar && (
+              <View style={styles.groupAvatarUploadOverlay}>
+                <ActivityIndicator size="small" color="#fff" />
+              </View>
+            )}
+            {isAdmin && !uploadingAvatar && (
+              <View style={styles.groupAvatarEditOverlay}>
+                <Text style={styles.groupAvatarEditIcon}>✎</Text>
+              </View>
+            )}
+          </Pressable>
+
+          {/* Name */}
+          {editingName ? (
+            <View style={styles.editNameContainer}>
+              <TextInput
+                style={styles.editNameInput}
+                value={nameInput}
+                onChangeText={setNameInput}
+                autoFocus
+                maxLength={50}
+                selectTextOnFocus
+              />
+              <View style={styles.editNameActionsRow}>
+                <Pressable
+                  style={[styles.editNameBtn, styles.editNameCancelBtn]}
+                  onPress={handleCancelEditName}
+                  disabled={savingName}
+                >
+                  <Text style={styles.editNameCancelText}>Cancel</Text>
+                </Pressable>
+                <Pressable
+                  style={[styles.editNameBtn, styles.editNameSaveBtn, savingName && { opacity: 0.6 }]}
+                  onPress={handleSaveName}
+                  disabled={savingName}
+                >
+                  {savingName ? (
+                    <ActivityIndicator size="small" color="#fff" />
+                  ) : (
+                    <Text style={styles.editNameSaveText}>Save</Text>
+                  )}
+                </Pressable>
+              </View>
+            </View>
+          ) : (
+            <View style={styles.groupNameRow}>
+              <Text style={styles.groupName}>{group.name}</Text>
+              {isAdmin && (
+                <Pressable onPress={handleStartEditName} style={styles.editNameIconBtn}>
+                  <Text style={styles.editNameIconText}>✎</Text>
+                </Pressable>
+              )}
+            </View>
+          )}
+
           {group.description && (
             <Text style={styles.groupDescription}>{group.description}</Text>
           )}
@@ -91,8 +167,10 @@ export default function GroupInfoScreen() {
           <Text style={styles.sectionTitle}>Members</Text>
           {group.participants.map((p) => {
             const user = p.user;
-            const displayName = user.name ?? user.phone;
             const isMe = p.userId === myUserId;
+            const displayName = isMe
+              ? (user.name ?? user.phone)
+              : (contactMap[p.userId] ?? user.phone);
             const isCreator = p.userId === group.createdBy;
 
             return (
