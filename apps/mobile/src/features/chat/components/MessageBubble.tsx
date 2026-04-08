@@ -24,6 +24,7 @@ interface MessageBubbleProps {
   showReadReceipts?: boolean;
   onLongPress?: (message: ChatMessage) => void;
   onRetryFailed?: (message: ChatMessage) => void;
+  resolveName?: (userId: string) => string | null;
 }
 
 export function MessageBubble({
@@ -38,6 +39,7 @@ export function MessageBubble({
   showReadReceipts = true,
   onLongPress,
   onRetryFailed,
+  resolveName,
 }: MessageBubbleProps) {
   const styles      = useThemedStyles(createStyles);
   const { accentColor, fontSizePt } = useAppSettings();
@@ -56,7 +58,7 @@ export function MessageBubble({
     return (
       <>
         {showDate && <DateSeparator dateStr={message.createdAt} />}
-        <SystemEventBar message={message} myUserId={myUserId} />
+        <SystemEventBar message={message} myUserId={myUserId} resolveName={resolveName} />
       </>
     );
   }

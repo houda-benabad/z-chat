@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { Alert } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
+import { alert } from '@/shared/utils/alert';
 import * as ImagePicker from 'expo-image-picker';
 import { groupApi, contactApi, uploadMedia } from '@/shared/services/api';
 import { getSocket, connectSocket } from '@/shared/services/socket';
@@ -52,7 +52,7 @@ export function useGroupInfo(): UseGroupInfoReturn {
       setGroup(data);
       groupRef.current = data;
     } catch {
-      Alert.alert('Error', 'Failed to load group info');
+      alert('Error', 'Failed to load group info');
     } finally {
       setLoading(false);
     }
@@ -159,7 +159,7 @@ export function useGroupInfo(): UseGroupInfoReturn {
       if (groupRef.current) groupRef.current = { ...groupRef.current, name: trimmed };
       setEditingName(false);
     } catch {
-      Alert.alert('Error', 'Failed to update group name');
+      alert('Error', 'Failed to update group name');
     } finally {
       setSavingName(false);
     }
@@ -173,7 +173,7 @@ export function useGroupInfo(): UseGroupInfoReturn {
     if (!chatId) return;
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (status !== 'granted') {
-      Alert.alert('Permission denied', 'Allow photo access to set a group picture');
+      alert('Permission denied', 'Allow photo access to set a group picture');
       return;
     }
     const result = await ImagePicker.launchImageLibraryAsync({
@@ -191,7 +191,7 @@ export function useGroupInfo(): UseGroupInfoReturn {
       setGroup((prev) => prev ? { ...prev, avatar: url } : null);
       if (groupRef.current) groupRef.current = { ...groupRef.current, avatar: url };
     } catch {
-      Alert.alert('Upload failed', 'Could not upload group picture. Please try again.');
+      alert('Upload failed', 'Could not upload group picture. Please try again.');
     } finally {
       setUploadingAvatar(false);
     }
@@ -200,7 +200,7 @@ export function useGroupInfo(): UseGroupInfoReturn {
   const handleRemoveMember = useCallback(
     (userId: string, userName: string) => {
       if (!chatId) return;
-      Alert.alert(
+      alert(
         'Remove Member',
         `Remove ${userName} from the group?`,
         [
@@ -232,7 +232,7 @@ export function useGroupInfo(): UseGroupInfoReturn {
                   }
                 }
               } catch {
-                Alert.alert('Error', 'Failed to remove member');
+                alert('Error', 'Failed to remove member');
               } finally {
                 setActionLoading(false);
               }
@@ -253,7 +253,7 @@ export function useGroupInfo(): UseGroupInfoReturn {
         await groupApi.updateMemberRole(chatId, userId, newRole);
         loadGroup();
       } catch {
-        Alert.alert('Error', 'Failed to update role');
+        alert('Error', 'Failed to update role');
       } finally {
         setActionLoading(false);
       }
@@ -263,7 +263,7 @@ export function useGroupInfo(): UseGroupInfoReturn {
 
   const handleLeaveGroup = useCallback(() => {
     if (!chatId) return;
-    Alert.alert(
+    alert(
       'Leave Group',
       'Are you sure you want to leave this group?',
       [
@@ -278,7 +278,7 @@ export function useGroupInfo(): UseGroupInfoReturn {
               await groupApi.removeMember(chatId, myUserId);
               router.replace('/chat-list');
             } catch {
-              Alert.alert('Error', 'Failed to leave group');
+              alert('Error', 'Failed to leave group');
             } finally {
               setActionLoading(false);
             }

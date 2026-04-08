@@ -125,6 +125,13 @@ export class ChatRepository {
     });
   }
 
+  async clearDeletedAt(chatId: string, userId: string) {
+    return this.prisma.chatParticipant.update({
+      where: { chatId_userId: { chatId, userId } },
+      data: { deletedAt: null },
+    });
+  }
+
   async findMessages(
     chatId: string,
     limit: number,

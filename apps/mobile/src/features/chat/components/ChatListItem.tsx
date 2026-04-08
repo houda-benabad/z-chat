@@ -40,7 +40,14 @@ export function ChatListItem({
       : (otherUser?.phone ?? 'Unknown');
   const avatarUri = isGroup ? item.avatar : (otherUser?.avatar ?? null);
   const isOnline = !isGroup && (otherUser?.isOnline ?? false);
-  const preview = getChatPreview(item.lastMessage, isGroup, myUserId); // ! I am on here - -
+  const resolveName = (userId: string): string | null => {
+    const participant = item.participants.find((p) => p.userId === userId);
+    if (nicknames.has(userId)) {
+      return nicknames.get(userId) ?? participant?.user.name ?? participant?.user.phone ?? null;
+    }
+    return participant?.user.phone ?? null;
+  };
+  const preview = getChatPreview(item.lastMessage, isGroup, myUserId, resolveName);
   const hasUnread = item.unreadCount > 0;
 
   const renderDeleteAction = () => (

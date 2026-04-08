@@ -36,6 +36,7 @@ export function useUserProfile(): UseUserProfileReturn {
   const [profile, setProfile] = useState<PublicUserProfile | null>(null);
   const [loading, setLoading] = useState(true);
   const [contactId, setContactId] = useState<string | null>(paramContactId ?? null);
+  const [contactNickname, setContactNickname] = useState<string | null>(null);
   const [menuVisible, setMenuVisible] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
   const [actionDone, setActionDone] = useState<string | null>(null);
@@ -43,7 +44,7 @@ export function useUserProfile(): UseUserProfileReturn {
   const [isBlocked, setIsBlocked] = useState(false);
   const fadeAnim = useRef(new Animated.Value(0)).current;
 
-  const displayName = profile?.name ?? paramName ?? 'Unknown';
+  const displayName = contactNickname ?? profile?.name ?? paramName ?? 'Unknown';
 
   useEffect(() => {
     if (!userId) return;
@@ -54,7 +55,10 @@ export function useUserProfile(): UseUserProfileReturn {
     if (!paramContactId) {
       contactApi.getContacts().then(({ contacts }) => {
         const match = contacts.find((c) => c.contactUserId === userId);
-        if (match) setContactId(match.id);
+        if (match) {
+          setContactId(match.id);
+          if (match.nickname) setContactNickname(match.nickname);
+        }
       }).catch(() => {});
     }
     settingsApi.getBlocked().then(({ blocked }) => {

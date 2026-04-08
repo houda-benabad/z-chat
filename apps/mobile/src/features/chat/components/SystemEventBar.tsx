@@ -7,11 +7,12 @@ import type { ChatMessage } from '@/types';
 interface SystemEventBarProps {
   message: ChatMessage;
   myUserId: string;
+  resolveName?: (userId: string) => string | null;
 }
 
-export function SystemEventBar({ message, myUserId }: SystemEventBarProps) {
+export function SystemEventBar({ message, myUserId, resolveName }: SystemEventBarProps) {
   const styles = useThemedStyles(createStyles);
-  const text = resolveSystemText(message.content, myUserId);
+  const text = resolveSystemText(message.content, myUserId, resolveName);
 
   return (
     <View style={styles.container}>

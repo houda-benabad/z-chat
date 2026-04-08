@@ -231,6 +231,11 @@ export const createStyles = (colors: AppColors) => StyleSheet.create({
     paddingHorizontal: spacing.lg,
     paddingVertical: 10,
   },
+  memberPressableInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+  },
   memberAvatar: {
     width: 44,
     height: 44,

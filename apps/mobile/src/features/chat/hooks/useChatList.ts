@@ -110,8 +110,8 @@ export function useChatList(myUserId: string): UseChatListReturn {
   }, [loadChats]);
 
   const deleteConversation = useCallback((chatId: string) => {
-    // Save snapshot for undo
-    const snapshot = chatsRef.current;
+    // Save only the deleted chat for undo (preserves socket updates to other chats)
+    const deletedChat = chatsRef.current.find((c) => c.id === chatId);
 
     // Remove from UI immediately
     LayoutAnimation.configureNext({
@@ -119,12 +119,17 @@ export function useChatList(myUserId: string): UseChatListReturn {
       update: { type: 'easeInEaseOut' },
       delete: { type: 'easeInEaseOut', property: 'opacity' },
     });
-    setAndMirror(snapshot.filter((c) => c.id !== chatId));
+    setAndMirror(chatsRef.current.filter((c) => c.id !== chatId));
 
     const undo = () => {
       if (undoTimerRef.current) clearTimeout(undoTimerRef.current);
       setPendingDelete(null);
-      setAndMirror(snapshot);
+      if (deletedChat && !chatsRef.current.some((c) => c.id === chatId)) {
+        const restored = [...chatsRef.current, deletedChat].sort(
+          (a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime(),
+        );
+        setAndMirror(restored);
+      }
     };
 
     setPendingDelete({ chatId, undo });

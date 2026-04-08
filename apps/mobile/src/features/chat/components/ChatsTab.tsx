@@ -42,6 +42,11 @@ export function ChatsTab({
   const swipeableRefs  = useRef<Map<string, Swipeable | null>>(new Map());
   const swipeActiveRef = useRef(false);
 
+  const handleDelete = useCallback((chatId: string) => {
+    swipeActiveRef.current = false;
+    onDelete(chatId);
+  }, [onDelete]);
+
   const handleChatPress = useCallback((item: ChatListItemType) => {
     const isGroup   = item.type === 'group';
     const otherUser = isGroup
@@ -84,7 +89,7 @@ export function ChatsTab({
           nicknames={nicknames}
           myUserId={myUserId}
           onPress={handleChatPress}
-          onDelete={onDelete}
+          onDelete={handleDelete}
           swipeActiveRef={swipeActiveRef}
           onSwipeableRef={(id, ref) => swipeableRefs.current.set(id, ref)}
         />

@@ -113,6 +113,16 @@ export default function ChatScreen() {
   const [contacts, setContacts] = useState<ContactItem[]>([]);
   const [recipientLastReadMsgId, setRecipientLastReadMsgId] = useState<string | null>(null);
   const [deliveredUpToMsgId, setDeliveredUpToMsgId] = useState<string | null>(null);
+
+  // Seed read-receipt watermark from server data so ticks render on first load
+  // (socket events will override this with newer values in real time)
+  useEffect(() => {
+    if (isGroup || !myUserId || participants.length === 0) return;
+    const other = participants.find((p) => p.userId !== myUserId);
+    if (other?.lastReadMessageId) {
+      setRecipientLastReadMsgId(other.lastReadMessageId);
+    }
+  }, [participants, myUserId, isGroup]);
   const onlineSetBySocket = useRef(false);
   const flatListRef = useRef<FlatList>(null);
 
@@ -281,6 +291,15 @@ export default function ChatScreen() {
     if (!isGroup) return 'typing...';
     return resolveTypingLabel(typingUserIds, participants, contacts);
   }, [isGroup, typingUserIds, participants, contacts]);
+
+  const resolveName = useCallback((userId: string): string | null => {
+    const contact = contacts.find((c) => c.contactUserId === userId);
+    if (contact) {
+      return contact.nickname ?? contact.contactUser.name ?? contact.contactUser.phone;
+    }
+    const participant = participants.find((p) => p.userId === userId);
+    return participant?.user.phone ?? null;
+  }, [contacts, participants]);
 
   // ─── Real-time events ──────────────────────────────────────────────────────
   const handleKeyUpdated = useCallback(() => { loadMessages(); }, [loadMessages]);
@@ -454,6 +473,7 @@ export default function ChatScreen() {
               index={index}
               showReadReceipts={settings?.readReceipts ?? true}
               onLongPress={setActionMessage}
+              resolveName={resolveName}
               onRetryFailed={(msg) => {
                 if (msg.localUri) {
                   handleRetryMedia(msg);

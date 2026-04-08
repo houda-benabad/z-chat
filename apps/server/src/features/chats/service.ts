@@ -188,11 +188,17 @@ export class ChatService {
       throw new AppError(403, "Not a participant of this chat", "FORBIDDEN");
     }
 
+    // If the user previously deleted this chat but is now viewing it again,
+    // clear the deletion so old messages and read receipts are fully restored.
+    if (participant.deletedAt) {
+      await this.repo.clearDeletedAt(chatId, userId);
+    }
+
     const messages = await this.repo.findMessages(
       chatId,
       limit,
       cursor,
-      participant.deletedAt ?? null,
+      null,
     );
 
     const hasMore = messages.length > limit;

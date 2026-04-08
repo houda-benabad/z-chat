@@ -1,4 +1,5 @@
 import { AVATAR_COLORS, MESSAGE_TYPE_LABELS } from '../../constants';
+import { resolveSystemText } from '../../features/chat/utils/resolveSystemText';
 import type { ContactItem, ChatListItem, ChatMessage } from '../../types';
 
 // ─── Date / time ──────────────────────────────────────────────────────────────
@@ -98,8 +99,13 @@ export function getChatPreview(
   lastMessage: ChatMessage | null,
   isGroup: boolean,
   myUserId: string,
+  resolveName?: (userId: string) => string | null,
 ): string {
   if (!lastMessage) return '';
+
+  if (lastMessage.type === 'system') {
+    return resolveSystemText(lastMessage.content, myUserId, resolveName);
+  }
 
   const rawContent =
     lastMessage.type === 'text'

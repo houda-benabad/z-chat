@@ -12,6 +12,7 @@ import { useGroupInfo } from '../hooks/useGroupInfo';
 import { useAppSettings } from '@/shared/context/AppSettingsContext';
 import { createStyles } from './styles/GroupInfoScreen.styles';
 import { useThemedStyles } from '@/shared/hooks/useThemedStyles';
+import { Avatar } from '@/shared/components';
 
 
 export default function GroupInfoScreen() {
@@ -175,17 +176,22 @@ export default function GroupInfoScreen() {
 
             return (
               <View key={p.id} style={styles.memberRow}>
-                <View style={styles.memberAvatar}>
-                  <Text style={styles.memberAvatarText}>
-                    {displayName[0]?.toUpperCase() ?? '?'}
-                  </Text>
-                </View>
-                <View style={styles.memberInfo}>
-                  <Text style={styles.memberName} numberOfLines={1}>
-                    {isMe ? 'You' : displayName}
-                  </Text>
-                  <Text style={styles.memberPhone}>{user.phone}</Text>
-                </View>
+                <Pressable
+                  style={styles.memberPressableInfo}
+                  onPress={isMe ? undefined : () => router.push({
+                    pathname: '/user-profile',
+                    params: { userId: p.userId, name: displayName },
+                  })}
+                  disabled={isMe}
+                >
+                  <Avatar uri={user.avatar} name={displayName} size={40} />
+                  <View style={styles.memberInfo}>
+                    <Text style={styles.memberName} numberOfLines={1}>
+                      {isMe ? 'You' : displayName}
+                    </Text>
+                    <Text style={styles.memberPhone}>{user.phone}</Text>
+                  </View>
+                </Pressable>
                 <View style={styles.memberActions}>
                   {p.role === 'admin' && (
                     <View style={styles.adminBadge}>
