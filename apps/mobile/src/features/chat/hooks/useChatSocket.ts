@@ -13,8 +13,8 @@ interface UseChatSocketParams {
   groupKey: string | null;
   onNewMessage: (message: ChatMessage) => void;
   onRead: (messageId: string) => void;
-  onTypingStart: () => void;
-  onTypingStop: () => void;
+  onTypingStart: (userId: string) => void;
+  onTypingStop: (userId: string) => void;
   onOnline: () => void;
   onOffline: () => void;
   onKeyUpdated: () => void;
@@ -62,10 +62,10 @@ export function useChatSocket({
     };
 
     const handleTypingStart = (d: { chatId: string; userId: string }) => {
-      if (d.chatId === chatId && d.userId !== myUserId) onTypingStart();
+      if (d.chatId === chatId && d.userId !== myUserId) onTypingStart(d.userId);
     };
-    const handleTypingStop = (d: { chatId: string }) => {
-      if (d.chatId === chatId) onTypingStop();
+    const handleTypingStop = (d: { chatId: string; userId: string }) => {
+      if (d.chatId === chatId) onTypingStop(d.userId);
     };
     const handleOnline = (d: { userId: string }) => {
       if (d.userId === recipientId) onOnline();

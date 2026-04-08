@@ -14,6 +14,7 @@ export const createStyles = (colors: AppColors) => StyleSheet.create({
     alignSelf: 'flex-start',
     marginLeft: 12,
     marginBottom: 6,
+    maxWidth: '70%',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.06,
@@ -25,5 +26,10 @@ export const createStyles = (colors: AppColors) => StyleSheet.create({
     height: 8,
     borderRadius: 4,
     backgroundColor: colors.textSecondary,
+  },
+  label: {
+    fontSize: 13,
+    color: colors.textSecondary,
+    marginLeft: 6,
   },
 });

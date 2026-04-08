@@ -102,7 +102,7 @@ export interface MessagesResponse {
     lastReadMessageId: string | null;
     encryptedGroupKey?: string | null;
     groupKeyVersion?: number;
-    user: { isOnline: boolean; publicKey?: string | null };
+    user: { isOnline: boolean; publicKey?: string | null; phone: string; name: string | null };
   }[];
 }
 

@@ -157,7 +157,7 @@ export class ChatRepository {
         lastReadMessageId: true,
         encryptedGroupKey: true,
         groupKeyVersion: true,
-        user: { select: { isOnline: true, publicKey: true } },
+        user: { select: PARTICIPANT_USER_SELECT },
       },
     });
   }

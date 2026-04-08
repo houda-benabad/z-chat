@@ -9,7 +9,7 @@ export type ParticipantData = {
   lastReadMessageId: string | null;
   encryptedGroupKey?: string | null;
   groupKeyVersion?: number;
-  user: { isOnline: boolean; publicKey?: string | null };
+  user: { isOnline: boolean; publicKey?: string | null; phone: string; name: string | null };
 };
 
 interface UseMessagesParams {
@@ -37,6 +37,7 @@ export interface UseMessagesReturn {
   updateMessage: (id: string, updates: Partial<ChatMessage>) => void;
   loadMessages: () => Promise<void>;
   loadOlderMessages: () => Promise<void>;
+  participants: ParticipantData[];
 }
 
 export function useMessages({
@@ -51,6 +52,7 @@ export function useMessages({
   const [nextCursor, setNextCursor] = useState<string | null>(null);
   const [groupKey, setGroupKey] = useState<string | null>(null);
   const [recipientPublicKey, setRecipientPublicKey] = useState<string | null>(null);
+  const [participants, setParticipants] = useState<ParticipantData[]>([]);
   const disappearTimers = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
 
   // Clear all timers on unmount to prevent memory leaks
@@ -137,6 +139,7 @@ export function useMessages({
 
       setMessages(msgs);
       setNextCursor(data.nextCursor);
+      setParticipants(data.participants ?? []);
       msgs.forEach(scheduleDisappear);
     } catch {
       setLoadError(true);
@@ -174,5 +177,6 @@ export function useMessages({
     updateMessage,
     loadMessages,
     loadOlderMessages,
+    participants,
   };
 }

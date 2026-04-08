@@ -142,6 +142,29 @@ export function formatLastSeen(dateStr: string): string {
   return `last seen ${date.toLocaleDateString([], { month: 'short', day: 'numeric' })}`;
 }
 
+// ─── Typing ───────────────────────────────────────────────────────────────────
+
+/**
+ * Resolves a human-readable typing label for group chats.
+ * Priority per user: contact nickname → contact name → participant phone.
+ */
+export function resolveTypingLabel(
+  typingUserIds: Set<string>,
+  participants: { userId: string; user: { phone: string; name: string | null } }[],
+  contacts: ContactItem[],
+): string {
+  const names = Array.from(typingUserIds).map((userId) => {
+    const contact = contacts.find((c) => c.contactUserId === userId);
+    if (contact) return getContactDisplayName(contact);
+    const participant = participants.find((p) => p.userId === userId);
+    return participant?.user.phone ?? userId;
+  });
+
+  if (names.length === 0) return '';
+  if (names.length === 1) return `${names[0]} is typing...`;
+  return `${names.join(', ')} are typing...`;
+}
+
 // ─── Auth ─────────────────────────────────────────────────────────────────────
 
 /** Decode a base64url-encoded JWT segment to a UTF-8 string */

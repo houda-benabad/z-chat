@@ -11,6 +11,7 @@ interface ChatHeaderProps {
   isTyping: boolean;
   isGroup: boolean;
   topInset: number;
+  typingLabel?: string;
   onBack: () => void;
   onHeaderPress?: () => void;
   onSearchPress?: () => void;
@@ -23,13 +24,14 @@ export function ChatHeader({
   isTyping,
   isGroup,
   topInset,
+  typingLabel,
   onBack,
   onHeaderPress,
   onSearchPress,
 }: ChatHeaderProps) {
   const styles = useThemedStyles(createStyles);
   const statusText = isTyping
-    ? 'typing...'
+    ? (typingLabel ?? 'typing...')
     : isGroup
     ? 'tap for group info'
     : isOnline

@@ -1,9 +1,9 @@
 import { useEffect, useRef } from 'react';
-import { View, Animated } from 'react-native';
+import { View, Animated, Text } from 'react-native';
 import { useThemedStyles } from '../hooks/useThemedStyles';
 import { createStyles } from './styles/TypingDots.styles';
 
-export function TypingDots() {
+export function TypingDots({ label }: { label?: string }) {
   const styles = useThemedStyles(createStyles);
   const dot0 = useRef(new Animated.Value(0)).current;
   const dot1 = useRef(new Animated.Value(0)).current;
@@ -41,6 +41,7 @@ export function TypingDots() {
       <Animated.View style={dotStyle(dot0)} />
       <Animated.View style={dotStyle(dot1)} />
       <Animated.View style={dotStyle(dot2)} />
+      {label && <Text style={styles.label} numberOfLines={1}>{label}</Text>}
     </View>
   );
 }

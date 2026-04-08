@@ -18,7 +18,7 @@ import { getSocket, connectSocket } from '@/shared/services/socket';
 import { LoadingScreen, TypingDots } from '@/shared/components';
 import { useCurrentUser } from '@/shared/hooks';
 import { useAppSettings } from '@/shared/context/AppSettingsContext';
-import { chatApi, uploadMedia, userApi, settingsApi } from '@/shared/services/api';
+import { chatApi, uploadMedia, userApi, settingsApi, contactApi } from '@/shared/services/api';
 import { useMessages } from '../hooks/useMessages';
 import { useMessageComposer } from '../hooks/useMessageComposer';
 import { useVoiceRecorder } from '../hooks/useVoiceRecorder';
@@ -37,7 +37,8 @@ import { MessageActions } from '../components/MessageActions';
 import { useThemedStyles } from '@/shared/hooks/useThemedStyles';
 import { createStyles } from './styles/ChatScreen.styles';
 import type { Socket } from 'socket.io-client';
-import type { ChatMessage } from '@/types';
+import type { ChatMessage, ContactItem } from '@/types';
+import { resolveTypingLabel } from '@/shared/utils';
 const CHAT_BG = '#ECE5DD';
 
 export default function ChatScreen() {
@@ -83,13 +84,15 @@ export default function ChatScreen() {
   // ─── Message state (loading, pagination, decryption) ──────────────────────
   const {
     messages, loading, loadingMore, loadError,
-    groupKey, recipientPublicKey,
+    groupKey, recipientPublicKey, participants,
     addMessage, confirmMessage, markMessageFailed, removeMessage, updateMessage, loadMessages, loadOlderMessages,
   } = useMessages({ chatId, isGroup, recipientId });
 
   // ─── Session state ─────────────────────────────────────────────────────────
   const [isOnline, setIsOnline] = useState(recipientIsOnline === '1');
-  const [isTyping, setIsTyping] = useState(false);
+  const [typingUserIds, setTypingUserIds] = useState<Set<string>>(new Set());
+  const isTyping = typingUserIds.size > 0;
+  const [contacts, setContacts] = useState<ContactItem[]>([]);
   const [recipientLastReadMsgId, setRecipientLastReadMsgId] = useState<string | null>(null);
   const [deliveredUpToMsgId, setDeliveredUpToMsgId] = useState<string | null>(null);
   const onlineSetBySocket = useRef(false);
@@ -118,6 +121,14 @@ export default function ChatScreen() {
     });
     return () => sub.remove();
   }, [isGroup, recipientId]);
+
+  // Fetch contacts once for group typing labels
+  useEffect(() => {
+    if (!isGroup) return;
+    contactApi.getContacts(0, 500)
+      .then(({ contacts: c }) => setContacts(c))
+      .catch(() => {});
+  }, [isGroup]);
 
   // ─── Block status ──────────────────────────────────────────────────────────
   const { isBlocked, handleUnblock } = useBlockStatus({ recipientId, isGroup });
@@ -232,6 +243,11 @@ export default function ChatScreen() {
     [messages, deliveredUpToMsgId],
   );
 
+  const typingLabel = useMemo(() => {
+    if (!isGroup) return 'typing...';
+    return resolveTypingLabel(typingUserIds, participants, contacts);
+  }, [isGroup, typingUserIds, participants, contacts]);
+
   // ─── Real-time events ──────────────────────────────────────────────────────
   const handleKeyUpdated = useCallback(() => { loadMessages(); }, [loadMessages]);
 
@@ -240,8 +256,8 @@ export default function ChatScreen() {
     recipientPublicKey, groupKey,
     onNewMessage:  addMessage,
     onRead:        setRecipientLastReadMsgId,
-    onTypingStart: () => setIsTyping(true),
-    onTypingStop:  () => setIsTyping(false),
+    onTypingStart: (userId) => setTypingUserIds((prev) => new Set([...prev, userId])),
+    onTypingStop:  (userId) => setTypingUserIds((prev) => { const s = new Set(prev); s.delete(userId); return s; }),
     onOnline:          () => { onlineSetBySocket.current = true; setIsOnline(true); },
     onOffline:         () => { onlineSetBySocket.current = true; setIsOnline(false); },
     onKeyUpdated:      handleKeyUpdated,
@@ -306,6 +322,7 @@ export default function ChatScreen() {
         isTyping={isTyping}
         isGroup={isGroup}
         topInset={insets.top}
+        typingLabel={typingLabel}
         onBack={() => router.back()}
         onHeaderPress={
           isGroup
@@ -433,7 +450,7 @@ export default function ChatScreen() {
           }
         />
 
-        {isTyping && !isBlocked && <TypingDots />}
+        {isTyping && !isBlocked && <TypingDots label={isGroup ? typingLabel : undefined} />}
 
         {isBlocked ? (
           <BlockedBar onUnblock={handleUnblock} bottomInset={insets.bottom} />
