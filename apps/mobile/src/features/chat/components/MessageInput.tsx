@@ -156,15 +156,22 @@ export function MessageInput({
           </LinearGradient>
         </Pressable>
       ) : (
-        <Pressable style={styles.sendBtn} onLongPress={onVoiceStart} delayLongPress={200}>
-          <LinearGradient
-            colors={['#E0E0E0', '#E0E0E0']}
-            style={styles.sendBtnGrad}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
-          >
-            <Ionicons name="mic-outline" size={18} color="#fff" />
-          </LinearGradient>
+        <Pressable
+          style={styles.sendBtn}
+          onPress={() => {}}
+          onLongPress={onVoiceStart}
+          delayLongPress={200}
+        >
+          {({ pressed }) => (
+            <LinearGradient
+              colors={['#E46C53', '#ED2F3C']}
+              style={[styles.sendBtnGrad, { opacity: pressed ? 0.55 : 1 }]}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+            >
+              <Ionicons name="mic-outline" size={18} color="#fff" />
+            </LinearGradient>
+          )}
         </Pressable>
       )}
       </View>

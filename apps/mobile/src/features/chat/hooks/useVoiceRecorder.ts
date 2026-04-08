@@ -1,4 +1,5 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
+import { Alert } from 'react-native';
 import { Audio } from 'expo-av';
 
 export interface UseVoiceRecorderReturn {
@@ -26,7 +27,10 @@ export function useVoiceRecorder(): UseVoiceRecorderReturn {
   const startRecording = useCallback(async () => {
     try {
       const { granted } = await Audio.requestPermissionsAsync();
-      if (!granted) return;
+      if (!granted) {
+        Alert.alert('Microphone Access Required', 'Please enable microphone access in Settings to send voice messages.');
+        return;
+      }
 
       await Audio.setAudioModeAsync({
         allowsRecordingIOS: true,
