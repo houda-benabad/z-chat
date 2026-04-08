@@ -5,6 +5,7 @@ import { formatMessageTime } from '@/shared/utils';
 import { useAppSettings } from '@/shared/context/AppSettingsContext';
 import { useThemedStyles } from '@/shared/hooks/useThemedStyles';
 import { DateSeparator } from './DateSeparator';
+import { SystemEventBar } from './SystemEventBar';
 import { ImageViewer } from './ImageViewer';
 import { VoiceNotePlayer } from './VoiceNotePlayer';
 import { isSameDay } from '../utils/messageUtils';
@@ -50,6 +51,15 @@ export function MessageBubble({
 
   const [viewingImage, setViewingImage] = useState<string | null>(null);
   const [imgError,     setImgError]     = useState(false);
+
+  if (message.type === 'system') {
+    return (
+      <>
+        {showDate && <DateSeparator dateStr={message.createdAt} />}
+        <SystemEventBar message={message} myUserId={myUserId} />
+      </>
+    );
+  }
 
   const timeLabel = message.failed
     ? 'Failed — tap to retry'

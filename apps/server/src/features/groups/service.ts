@@ -10,6 +10,32 @@ export class GroupService {
     private prisma: PrismaClient,
   ) {}
 
+  private async createSystemMessage(
+    chatId: string,
+    senderId: string,
+    eventContent: object,
+  ): Promise<void> {
+    try {
+      const sysMsg = await this.prisma.message.create({
+        data: {
+          chatId,
+          senderId,
+          type: "system",
+          content: JSON.stringify(eventContent),
+          mediaUrl: null,
+          replyToId: null,
+          isForwarded: false,
+          isDeleted: false,
+          disappearsAt: null,
+        },
+        include: { sender: { select: { id: true, name: true, avatar: true } } },
+      });
+      this.getIO()?.to(`chat:${chatId}`).emit("message:new", sysMsg);
+    } catch {
+      // system message failure must not break the main operation
+    }
+  }
+
   async createGroup(
     userId: string,
     data: { name: string; description?: string; avatar?: string; memberIds: string[] },
@@ -40,6 +66,13 @@ export class GroupService {
         }
       }
     }
+
+    const actor = await this.repo.findUserById(userId);
+    await this.createSystemMessage(chat.id, userId, {
+      event: "group_created",
+      actorId: userId,
+      actorName: actor?.name ?? actor?.phone ?? null,
+    });
 
     return chat;
   }
@@ -105,6 +138,24 @@ export class GroupService {
       });
     }
 
+    const actor = await this.repo.findUserById(userId);
+    const actorName = actor?.name ?? actor?.phone ?? null;
+    if (data.name !== undefined) {
+      await this.createSystemMessage(chatId, userId, {
+        event: "name_changed",
+        actorId: userId,
+        actorName,
+        newName: chat.name,
+      });
+    }
+    if (data.avatar !== undefined && data.name === undefined) {
+      await this.createSystemMessage(chatId, userId, {
+        event: "icon_changed",
+        actorId: userId,
+        actorName,
+      });
+    }
+
     return chat;
   }
 
@@ -152,6 +203,22 @@ export class GroupService {
       io.to(`chat:${chatId}`).emit("group:member:added", { chatId, memberIds: newIds });
     }
 
+    if (newIds.length > 0) {
+      const actor = await this.repo.findUserById(userId);
+      const members = await this.repo.findUsersWithNames(newIds);
+      const memberNames = newIds.map((id) => {
+        const m = members.find((u) => u.id === id);
+        return m?.name ?? m?.phone ?? null;
+      });
+      await this.createSystemMessage(chatId, userId, {
+        event: "members_added",
+        actorId: userId,
+        actorName: actor?.name ?? actor?.phone ?? null,
+        memberIds: newIds,
+        memberNames,
+      });
+    }
+
     return updatedChat;
   }
 
@@ -189,6 +256,24 @@ export class GroupService {
       io.to(`chat:${chatId}`).emit("group:member:removed", { chatId, userId: targetUserId });
       // Signal remaining members that group key rotation is needed
       io.to(`chat:${chatId}`).emit("group:key_rotation_needed", { chatId });
+    }
+
+    const actor = await this.repo.findUserById(userId);
+    if (isSelf) {
+      await this.createSystemMessage(chatId, userId, {
+        event: "member_left",
+        actorId: userId,
+        actorName: actor?.name ?? actor?.phone ?? null,
+      });
+    } else {
+      const target = await this.repo.findUserById(targetUserId);
+      await this.createSystemMessage(chatId, userId, {
+        event: "member_removed",
+        actorId: userId,
+        actorName: actor?.name ?? actor?.phone ?? null,
+        targetId: targetUserId,
+        targetName: target?.name ?? target?.phone ?? null,
+      });
     }
 
     return isSelf ? "Left group" : "Member removed";
@@ -258,6 +343,17 @@ export class GroupService {
         role,
       });
     }
+
+    const actor = await this.repo.findUserById(userId);
+    const target = await this.repo.findUserById(targetUserId);
+    await this.createSystemMessage(chatId, userId, {
+      event: "role_updated",
+      actorId: userId,
+      actorName: actor?.name ?? actor?.phone ?? null,
+      targetId: targetUserId,
+      targetName: target?.name ?? target?.phone ?? null,
+      role,
+    });
 
     return updated;
   }

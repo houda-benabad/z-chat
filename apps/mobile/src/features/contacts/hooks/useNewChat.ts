@@ -2,9 +2,8 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { useFocusEffect, useRouter, useLocalSearchParams } from 'expo-router';
 import { TextInput, Alert } from 'react-native';
 import * as Contacts from 'expo-contacts';
-import { contactApi, chatApi } from '@/shared/services/api';
+import { contactApi } from '@/shared/services/api';
 import { getContactDisplayName, groupContactsByLetter } from '@/shared/utils';
-import { useCurrentUser } from '@/shared/hooks';
 import type { ContactItem } from '@/types';
 
 export interface UseNewChatReturn {
@@ -30,7 +29,6 @@ export function useNewChat(): UseNewChatReturn {
   const router = useRouter();
   const { forwardContent } = useLocalSearchParams<{ forwardContent?: string }>();
   const searchRef = useRef<TextInput>(null);
-  const { userId: myUserId } = useCurrentUser();
 
   const PAGE_SIZE = 50;
 
@@ -92,27 +90,21 @@ export function useNewChat(): UseNewChatReturn {
     setRefreshing(false);
   }, [loadContacts]);
 
-  const handleSelectContact = useCallback(async (contact: ContactItem) => {
+  const handleSelectContact = useCallback((contact: ContactItem) => {
     if (openingId) return;
     setOpeningId(contact.id);
-    try {
-      const { chat } = await chatApi.createChat(contact.contactUserId);
-      const otherUser = chat.participants.find((p) => p.userId !== myUserId)?.user;
-      router.replace({
-        pathname: '/chat',
-        params: {
-          chatId: chat.id,
-          name: contact.nickname ?? otherUser?.name ?? otherUser?.phone ?? 'Chat',
-          recipientId: contact.contactUserId,
-          recipientAvatar: otherUser?.avatar ?? '',
-          recipientIsOnline: otherUser?.isOnline ? '1' : '0',
-          ...(forwardContent ? { forwardContent } : {}),
-        },
-      });
-    } catch {
-      setOpeningId(null);
-    }
-  }, [myUserId, router, openingId]);
+    router.replace({
+      pathname: '/chat',
+      params: {
+        chatId: '',
+        name: contact.nickname ?? contact.contactUser.name ?? contact.contactUser.phone ?? 'Chat',
+        recipientId: contact.contactUserId,
+        recipientAvatar: contact.contactUser.avatar ?? '',
+        recipientIsOnline: contact.contactUser.isOnline ? '1' : '0',
+        ...(forwardContent ? { forwardContent } : {}),
+      },
+    });
+  }, [router, openingId, forwardContent]);
 
   const handleSyncContacts = useCallback(async () => {
     const { status } = await Contacts.requestPermissionsAsync();

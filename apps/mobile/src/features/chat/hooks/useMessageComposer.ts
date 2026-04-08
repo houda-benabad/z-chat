@@ -3,6 +3,7 @@ import {
   encryptMessage,
   encryptGroupMessage,
 } from '@/shared/services/crypto';
+import { chatApi } from '@/shared/services/api';
 import { decryptChatMessage } from '../utils/decryptChatMessage';
 import type { ChatMessage } from '@/types';
 import type { Socket } from 'socket.io-client';
@@ -16,6 +17,8 @@ interface UseMessageComposerParams {
   groupKey: string | null;
   replyToId: string | null;
   initialText?: string;
+  recipientId?: string;
+  onChatCreated?: (chatId: string) => void;
   onPendingMessage: (msg: ChatMessage) => void;
   onMessageSent: (pendingId: string, message: ChatMessage, plaintext: string) => void;
   onMessageFailed?: (pendingId: string) => void;
@@ -37,6 +40,8 @@ export function useMessageComposer({
   groupKey,
   replyToId,
   initialText,
+  recipientId,
+  onChatCreated,
   onPendingMessage,
   onMessageSent,
   onMessageFailed,
@@ -47,7 +52,21 @@ export function useMessageComposer({
 
   const handleSend = useCallback(async () => {
     const content = inputText.trim();
-    if (!content || !chatId || !socket || !myUserId) return;
+    if (!content || !socket || !myUserId) return;
+
+    // Resolve chatId — create the chat on the first message if needed
+    let activeChatId = chatId;
+    if (!activeChatId) {
+      if (!recipientId) return;
+      try {
+        const { chat } = await chatApi.createChat(recipientId);
+        activeChatId = chat.id;
+        onChatCreated?.(activeChatId);
+      } catch {
+        onEncryptionError?.('Could not start chat. Please try again.');
+        return;
+      }
+    }
 
     // Require encryption keys before proceeding — no plaintext fallback
     if (!isGroup && !recipientPublicKey) {
@@ -73,7 +92,7 @@ export function useMessageComposer({
     }
 
     setInputText('');
-    socket.emit('typing:stop', { chatId });
+    socket.emit('typing:stop', { chatId: activeChatId });
     if (typingTimeoutRef.current) {
       clearTimeout(typingTimeoutRef.current);
       typingTimeoutRef.current = null;
@@ -84,7 +103,7 @@ export function useMessageComposer({
     const now = new Date().toISOString();
     onPendingMessage({
       id: pendingId,
-      chatId,
+      chatId: activeChatId,
       senderId: myUserId,
       type: 'text',
       content,
@@ -101,7 +120,7 @@ export function useMessageComposer({
 
     socket.emit(
       'message:send',
-      { chatId, type: 'text', content: payload, replyToId: replyToId ?? undefined },
+      { chatId: activeChatId, type: 'text', content: payload, replyToId: replyToId ?? undefined },
       async (res: { message?: ChatMessage; error?: string }) => {
         if (res?.message) {
           const decrypted = await decryptChatMessage(res.message, { isGroup, recipientPublicKey, groupKey });
@@ -111,7 +130,7 @@ export function useMessageComposer({
         }
       },
     );
-  }, [socket, inputText, chatId, myUserId, isGroup, recipientPublicKey, groupKey, replyToId, onPendingMessage, onMessageSent, onMessageFailed, onEncryptionError]);
+  }, [socket, inputText, chatId, myUserId, isGroup, recipientPublicKey, groupKey, replyToId, recipientId, onChatCreated, onPendingMessage, onMessageSent, onMessageFailed, onEncryptionError]);
 
   const handleTextChange = useCallback(
     (text: string) => {

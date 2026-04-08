@@ -11,3 +11,4 @@ export { SettingsTab } from './SettingsTab';
 export { MessageActions } from './MessageActions';
 export { ImageViewer } from './ImageViewer';
 export { VoiceNotePlayer } from './VoiceNotePlayer';
+export { SystemEventBar } from './SystemEventBar';

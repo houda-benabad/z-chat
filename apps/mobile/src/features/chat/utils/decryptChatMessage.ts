@@ -20,6 +20,8 @@ export async function decryptChatMessage(
   msg: ChatMessage,
   opts: DecryptOpts,
 ): Promise<ChatMessage> {
+  if (msg.type === 'system') return msg;
+
   let result: ChatMessage = msg;
 
   // Decrypt main content

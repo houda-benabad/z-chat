@@ -44,7 +44,7 @@ const CHAT_BG = '#ECE5DD';
 export default function ChatScreen() {
   const styles = useThemedStyles(createStyles);
   const {
-    chatId, name, recipientId = '', chatType, recipientIsOnline, forwardContent, recipientAvatar, backTo,
+    chatId: paramChatId, name, recipientId = '', chatType, recipientIsOnline, forwardContent, recipientAvatar, backTo,
   } = useLocalSearchParams<{
     chatId: string; name: string; recipientId: string;
     chatType?: string; recipientIsOnline?: string;
@@ -52,6 +52,8 @@ export default function ChatScreen() {
     backTo?: string;
   }>();
   const isGroup = chatType === 'group';
+  // activeChatId starts empty for new chats and is set once the first message creates the chat
+  const [activeChatId, setActiveChatId] = useState(paramChatId ?? '');
   const router  = useRouter();
   const insets  = useSafeAreaInsets();
   const { userId: myUserId, loading: userLoading } = useCurrentUser();
@@ -84,15 +86,15 @@ export default function ChatScreen() {
   }, [socket]);
 
   useEffect(() => {
-    if (!socket || !isGroup || !chatId) return;
+    if (!socket || !isGroup || !activeChatId) return;
     const handler = (d: { chatId: string; name?: string; avatar?: string | null }) => {
-      if (d.chatId !== chatId) return;
+      if (d.chatId !== activeChatId) return;
       if (d.name   !== undefined) setLiveGroupName(d.name);
       if (d.avatar !== undefined) setLiveAvatar(d.avatar || undefined);
     };
     socket.on('group:updated', handler);
     return () => { socket.off('group:updated', handler); };
-  }, [socket, chatId, isGroup]);
+  }, [socket, activeChatId, isGroup]);
 
   // ─── Ensure device key pair exists ────────────────────────────────────────
   const { encryptionError } = useKeyPair();
@@ -102,7 +104,7 @@ export default function ChatScreen() {
     messages, loading, loadingMore, loadError,
     groupKey, recipientPublicKey, participants,
     addMessage, confirmMessage, markMessageFailed, removeMessage, updateMessage, loadMessages, loadOlderMessages,
-  } = useMessages({ chatId, isGroup, recipientId });
+  } = useMessages({ chatId: activeChatId, isGroup, recipientId });
 
   // ─── Session state ─────────────────────────────────────────────────────────
   const [isOnline, setIsOnline] = useState(recipientIsOnline === '1');
@@ -162,11 +164,26 @@ export default function ChatScreen() {
   const { isRecording, durationMs, startRecording, stopRecording, cancelRecording } = useVoiceRecorder();
 
   const sendMedia = useCallback(async (uri: string, mimeType: string, type: 'voice_note' | 'image') => {
-    if (!socket || !chatId) return;
+    if (!socket) return;
     setUploadingMedia(true);
+
+    // Resolve chatId — create the chat on first media message if needed
+    let chatIdToUse = activeChatId;
+    if (!chatIdToUse) {
+      if (!recipientId) { setUploadingMedia(false); return; }
+      try {
+        const { chat } = await chatApi.createChat(recipientId);
+        chatIdToUse = chat.id;
+        setActiveChatId(chatIdToUse);
+      } catch {
+        setUploadingMedia(false);
+        return;
+      }
+    }
+
     const pendingId = `pending-media-${Date.now()}`;
     addMessage({
-      id: pendingId, chatId, senderId: myUserId, type,
+      id: pendingId, chatId: chatIdToUse, senderId: myUserId, type,
       content: null, mediaUrl: uri, replyToId: null,
       isForwarded: false, isDeleted: false, disappearsAt: null,
       createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(),
@@ -177,7 +194,7 @@ export default function ChatScreen() {
       const mediaUrl = await uploadMedia(uri, mimeType);
       socket.emit(
         'message:send',
-        { chatId, type, mediaUrl },
+        { chatId: chatIdToUse, type, mediaUrl },
         (res: { message?: ChatMessage; error?: string }) => {
           if (res?.message) {
             confirmMessage(pendingId, { ...res.message, mediaUrl }, '');
@@ -191,7 +208,7 @@ export default function ChatScreen() {
     } finally {
       setUploadingMedia(false);
     }
-  }, [socket, chatId, myUserId, addMessage, confirmMessage, markMessageFailed]);
+  }, [socket, activeChatId, recipientId, myUserId, addMessage, confirmMessage, markMessageFailed]);
 
   const handleVoiceStop = useCallback(async () => {
     const uri = await stopRecording();
@@ -221,11 +238,11 @@ export default function ChatScreen() {
     if (!q.trim()) { setSearchResults([]); return; }
     setSearchLoading(true);
     try {
-      const { messages } = await chatApi.searchMessages(chatId, q);
+      const { messages } = await chatApi.searchMessages(activeChatId, q);
       setSearchResults(messages);
     } catch { /* ignore */ }
     finally { setSearchLoading(false); }
-  }, [chatId]);
+  }, [activeChatId]);
 
   // Load messages on mount
   useEffect(() => { loadMessages(); }, [loadMessages]);
@@ -243,12 +260,12 @@ export default function ChatScreen() {
 
   // Send read receipt when last message changes
   useEffect(() => {
-    if (!socket || !chatId || !myUserId || messages.length === 0) return;
+    if (!socket || !activeChatId || !myUserId || messages.length === 0) return;
     const last = messages[messages.length - 1];
     if (last && last.senderId !== myUserId) {
-      socket.emit('message:read', { chatId, messageId: last.id });
+      socket.emit('message:read', { chatId: activeChatId, messageId: last.id });
     }
-  }, [socket, messages, chatId, myUserId]);
+  }, [socket, messages, activeChatId, myUserId]);
 
   // Derived indexes for tick marks
   const readUpToIndex = useMemo(
@@ -269,7 +286,7 @@ export default function ChatScreen() {
   const handleKeyUpdated = useCallback(() => { loadMessages(); }, [loadMessages]);
 
   useChatSocket({
-    socket, chatId, myUserId, recipientId, isGroup,
+    socket, chatId: activeChatId, myUserId, recipientId, isGroup,
     recipientPublicKey, groupKey,
     onNewMessage:  addMessage,
     onRead:        setRecipientLastReadMsgId,
@@ -283,12 +300,12 @@ export default function ChatScreen() {
 
   const handleDeleteMessage = useCallback(async (msg: ChatMessage) => {
     try {
-      await chatApi.deleteMessage(chatId, msg.id);
+      await chatApi.deleteMessage(activeChatId, msg.id);
       updateMessage(msg.id, { isDeleted: true, content: null });
     } catch {
       Alert.alert('Error', 'Could not delete message');
     }
-  }, [chatId, updateMessage]);
+  }, [activeChatId, updateMessage]);
 
   const handleForwardMessage = useCallback((msg: ChatMessage) => {
     // Navigate to contact picker to forward
@@ -301,9 +318,11 @@ export default function ChatScreen() {
   }, [markMessageFailed]);
 
   const { inputText, handleTextChange, handleSend } = useMessageComposer({
-    socket, chatId, myUserId, isGroup, recipientPublicKey, groupKey,
+    socket, chatId: activeChatId, myUserId, isGroup, recipientPublicKey, groupKey,
     replyToId: replyToMessage?.id ?? null,
     initialText: forwardContent,
+    recipientId,
+    onChatCreated: setActiveChatId,
     onPendingMessage: addMessage,
     onMessageSent: (pendingId, msg, plaintext) => {
       confirmMessage(pendingId, msg, plaintext);
@@ -343,7 +362,7 @@ export default function ChatScreen() {
         onBack={() => backTo ? router.navigate(backTo as any) : router.back()}
         onHeaderPress={
           isGroup
-            ? () => router.push({ pathname: '/group-info', params: { chatId } })
+            ? () => router.push({ pathname: '/group-info', params: { chatId: activeChatId } })
             : recipientId
             ? () => router.push({ pathname: '/user-profile', params: { userId: recipientId, name: displayName } })
             : undefined

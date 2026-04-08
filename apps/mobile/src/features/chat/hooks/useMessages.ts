@@ -1,5 +1,5 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
-import { chatApi } from '@/shared/services/api';
+import { chatApi, userApi } from '@/shared/services/api';
 import { decryptGroupKey } from '@/shared/services/crypto';
 import { decryptChatMessage } from '../utils/decryptChatMessage';
 import type { ChatMessage } from '@/types';
@@ -46,7 +46,7 @@ export function useMessages({
   recipientId,
 }: UseMessagesParams): UseMessagesReturn {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(!!chatId);
   const [loadingMore, setLoadingMore] = useState(false);
   const [loadError, setLoadError] = useState(false);
   const [nextCursor, setNextCursor] = useState<string | null>(null);
@@ -73,6 +73,15 @@ export function useMessages({
     }, msLeft);
     disappearTimers.current.set(msg.id, t);
   }, []);
+
+  // For new chats (no chatId yet), pre-fetch the recipient's public key so
+  // E2E encryption is ready before the first message is sent.
+  useEffect(() => {
+    if (chatId || isGroup || !recipientId) return;
+    userApi.getUser(recipientId)
+      .then(({ user }) => setRecipientPublicKey(user.publicKey ?? null))
+      .catch(() => {});
+  }, [chatId, isGroup, recipientId]);
 
   const addMessage = useCallback((msg: ChatMessage) => {
     setMessages((prev) => (prev.some((m) => m.id === msg.id) ? prev : [...prev, msg]));

@@ -149,6 +149,13 @@ export class GroupRepository {
     });
   }
 
+  async findUsersWithNames(ids: string[]) {
+    return this.prisma.user.findMany({
+      where: { id: { in: ids } },
+      select: { id: true, name: true, phone: true },
+    });
+  }
+
   async updateGroupKey(chatId: string, userId: string, encryptedKey: string, version: number) {
     return this.prisma.chatParticipant.update({
       where: { chatId_userId: { chatId, userId } },
