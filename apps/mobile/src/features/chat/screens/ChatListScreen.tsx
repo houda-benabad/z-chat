@@ -1,8 +1,8 @@
-import { useState, useCallback, useRef } from 'react';
+import { useState, useCallback, useRef, useEffect } from 'react';
 import { View, Text, Pressable, TextInput } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useRouter, useFocusEffect } from 'expo-router';
+import { useRouter, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { tokenStorage } from '@/shared/services/api';
 import { useAppSettings } from '@/shared/context/AppSettingsContext';
 import { disconnectSocket } from '@/shared/services/socket';
@@ -26,6 +26,10 @@ export default function ChatListScreen() {
   const insets      = useSafeAreaInsets();
   const { userId: myUserId } = useCurrentUser();
   const [activeTab, setActiveTab] = useState<TabName>('chats');
+  const { tab } = useLocalSearchParams<{ tab?: string }>();
+  useEffect(() => {
+    if (tab === 'chats') setActiveTab('chats');
+  }, [tab]);
   const [searchOpen, setSearchOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const searchRef = useRef<TextInput>(null);

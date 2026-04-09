@@ -175,6 +175,17 @@ export interface UserSettings {
   autoDownloadDocuments: boolean;
 }
 
+export interface StarredMessageItem {
+  id: string;
+  messageId: string;
+  createdAt: string;
+  message: ChatMessage & {
+    chat: { id: string; type: string; name: string | null; avatar: string | null };
+  };
+  encryptedGroupKey: string | null;
+  recipientPublicKey: string | null;
+}
+
 export interface BlockedUserItem {
   id: string;
   userId: string;

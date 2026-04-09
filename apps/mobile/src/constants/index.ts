@@ -40,13 +40,15 @@ export const SETTINGS_SECTIONS: {
     title: '',
     rows: [
       { label: 'Account',       subtitle: 'Privacy, security, change number',  icon: '🔑', route: '/settings-account'       },
+      { label: 'Starred Messages', subtitle: 'Messages you have starred',   icon: '⭐', route: '/starred-messages'       },
     ],
   },
   {
     title: 'Preferences',
     rows: [
-      { label: 'Privacy',       subtitle: 'Last seen, read receipts, blocked', icon: '🔒', route: '/settings-privacy'        },
-      { label: 'Notifications', subtitle: 'Message, group, call alerts',       icon: '🔔', route: '/settings-notifications'  },
+      { label: 'Privacy',           subtitle: 'Last seen, read receipts, blocked', icon: '🔒', route: '/settings-privacy'        },
+      { label: 'Blocked Contacts', subtitle: 'Manage blocked users',             icon: '🚫', route: '/settings-blocked'        },
+      { label: 'Notifications',     subtitle: 'Message, group, call alerts',     icon: '🔔', route: '/settings-notifications'  },
       { label: 'Storage & Data',subtitle: 'Auto-download, data usage',         icon: '💾', route: '/settings-storage'        },
       { label: 'Appearance',    subtitle: 'Theme, accent color, font size',    icon: '🎨', route: '/settings-appearance'     },
     ],

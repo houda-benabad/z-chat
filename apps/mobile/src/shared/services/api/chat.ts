@@ -1,5 +1,5 @@
 import { request } from './client';
-import type { ChatListItem, ChatData, MessagesResponse, ChatParticipantUser } from '../../../types';
+import type { ChatListItem, ChatData, MessagesResponse, ChatParticipantUser, StarredMessageItem } from '../../../types';
 
 export const chatApi = {
   getChats: (cursor?: string, limit?: number): Promise<{ chats: ChatListItem[]; hasMore: boolean; nextCursor: string | null }> => {
@@ -30,4 +30,21 @@ export const chatApi = {
 
   searchMessages: (chatId: string, query: string): Promise<{ messages: import('../../../types').ChatMessage[] }> =>
     request(`/chats/${chatId}/messages/search?q=${encodeURIComponent(query)}`),
+
+  starMessage: (chatId: string, messageId: string): Promise<{ message: string }> =>
+    request(`/chats/${chatId}/messages/${messageId}/star`, { method: 'POST' }),
+
+  unstarMessage: (chatId: string, messageId: string): Promise<{ message: string }> =>
+    request(`/chats/${chatId}/messages/${messageId}/star`, { method: 'DELETE' }),
+
+  getStarredMessages: (cursor?: string, limit?: number): Promise<{ starredMessages: StarredMessageItem[]; hasMore: boolean; nextCursor: string | null }> => {
+    const params = new URLSearchParams();
+    if (cursor) params.set('cursor', cursor);
+    if (limit) params.set('limit', String(limit));
+    const qs = params.toString();
+    return request(`/chats/starred${qs ? `?${qs}` : ''}`);
+  },
+
+  getStarredMessageIdsForChat: (chatId: string): Promise<{ starredMessageIds: string[] }> =>
+    request(`/chats/${chatId}/starred-ids`),
 };

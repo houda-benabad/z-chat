@@ -46,6 +46,33 @@ export class ChatController {
     res.json({ message: "Message deleted" });
   });
 
+  starMessage = asyncHandler(async (req: AuthRequest, res: Response) => {
+    const chatId = String(req.params.id);
+    const messageId = String(req.params.messageId);
+    await this.service.starMessage(req.userId!, chatId, messageId);
+    res.status(201).json({ message: "Message starred" });
+  });
+
+  unstarMessage = asyncHandler(async (req: AuthRequest, res: Response) => {
+    const chatId = String(req.params.id);
+    const messageId = String(req.params.messageId);
+    await this.service.unstarMessage(req.userId!, chatId, messageId);
+    res.json({ message: "Message unstarred" });
+  });
+
+  getStarredMessages = asyncHandler(async (req: AuthRequest, res: Response) => {
+    const cursor = req.query.cursor ? String(req.query.cursor) : undefined;
+    const limit = Math.min(Number(req.query.limit) || 25, 50);
+    const result = await this.service.getStarredMessages(req.userId!, cursor, limit);
+    res.json(result);
+  });
+
+  getStarredMessageIdsForChat = asyncHandler(async (req: AuthRequest, res: Response) => {
+    const chatId = String(req.params.id);
+    const starredMessageIds = await this.service.getStarredMessageIdsForChat(req.userId!, chatId);
+    res.json({ starredMessageIds });
+  });
+
   getMessages = asyncHandler(async (req: AuthRequest, res: Response) => {
     const chatId = String(req.params.id);
     const cursor = req.query.cursor ? String(req.query.cursor) : undefined;

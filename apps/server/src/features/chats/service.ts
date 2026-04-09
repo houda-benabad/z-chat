@@ -177,6 +177,73 @@ export class ChatService {
     return updated;
   }
 
+  async starMessage(userId: string, chatId: string, messageId: string) {
+    const participant = await this.repo.findParticipant(chatId, userId);
+    if (!participant) {
+      throw new AppError(403, "Not a participant of this chat", "FORBIDDEN");
+    }
+    return this.repo.starMessage(userId, messageId);
+  }
+
+  async unstarMessage(userId: string, chatId: string, messageId: string) {
+    const participant = await this.repo.findParticipant(chatId, userId);
+    if (!participant) {
+      throw new AppError(403, "Not a participant of this chat", "FORBIDDEN");
+    }
+    await this.repo.unstarMessage(userId, messageId);
+  }
+
+  async getStarredMessages(userId: string, cursor?: string, limit = 25) {
+    const rows = await this.repo.findStarredMessages(userId, cursor, limit);
+    const hasMore = rows.length > limit;
+    if (hasMore) rows.pop();
+
+    // Sanitize: per message, expose only the requesting user's encryptedGroupKey
+    // and the other participant's publicKey (for direct chat decryption)
+    const starredMessages = rows.map((row: (typeof rows)[number]) => {
+      const chat = row.message.chat as any;
+      const participants = chat.participants ?? [];
+
+      let encryptedGroupKey: string | null = null;
+      let recipientPublicKey: string | null = null;
+
+      if (chat.type === "group") {
+        const myEntry = participants.find((p: any) => p.userId === userId);
+        encryptedGroupKey = myEntry?.encryptedGroupKey ?? null;
+      } else {
+        const other = participants.find((p: any) => p.userId !== userId);
+        recipientPublicKey = other?.user?.publicKey ?? null;
+      }
+
+      // Strip participants from the response — only return the derived keys
+      const { participants: _p, ...chatWithoutParticipants } = chat;
+
+      return {
+        ...row,
+        message: {
+          ...row.message,
+          chat: chatWithoutParticipants,
+        },
+        encryptedGroupKey,
+        recipientPublicKey,
+      };
+    });
+
+    return {
+      starredMessages,
+      hasMore,
+      nextCursor: hasMore && starredMessages.length > 0 ? starredMessages[starredMessages.length - 1]!.id : null,
+    };
+  }
+
+  async getStarredMessageIdsForChat(userId: string, chatId: string) {
+    const participant = await this.repo.findParticipant(chatId, userId);
+    if (!participant) {
+      throw new AppError(403, "Not a participant of this chat", "FORBIDDEN");
+    }
+    return this.repo.findStarredMessageIdsForChat(userId, chatId);
+  }
+
   async getMessages(
     userId: string,
     chatId: string,

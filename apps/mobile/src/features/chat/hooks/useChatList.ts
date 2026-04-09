@@ -16,7 +16,7 @@ async function decryptLastMessage(chat: ChatListItem, myUserId: string): Promise
 
   if (chat.type !== 'group') {
     const publicKey = chat.participants.find((p) => p.userId !== myUserId)?.user?.publicKey ?? null;
-    if (!publicKey) return chat;
+    if (!publicKey) return { ...chat, lastMessage: { ...chat.lastMessage, content: '🔒 Encrypted message' } };
     const msg = await decryptChatMessage(chat.lastMessage, {
       isGroup: false, recipientPublicKey: publicKey, groupKey: null,
     });

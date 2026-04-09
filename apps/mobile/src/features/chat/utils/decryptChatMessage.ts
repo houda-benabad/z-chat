@@ -32,6 +32,8 @@ export async function decryptChatMessage(
     } else if (opts.isGroup && opts.groupKey) {
       const plain = decryptGroupMessage(msg.content!, opts.groupKey);
       result = { ...result, content: plain ?? '🔒 Unable to decrypt message' };
+    } else {
+      result = { ...result, content: '🔒 Encrypted message' };
     }
   }
 
@@ -43,9 +45,7 @@ export async function decryptChatMessage(
     } else if (opts.isGroup && opts.groupKey) {
       plainReply = decryptGroupMessage(result.replyTo.content!, opts.groupKey);
     }
-    if (plainReply !== null) {
-      result = { ...result, replyTo: { ...result.replyTo, content: plainReply } };
-    }
+    result = { ...result, replyTo: { ...result.replyTo, content: plainReply ?? '🔒 Encrypted message' } };
   }
 
   return result;

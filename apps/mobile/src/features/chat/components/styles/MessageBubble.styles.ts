@@ -101,4 +101,14 @@ export const createStyles = (_colors: AppColors) => StyleSheet.create({
     borderRadius: 10,
     marginBottom: 2,
   },
+
+  avatarColumn: {
+    width: 28,
+    marginRight: 6,
+    justifyContent: 'flex-end' as const,
+    alignItems: 'center' as const,
+  },
+  avatarSpacer: {
+    width: 28,
+  },
 });

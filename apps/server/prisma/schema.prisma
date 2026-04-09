@@ -27,6 +27,7 @@ model User {
   settings      UserSettings?
   blockedUsers  BlockedUser[]      @relation("UserBlocked")
   blockedBy     BlockedUser[]      @relation("BlockedByUser")
+  starredMessages StarredMessage[]
 
   @@map("users")
 }
@@ -98,6 +99,7 @@ model Message {
   sender  User     @relation("SentMessages", fields: [senderId], references: [id])
   replyTo Message? @relation("MessageReplies", fields: [replyToId], references: [id])
   replies Message[] @relation("MessageReplies")
+  starredBy StarredMessage[]
 
   @@index([chatId, createdAt])
   @@index([senderId])
@@ -159,4 +161,18 @@ model BlockedUser {
   @@unique([userId, blockedUserId])
   @@index([userId])
   @@map("blocked_users")
+}
+
+model StarredMessage {
+  id        String   @id @default(uuid())
+  userId    String   @map("user_id")
+  messageId String   @map("message_id")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  message Message @relation(fields: [messageId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, messageId])
+  @@index([userId])
+  @@map("starred_messages")
 }

@@ -37,3 +37,28 @@ export function alert(title: string, message: string, buttons?: AlertButton[]): 
     cancelBtn?.onPress?.();
   }
 }
+
+/**
+ * Cross-platform confirmation dialog that returns a Promise<boolean>.
+ * On web: window.confirm.  On native: Alert.alert wrapped in a Promise.
+ */
+export function confirm(
+  title: string,
+  message: string,
+  confirmLabel = 'OK',
+  destructive = false,
+): Promise<boolean> {
+  if (Platform.OS === 'web') {
+    return Promise.resolve(window.confirm(`${title}\n${message}`));
+  }
+  return new Promise((resolve) => {
+    Alert.alert(title, message, [
+      { text: 'Cancel', style: 'cancel', onPress: () => resolve(false) },
+      {
+        text: confirmLabel,
+        style: destructive ? 'destructive' : 'default',
+        onPress: () => resolve(true),
+      },
+    ]);
+  });
+}

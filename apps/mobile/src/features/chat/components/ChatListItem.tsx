@@ -36,8 +36,8 @@ export function ChatListItem({
   const displayName = isGroup
     ? (item.name ?? 'Group')
     : inContacts
-      ? (nickname ?? otherUser?.name ?? 'Unknown')
-      : (otherUser?.phone ?? 'Unknown');
+      ? (nickname ?? otherUser?.name ?? 'Deleted Account')
+      : (otherUser?.phone ?? 'Deleted Account');
   const avatarUri = isGroup ? item.avatar : (otherUser?.avatar ?? null);
   const isOnline = !isGroup && (otherUser?.isOnline ?? false);
   const resolveName = (userId: string): string | null => {

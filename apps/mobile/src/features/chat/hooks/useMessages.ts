@@ -1,5 +1,6 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
 import { chatApi, userApi } from '@/shared/services/api';
+import { ApiError } from '@/shared/services/api/client';
 import { decryptGroupKey } from '@/shared/services/crypto';
 import { decryptChatMessage } from '../utils/decryptChatMessage';
 import type { ChatMessage } from '@/types';
@@ -38,6 +39,9 @@ export interface UseMessagesReturn {
   loadMessages: () => Promise<void>;
   loadOlderMessages: () => Promise<void>;
   participants: ParticipantData[];
+  isForbidden: boolean;
+  starredMessageIds: Set<string>;
+  toggleStar: (messageId: string) => Promise<void>;
 }
 
 export function useMessages({
@@ -49,10 +53,12 @@ export function useMessages({
   const [loading, setLoading] = useState(!!chatId);
   const [loadingMore, setLoadingMore] = useState(false);
   const [loadError, setLoadError] = useState(false);
+  const [isForbidden, setIsForbidden] = useState(false);
   const [nextCursor, setNextCursor] = useState<string | null>(null);
   const [groupKey, setGroupKey] = useState<string | null>(null);
   const [recipientPublicKey, setRecipientPublicKey] = useState<string | null>(null);
   const [participants, setParticipants] = useState<ParticipantData[]>([]);
+  const [starredMessageIds, setStarredMessageIds] = useState<Set<string>>(new Set());
   const disappearTimers = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
 
   // Clear all timers on unmount to prevent memory leaks
@@ -121,20 +127,45 @@ export function useMessages({
     [],
   );
 
+  const toggleStar = useCallback(async (messageId: string) => {
+    if (!chatId) return;
+    const wasStarred = starredMessageIds.has(messageId);
+    setStarredMessageIds((prev) => {
+      const next = new Set(prev);
+      if (wasStarred) next.delete(messageId); else next.add(messageId);
+      return next;
+    });
+    try {
+      if (wasStarred) {
+        await chatApi.unstarMessage(chatId, messageId);
+      } else {
+        await chatApi.starMessage(chatId, messageId);
+      }
+    } catch {
+      setStarredMessageIds((prev) => {
+        const next = new Set(prev);
+        if (wasStarred) next.add(messageId); else next.delete(messageId);
+        return next;
+      });
+    }
+  }, [chatId, starredMessageIds]);
+
   const loadMessages = useCallback(async () => {
     if (!chatId) return;
     setLoadError(false);
     try {
-      const data = await chatApi.getMessages(chatId);
+      const [data, starredResult] = await Promise.all([
+        chatApi.getMessages(chatId),
+        chatApi.getStarredMessageIdsForChat(chatId).catch(() => ({ starredMessageIds: [] as string[] })),
+      ]);
+      setStarredMessageIds(new Set(starredResult.starredMessageIds));
       let msgs = data.messages.reverse();
 
       if (!isGroup) {
         const other = data.participants?.find((p) => p.userId === recipientId);
         const pubKey = other?.user.publicKey ?? null;
         setRecipientPublicKey(pubKey);
-        if (pubKey) {
-          msgs = await decryptBatch(msgs, { isGroup: false, recipientPublicKey: pubKey, groupKey: null });
-        }
+        msgs = await decryptBatch(msgs, { isGroup: false, recipientPublicKey: pubKey, groupKey: null });
       } else {
         const myEntry = data.participants?.find((p) => p.encryptedGroupKey != null);
         if (myEntry?.encryptedGroupKey) {
@@ -150,8 +181,12 @@ export function useMessages({
       setNextCursor(data.nextCursor);
       setParticipants(data.participants ?? []);
       msgs.forEach(scheduleDisappear);
-    } catch {
-      setLoadError(true);
+    } catch (err) {
+      if (err instanceof ApiError && err.status === 403) {
+        setIsForbidden(true);
+      } else {
+        setLoadError(true);
+      }
     }
     finally { setLoading(false); }
   }, [chatId, isGroup, recipientId, decryptBatch]);
@@ -187,5 +222,8 @@ export function useMessages({
     loadMessages,
     loadOlderMessages,
     participants,
+    isForbidden,
+    starredMessageIds,
+    toggleStar,
   };
 }

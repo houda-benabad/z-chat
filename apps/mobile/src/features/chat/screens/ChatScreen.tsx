@@ -8,17 +8,17 @@ import {
   KeyboardAvoidingView,
   Platform,
   ActivityIndicator,
-  Alert,
   AppState,
   Pressable,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { getSocket, connectSocket } from '@/shared/services/socket';
-import { LoadingScreen, TypingDots } from '@/shared/components';
+import { LoadingScreen, TypingDots, Snackbar } from '@/shared/components';
 import { useCurrentUser } from '@/shared/hooks';
 import { useAppSettings } from '@/shared/context/AppSettingsContext';
 import { chatApi, uploadMedia, userApi, settingsApi, contactApi } from '@/shared/services/api';
+import { alert, confirm } from '@/shared/utils/alert';
 import { useMessages } from '../hooks/useMessages';
 import { useMessageComposer } from '../hooks/useMessageComposer';
 import { useVoiceRecorder } from '../hooks/useVoiceRecorder';
@@ -26,11 +26,13 @@ import { useChatSocket } from '../hooks/useChatSocket';
 import { useBlockStatus } from '../hooks/useBlockStatus';
 import { useContactStatus } from '../hooks/useContactStatus';
 import { useKeyPair } from '../hooks/useKeyPair';
+import { decryptChatMessage } from '../utils/decryptChatMessage';
 import {
   ChatHeader,
   MessageBubble,
   MessageInput,
   BlockedBar,
+  RemovedFromGroupBar,
   UnknownContactBar,
 } from '../components';
 import { MessageActions } from '../components/MessageActions';
@@ -101,9 +103,10 @@ export default function ChatScreen() {
 
   // ─── Message state (loading, pagination, decryption) ──────────────────────
   const {
-    messages, loading, loadingMore, loadError,
+    messages, loading, loadingMore, loadError, isForbidden,
     groupKey, recipientPublicKey, participants,
     addMessage, confirmMessage, markMessageFailed, removeMessage, updateMessage, loadMessages, loadOlderMessages,
+    starredMessageIds, toggleStar,
   } = useMessages({ chatId: activeChatId, isGroup, recipientId });
 
   // ─── Session state ─────────────────────────────────────────────────────────
@@ -158,10 +161,25 @@ export default function ChatScreen() {
       .catch(() => {});
   }, [isGroup]);
 
+  // ─── Group removal state ───────────────────────────────────────────────────
+  const [isRemovedFromGroup, setIsRemovedFromGroup] = useState(false);
+  const [showRemovedSnackbar, setShowRemovedSnackbar] = useState(false);
+
+  // Deferred detection: server returned 403 on message load
+  useEffect(() => {
+    if (isForbidden && isGroup) setIsRemovedFromGroup(true);
+  }, [isForbidden, isGroup]);
+
+  // Real-time detection: socket event fires while user is in the chat
+  const handleRemovedFromGroup = useCallback(() => {
+    setIsRemovedFromGroup(true);
+    setShowRemovedSnackbar(true);
+  }, []);
+
   // ─── Block status ──────────────────────────────────────────────────────────
-  const { isBlocked, handleUnblock } = useBlockStatus({ recipientId, isGroup });
-  const { isContact, contactNickname, handleAddContact: handleAddUnknownContact } = useContactStatus({ recipientId, isGroup });
-  const displayName = contactNickname ?? name ?? '';
+  const { isBlocked, setIsBlocked, handleUnblock } = useBlockStatus({ recipientId, isGroup });
+  const { isContact, contactNickname, recipientPhone, handleAddContact: handleAddUnknownContact } = useContactStatus({ recipientId, isGroup });
+  const displayName = contactNickname ?? (isContact ? name : (recipientPhone ?? name)) ?? '';
 
   // ─── Message actions (long-press) ──────────────────────────────────────────
   const [actionMessage, setActionMessage] = useState<ChatMessage | null>(null);
@@ -248,11 +266,14 @@ export default function ChatScreen() {
     if (!q.trim()) { setSearchResults([]); return; }
     setSearchLoading(true);
     try {
-      const { messages } = await chatApi.searchMessages(activeChatId, q);
-      setSearchResults(messages);
+      const { messages: raw } = await chatApi.searchMessages(activeChatId, q);
+      const decrypted = await Promise.all(
+        raw.map((m) => decryptChatMessage(m, { isGroup, recipientPublicKey, groupKey }))
+      );
+      setSearchResults(decrypted);
     } catch { /* ignore */ }
     finally { setSearchLoading(false); }
-  }, [activeChatId]);
+  }, [activeChatId, isGroup, recipientPublicKey, groupKey]);
 
   // Load messages on mount
   useEffect(() => { loadMessages(); }, [loadMessages]);
@@ -301,6 +322,11 @@ export default function ChatScreen() {
     return participant?.user.phone ?? null;
   }, [contacts, participants]);
 
+  const resolveAvatar = useCallback((userId: string): string | null => {
+    const contact = contacts.find((c) => c.contactUserId === userId);
+    return contact?.contactUser.avatar ?? null;
+  }, [contacts]);
+
   // ─── Real-time events ──────────────────────────────────────────────────────
   const handleKeyUpdated = useCallback(() => { loadMessages(); }, [loadMessages]);
 
@@ -313,8 +339,9 @@ export default function ChatScreen() {
     onTypingStop:  (userId) => setTypingUserIds((prev) => { const s = new Set(prev); s.delete(userId); return s; }),
     onOnline:          () => { onlineSetBySocket.current = true; setIsOnline(true); },
     onOffline:         () => { onlineSetBySocket.current = true; setIsOnline(false); },
-    onKeyUpdated:      handleKeyUpdated,
-    onMessageDeleted:  (messageId) => updateMessage(messageId, { isDeleted: true, content: null }),
+    onKeyUpdated:        handleKeyUpdated,
+    onMessageDeleted:    (messageId) => updateMessage(messageId, { isDeleted: true, content: null }),
+    onRemovedFromGroup:  handleRemovedFromGroup,
   });
 
   const handleDeleteMessage = useCallback(async (msg: ChatMessage) => {
@@ -322,7 +349,7 @@ export default function ChatScreen() {
       await chatApi.deleteMessage(activeChatId, msg.id);
       updateMessage(msg.id, { isDeleted: true, content: null });
     } catch {
-      Alert.alert('Error', 'Could not delete message');
+      alert('Error', 'Could not delete message');
     }
   }, [activeChatId, updateMessage]);
 
@@ -348,7 +375,7 @@ export default function ChatScreen() {
       setReplyToMessage(null);
     },
     onMessageFailed: handleMessageFailed,
-    onEncryptionError: (msg) => Alert.alert('Encryption Error', msg),
+    onEncryptionError: (msg) => alert('Encryption Error', msg),
   });
 
   // ─── Render ────────────────────────────────────────────────────────────────
@@ -376,6 +403,7 @@ export default function ChatScreen() {
         isOnline={isOnline}
         isTyping={isTyping}
         isGroup={isGroup}
+        isBlocked={isBlocked}
         topInset={insets.top}
         typingLabel={typingLabel}
         onBack={() => backTo ? router.navigate(backTo as any) : router.back()}
@@ -386,7 +414,7 @@ export default function ChatScreen() {
             ? () => router.push({ pathname: '/user-profile', params: { userId: recipientId, name: displayName } })
             : undefined
         }
-        onSearchPress={() => setSearchOpen((o) => !o)}
+        onSearchPress={isRemovedFromGroup ? undefined : () => setSearchOpen((o) => !o)}
       />
 
       {!isConnected && (
@@ -404,23 +432,18 @@ export default function ChatScreen() {
       {!isGroup && !isContact && !isBlocked && (
         <UnknownContactBar
           onAdd={handleAddUnknownContact}
-          onBlock={() => {
-            Alert.alert(
+          onBlock={async () => {
+            const ok = await confirm(
               'Block Contact',
               'Block this person? They won\'t be able to send you messages or calls.',
-              [
-                { text: 'Cancel', style: 'cancel' },
-                {
-                  text: 'Block',
-                  style: 'destructive',
-                  onPress: async () => {
-                    try {
-                      await settingsApi.blockUser(recipientId);
-                    } catch { /* ignore */ }
-                  },
-                },
-              ],
+              'Block',
+              true,
             );
+            if (!ok) return;
+            try {
+              await settingsApi.blockUser(recipientId);
+              setIsBlocked(true);
+            } catch { /* ignore */ }
           }}
         />
       )}
@@ -472,8 +495,10 @@ export default function ChatScreen() {
               deliveredUpToIndex={deliveredUpToIndex}
               index={index}
               showReadReceipts={settings?.readReceipts ?? true}
+              isStarred={starredMessageIds.has(item.id)}
               onLongPress={setActionMessage}
               resolveName={resolveName}
+              resolveAvatar={resolveAvatar}
               onRetryFailed={(msg) => {
                 if (msg.localUri) {
                   handleRetryMedia(msg);
@@ -506,10 +531,12 @@ export default function ChatScreen() {
           }
         />
 
-        {isTyping && !isBlocked && <TypingDots label={isGroup ? typingLabel : undefined} />}
+        {isTyping && !isBlocked && !isRemovedFromGroup && <TypingDots label={isGroup ? typingLabel : undefined} />}
 
         {isBlocked ? (
           <BlockedBar onUnblock={handleUnblock} bottomInset={insets.bottom} />
+        ) : isRemovedFromGroup ? (
+          <RemovedFromGroupBar bottomInset={insets.bottom} />
         ) : (
           <MessageInput
             value={inputText}
@@ -533,11 +560,20 @@ export default function ChatScreen() {
         message={actionMessage}
         myUserId={myUserId}
         visible={actionMessage !== null}
+        isStarred={!!actionMessage && starredMessageIds.has(actionMessage.id)}
         onClose={() => setActionMessage(null)}
         onReply={(msg) => setReplyToMessage(msg)}
         onDelete={handleDeleteMessage}
         onForward={handleForwardMessage}
+        onToggleStar={(msg) => toggleStar(msg.id)}
       />
+
+      {showRemovedSnackbar && (
+        <Snackbar
+          message="You were removed from this group"
+          onDismiss={() => setShowRemovedSnackbar(false)}
+        />
+      )}
     </View>
   );
 }

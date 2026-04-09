@@ -19,6 +19,7 @@ interface UseChatSocketParams {
   onOffline: () => void;
   onKeyUpdated: () => void;
   onMessageDeleted: (messageId: string) => void;
+  onRemovedFromGroup?: () => void;
 }
 
 /**
@@ -41,6 +42,7 @@ export function useChatSocket({
   onOffline,
   onKeyUpdated,
   onMessageDeleted,
+  onRemovedFromGroup,
 }: UseChatSocketParams): void {
   useEffect(() => {
     if (!socket || !chatId) return;
@@ -82,6 +84,9 @@ export function useChatSocket({
     const handleDeleted = (d: { chatId: string; messageId: string }) => {
       if (d.chatId === chatId) onMessageDeleted(d.messageId);
     };
+    const handleMemberRemoved = (d: { chatId: string; userId: string }) => {
+      if (d.chatId === chatId && d.userId === myUserId) onRemovedFromGroup?.();
+    };
 
     socket.on('message:new', handleNew);
     socket.on('typing:start', handleTypingStart);
@@ -91,6 +96,7 @@ export function useChatSocket({
     socket.on('message:read', handleRead);
     socket.on('group:key_updated', handleKeyUpdated);
     socket.on('message:deleted', handleDeleted);
+    socket.on('group:member:removed', handleMemberRemoved);
 
     return () => {
       socket.off('message:new', handleNew);
@@ -101,10 +107,11 @@ export function useChatSocket({
       socket.off('message:read', handleRead);
       socket.off('group:key_updated', handleKeyUpdated);
       socket.off('message:deleted', handleDeleted);
+      socket.off('group:member:removed', handleMemberRemoved);
     };
   }, [
     socket, chatId, myUserId, recipientId, isGroup,
     recipientPublicKey, groupKey,
-    onNewMessage, onRead, onTypingStart, onTypingStop, onOnline, onOffline, onKeyUpdated, onMessageDeleted,
+    onNewMessage, onRead, onTypingStart, onTypingStop, onOnline, onOffline, onKeyUpdated, onMessageDeleted, onRemovedFromGroup,
   ]);
 }

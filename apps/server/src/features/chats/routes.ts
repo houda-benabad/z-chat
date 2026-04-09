@@ -17,9 +17,13 @@ export function createChatRouter(prisma: PrismaClient, jwtSecret: string): Route
 
   router.post("/", validate(createChatSchema), controller.createOrGetChat);
   router.get("/", controller.listChats);
+  router.get("/starred", controller.getStarredMessages);
   router.delete("/:id", controller.deleteChat);
+  router.get("/:id/starred-ids", controller.getStarredMessageIdsForChat);
   router.get("/:id/messages", controller.getMessages);
   router.get("/:id/messages/search", controller.searchMessages);
+  router.post("/:id/messages/:messageId/star", controller.starMessage);
+  router.delete("/:id/messages/:messageId/star", controller.unstarMessage);
   router.delete("/:id/messages/:messageId", controller.deleteMessage);
 
   return router;

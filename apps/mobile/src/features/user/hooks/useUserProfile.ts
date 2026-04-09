@@ -1,8 +1,8 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { Alert, Animated } from 'react-native';
-import { useLocalSearchParams, useRouter } from 'expo-router';
-import { userApi, contactApi, settingsApi } from '@/shared/services/api';
-import { formatLastSeen } from '@/shared/utils';
+import { Animated } from 'react-native';
+import { useLocalSearchParams, useRouter, useFocusEffect } from 'expo-router';
+import { userApi, contactApi, settingsApi, chatApi } from '@/shared/services/api';
+import { formatLastSeen, confirm } from '@/shared/utils';
 import type { PublicUserProfile } from '@/types';
 
 export { formatLastSeen };
@@ -10,6 +10,7 @@ export { formatLastSeen };
 export interface UseUserProfileReturn {
   profile: PublicUserProfile | null;
   loading: boolean;
+  userId: string;
   contactId: string | null;
   menuVisible: boolean;
   setMenuVisible: (v: boolean) => void;
@@ -19,10 +20,11 @@ export interface UseUserProfileReturn {
   isBlocked: boolean;
   fadeAnim: Animated.Value;
   displayName: string;
-  handleBlock: () => void;
-  handleUnblock: () => void;
+  handleBlock: () => Promise<void>;
+  handleUnblock: () => Promise<void>;
   handleDeleteContact: () => Promise<void>;
   handleAddContact: () => void;
+  handleMessagePress: () => Promise<void>;
 }
 
 export function useUserProfile(): UseUserProfileReturn {
@@ -43,6 +45,7 @@ export function useUserProfile(): UseUserProfileReturn {
   const [actionLoading, setActionLoading] = useState(false);
   const [isBlocked, setIsBlocked] = useState(false);
   const fadeAnim = useRef(new Animated.Value(0)).current;
+  const contactFetchIdRef = useRef(0);
 
   const displayName = contactNickname ?? profile?.name ?? paramName ?? 'Unknown';
 
@@ -52,19 +55,23 @@ export function useUserProfile(): UseUserProfileReturn {
       .then(({ user }) => setProfile(user))
       .catch(() => {})
       .finally(() => setLoading(false));
-    if (!paramContactId) {
+  }, [userId]);
+
+  useFocusEffect(
+    useCallback(() => {
+      if (!userId) return;
+      const fetchId = ++contactFetchIdRef.current;
       contactApi.getContacts().then(({ contacts }) => {
+        if (fetchId !== contactFetchIdRef.current) return;
         const match = contacts.find((c) => c.contactUserId === userId);
-        if (match) {
-          setContactId(match.id);
-          if (match.nickname) setContactNickname(match.nickname);
-        }
+        setContactId(match ? match.id : null);
+        setContactNickname(match?.nickname ?? null);
       }).catch(() => {});
-    }
-    settingsApi.getBlocked().then(({ blocked }) => {
-      setIsBlocked(blocked.some((b) => b.blockedUserId === userId));
-    }).catch(() => {});
-  }, [userId, paramContactId]);
+      settingsApi.getBlocked().then(({ blocked }) => {
+        setIsBlocked(blocked.some((b) => b.blockedUserId === userId));
+      }).catch(() => {});
+    }, [userId])
+  );
 
   const showToast = useCallback((msg: string) => {
     setActionDone(msg);
@@ -75,57 +82,47 @@ export function useUserProfile(): UseUserProfileReturn {
     ]).start(() => setActionDone(null));
   }, [fadeAnim]);
 
-  const handleBlock = useCallback(() => {
+  const handleBlock = useCallback(async () => {
     setMenuVisible(false);
-    setTimeout(() => Alert.alert(
+    await new Promise((r) => setTimeout(r, 300));
+    const ok = await confirm(
       'Block Contact',
       `Block ${displayName}? They won't be able to send you messages or calls.`,
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Block',
-          style: 'destructive',
-          onPress: async () => {
-            setActionLoading(true);
-            try {
-              await settingsApi.blockUser(userId);
-              setIsBlocked(true);
-              showToast(`${displayName} blocked`);
-            } catch (err) {
-              setActionError(err instanceof Error ? err.message : 'Failed to block user');
-            } finally {
-              setActionLoading(false);
-            }
-          },
-        },
-      ]
-    ), 300);
+      'Block',
+      true,
+    );
+    if (!ok) return;
+    setActionLoading(true);
+    try {
+      await settingsApi.blockUser(userId);
+      setIsBlocked(true);
+      showToast(`${displayName} blocked`);
+    } catch (err) {
+      setActionError(err instanceof Error ? err.message : 'Failed to block user');
+    } finally {
+      setActionLoading(false);
+    }
   }, [displayName, userId, showToast]);
 
-  const handleUnblock = useCallback(() => {
+  const handleUnblock = useCallback(async () => {
     setMenuVisible(false);
-    setTimeout(() => Alert.alert(
+    await new Promise((r) => setTimeout(r, 300));
+    const ok = await confirm(
       'Unblock Contact',
       `Unblock ${displayName}? They'll be able to message and call you again.`,
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Unblock',
-          onPress: async () => {
-            setActionLoading(true);
-            try {
-              await settingsApi.unblockUser(userId);
-              setIsBlocked(false);
-              showToast(`${displayName} unblocked`);
-            } catch (err) {
-              setActionError(err instanceof Error ? err.message : 'Failed to unblock user');
-            } finally {
-              setActionLoading(false);
-            }
-          },
-        },
-      ]
-    ), 300);
+      'Unblock',
+    );
+    if (!ok) return;
+    setActionLoading(true);
+    try {
+      await settingsApi.unblockUser(userId);
+      setIsBlocked(false);
+      showToast(`${displayName} unblocked`);
+    } catch (err) {
+      setActionError(err instanceof Error ? err.message : 'Failed to unblock user');
+    } finally {
+      setActionLoading(false);
+    }
   }, [displayName, userId, showToast]);
 
   const handleDeleteContact = useCallback(async () => {
@@ -133,8 +130,10 @@ export function useUserProfile(): UseUserProfileReturn {
     if (!contactId) { setActionError('Not in your contacts'); return; }
     try {
       await contactApi.deleteContact(contactId);
+      contactFetchIdRef.current++; // invalidate any in-flight getContacts response
       showToast('Contact removed');
       setContactId(null);
+      setContactNickname(null);
     } catch (err) {
       setActionError(err instanceof Error ? err.message : 'Failed to remove contact');
     }
@@ -148,9 +147,32 @@ export function useUserProfile(): UseUserProfileReturn {
     router.push(`/add-contact?${params.toString()}`);
   }, [profile, router]);
 
+  const handleMessagePress = useCallback(async () => {
+    let chatId = '';
+    try {
+      const { chats } = await chatApi.getChats();
+      const existing = chats.find(
+        (c) => c.type === 'direct' && c.participants.some((p) => p.userId === userId),
+      );
+      if (existing) chatId = existing.id;
+    } catch { /* fall through — open as new chat */ }
+    router.replace({
+      pathname: '/chat',
+      params: {
+        chatId,
+        name: displayName,
+        recipientId: userId,
+        recipientAvatar: profile?.avatar ?? '',
+        recipientIsOnline: profile?.isOnline ? '1' : '0',
+        backTo: '/chat-list?tab=chats',
+      },
+    });
+  }, [userId, displayName, profile, router]);
+
   return {
     profile,
     loading,
+    userId,
     contactId,
     menuVisible,
     setMenuVisible,
@@ -164,5 +186,6 @@ export function useUserProfile(): UseUserProfileReturn {
     handleUnblock,
     handleDeleteContact,
     handleAddContact,
+    handleMessagePress,
   };
 }

@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
-import { Alert } from 'react-native';
 import { settingsApi } from '@/shared/services/api';
+import { alert, confirm } from '@/shared/utils/alert';
 import type { BlockedUserItem } from '@/types';
 
 const PAGE_SIZE = 20;
@@ -44,26 +44,20 @@ export function useBlockedUsers() {
     loadBlocked();
   }, [loadBlocked]);
 
-  const handleUnblock = useCallback((item: BlockedUserItem) => {
+  const handleUnblock = useCallback(async (item: BlockedUserItem) => {
     const name = item.blockedUser.name ?? item.blockedUser.phone;
-    Alert.alert(
+    const ok = await confirm(
       'Unblock Contact',
       `Unblock ${name}? They will be able to message and call you again.`,
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Unblock',
-          onPress: async () => {
-            try {
-              await settingsApi.unblockUser(item.blockedUserId);
-              setBlocked((prev) => prev.filter((b) => b.id !== item.id));
-            } catch {
-              Alert.alert('Error', 'Failed to unblock user');
-            }
-          },
-        },
-      ],
+      'Unblock',
     );
+    if (!ok) return;
+    try {
+      await settingsApi.unblockUser(item.blockedUserId);
+      setBlocked((prev) => prev.filter((b) => b.id !== item.id));
+    } catch {
+      alert('Error', 'Failed to unblock user');
+    }
   }, []);
 
   return {

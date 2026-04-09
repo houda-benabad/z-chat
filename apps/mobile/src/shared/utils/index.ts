@@ -1,3 +1,4 @@
+export { alert, confirm } from './alert';
 import { AVATAR_COLORS, MESSAGE_TYPE_LABELS } from '../../constants';
 import { resolveSystemText } from '../../features/chat/utils/resolveSystemText';
 import type { ContactItem, ChatListItem, ChatMessage } from '../../types';

@@ -6,6 +6,7 @@ export { default as SettingsBlockedScreen } from './screens/SettingsBlockedScree
 export { default as SettingsAccountScreen } from './screens/SettingsAccountScreen';
 export { default as SettingsProfileScreen } from './screens/SettingsProfileScreen';
 export { default as SettingsHelpScreen } from './screens/SettingsHelpScreen';
+export { default as StarredMessagesScreen } from './screens/StarredMessagesScreen';
 
 export { useSettings } from './hooks/useSettings';
 export { usePrivacySettings } from './hooks/usePrivacySettings';
@@ -15,3 +16,4 @@ export { useStorageSettings } from './hooks/useStorageSettings';
 export { useBlockedUsers } from './hooks/useBlockedUsers';
 export { useAccountSettings } from './hooks/useAccountSettings';
 export { useSettingsProfile } from './hooks/useSettingsProfile';
+export { useStarredMessages } from './hooks/useStarredMessages';

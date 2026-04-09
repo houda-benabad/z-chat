@@ -4,6 +4,7 @@ export { MessageInput } from './MessageInput';
 export { ChatHeader } from './ChatHeader';
 export { DateSeparator } from './DateSeparator';
 export { BlockedBar } from './BlockedBar';
+export { RemovedFromGroupBar } from './RemovedFromGroupBar';
 export { UnknownContactBar } from './UnknownContactBar';
 export { ChatsTab } from './ChatsTab';
 export { CallsTab } from './CallsTab';

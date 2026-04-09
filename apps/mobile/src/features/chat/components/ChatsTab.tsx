@@ -58,8 +58,8 @@ export function ChatsTab({
     const displayName = isGroup
       ? (item.name ?? 'Group')
       : inContacts
-        ? (nickname ?? otherUser?.name ?? 'Unknown')
-        : (otherUser?.phone ?? 'Unknown');
+        ? (nickname ?? otherUser?.name ?? 'Deleted Account')
+        : (otherUser?.phone ?? 'Deleted Account');
 
     markAsRead(item.id);
 

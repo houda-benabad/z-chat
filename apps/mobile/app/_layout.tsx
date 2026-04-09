@@ -49,6 +49,7 @@ function ThemedStack() {
       <Stack.Screen name="settings-appearance" />
       <Stack.Screen name="settings-blocked" />
       <Stack.Screen name="settings-help" />
+      <Stack.Screen name="starred-messages" />
       <Stack.Screen name="user-profile" />
     </Stack>
   );

@@ -254,8 +254,13 @@ export class GroupService {
     const io = this.getIO();
     if (io) {
       io.to(`chat:${chatId}`).emit("group:member:removed", { chatId, userId: targetUserId });
-      // Signal remaining members that group key rotation is needed
-      io.to(`chat:${chatId}`).emit("group:key_rotation_needed", { chatId });
+      // Kick removed user from the chat socket room (after they receive the removal event)
+      try {
+        const sockets = await io.in(`user:${targetUserId}`).fetchSockets();
+        for (const s of sockets) {
+          s.leave(`chat:${chatId}`);
+        }
+      } catch {}
     }
 
     const actor = await this.repo.findUserById(userId);

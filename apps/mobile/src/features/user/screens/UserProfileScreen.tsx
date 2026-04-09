@@ -42,6 +42,7 @@ export default function UserProfileScreen() {
     handleUnblock,
     handleDeleteContact,
     handleAddContact,
+    handleMessagePress,
   } = useUserProfile();
 
   const initials = displayName[0]?.toUpperCase() ?? '?';
@@ -118,6 +119,7 @@ export default function UserProfileScreen() {
           <Pressable
             style={({ pressed }) => [styles.actionBtn, pressed && !isBlocked && styles.actionBtnPressed]}
             disabled={isBlocked}
+            onPress={() => { void handleMessagePress(); }}
           >
             <View style={[styles.actionIconWrap, { backgroundColor: isBlocked ? appColors.border : 'rgba(228,108,83,0.1)' }]}>
               <Ionicons name="chatbubble-ellipses-outline" size={22} color={isBlocked ? appColors.textSecondary : CORAL} />

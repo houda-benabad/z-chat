@@ -267,6 +267,63 @@ export class ChatRepository {
     });
   }
 
+  async starMessage(userId: string, messageId: string) {
+    return this.prisma.starredMessage.upsert({
+      where: { userId_messageId: { userId, messageId } },
+      update: {},
+      create: { userId, messageId },
+    });
+  }
+
+  async unstarMessage(userId: string, messageId: string) {
+    await this.prisma.starredMessage.deleteMany({
+      where: { userId, messageId },
+    });
+  }
+
+  async findStarredMessages(userId: string, cursor: string | undefined, limit: number) {
+    return this.prisma.starredMessage.findMany({
+      where: { userId, message: { isDeleted: false } },
+      include: {
+        message: {
+          include: {
+            sender: { select: { id: true, name: true, avatar: true } },
+            chat: {
+              select: {
+                id: true,
+                type: true,
+                name: true,
+                avatar: true,
+                participants: {
+                  select: {
+                    userId: true,
+                    encryptedGroupKey: true,
+                    groupKeyVersion: true,
+                    user: { select: { publicKey: true } },
+                  },
+                },
+              },
+            },
+            replyTo: {
+              select: { id: true, content: true, senderId: true, type: true, isDeleted: true },
+            },
+          },
+        },
+      },
+      orderBy: { createdAt: "desc" },
+      take: limit + 1,
+      ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}),
+    });
+  }
+
+  async findStarredMessageIdsForChat(userId: string, chatId: string) {
+    const rows = await this.prisma.starredMessage.findMany({
+      where: { userId, message: { chatId } },
+      select: { messageId: true },
+    });
+    return rows.map((r: { messageId: string }) => r.messageId);
+  }
+
   async deleteExpiredMessages() {
     const now = new Date();
     const expiredIds = await this.prisma.message.findMany({

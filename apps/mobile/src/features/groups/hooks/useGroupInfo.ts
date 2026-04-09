@@ -4,7 +4,6 @@ import { alert } from '@/shared/utils/alert';
 import * as ImagePicker from 'expo-image-picker';
 import { groupApi, contactApi, uploadMedia } from '@/shared/services/api';
 import { getSocket, connectSocket } from '@/shared/services/socket';
-import { generateGroupKey, generateGroupKeyBundle } from '@/shared/services/crypto';
 import { useCurrentUser } from '@/shared/hooks';
 import type { GroupInfo } from '@/types';
 
@@ -42,7 +41,6 @@ export function useGroupInfo(): UseGroupInfoReturn {
   const [nameInput, setNameInput] = useState('');
   const [savingName, setSavingName] = useState(false);
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
-  const myUserIdRef = useRef('');
   const groupRef = useRef<GroupInfo | null>(null);
 
   const loadGroup = useCallback(async () => {
@@ -69,11 +67,6 @@ export function useGroupInfo(): UseGroupInfoReturn {
     } catch {}
   }, []);
 
-  // Keep the ref in sync for socket handlers that close over it
-  useEffect(() => {
-    myUserIdRef.current = myUserId;
-  }, [myUserId]);
-
   useEffect(() => {
     loadGroup();
     loadContacts();
@@ -92,41 +85,14 @@ export function useGroupInfo(): UseGroupInfoReturn {
         if (d.chatId === chatId) loadGroup();
       };
 
-      const rotationHandler = (d: { chatId: string }) => {
-        if (d.chatId !== chatId) return;
-        const currentGroup = groupRef.current;
-        const uid = myUserIdRef.current;
-        const isCurrentAdmin = currentGroup?.participants.some(
-          (p) => p.userId === uid && p.role === 'admin',
-        ) ?? false;
-        if (!isCurrentAdmin) return;
-        // Admin: rotate group key when a member is removed
-        groupApi.getGroupInfo(chatId).then(({ group: refreshed }) => {
-          setGroup(refreshed);
-          groupRef.current = refreshed;
-          const remaining = refreshed.participants.filter((p) => p.user?.publicKey);
-          if (remaining.length > 0) {
-            const newGroupKey = generateGroupKey();
-            const newVersion = (refreshed.groupKeyVersion ?? 0) + 1;
-            const keyBundles = generateGroupKeyBundle(
-              newGroupKey,
-              remaining.map((p) => ({ userId: p.userId, publicKeyB64: p.user!.publicKey! })),
-            );
-            groupApi.distributeKeys(chatId, keyBundles, newVersion).catch(() => {});
-          }
-        }).catch(() => {});
-      };
-
       sock.on('group:member:added', handler);
       sock.on('group:member:removed', handler);
       sock.on('group:member:role:updated', handler);
-      sock.on('group:key_rotation_needed', rotationHandler);
 
       off = () => {
         sock.off('group:member:added', handler);
         sock.off('group:member:removed', handler);
         sock.off('group:member:role:updated', handler);
-        sock.off('group:key_rotation_needed', rotationHandler);
       };
     };
 
@@ -217,20 +183,6 @@ export function useGroupInfo(): UseGroupInfoReturn {
                 const { group: refreshed } = await groupApi.getGroupInfo(chatId);
                 setGroup(refreshed);
                 groupRef.current = refreshed;
-
-                // Admin: rotate group key so removed member can't decrypt future messages
-                if (isAdmin) {
-                  const remaining = refreshed.participants.filter((p) => p.user?.publicKey);
-                  if (remaining.length > 0) {
-                    const newGroupKey = generateGroupKey();
-                    const newVersion = (refreshed.groupKeyVersion ?? 0) + 1;
-                    const keyBundles = generateGroupKeyBundle(
-                      newGroupKey,
-                      remaining.map((p) => ({ userId: p.userId, publicKeyB64: p.user!.publicKey! })),
-                    );
-                    await groupApi.distributeKeys(chatId, keyBundles, newVersion).catch(() => {});
-                  }
-                }
               } catch {
                 alert('Error', 'Failed to remove member');
               } finally {
@@ -241,7 +193,7 @@ export function useGroupInfo(): UseGroupInfoReturn {
         ],
       );
     },
-    [chatId, isAdmin],
+    [chatId],
   );
 
   const handleToggleAdmin = useCallback(

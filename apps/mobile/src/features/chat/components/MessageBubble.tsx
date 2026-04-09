@@ -9,6 +9,7 @@ import { SystemEventBar } from './SystemEventBar';
 import { ImageViewer } from './ImageViewer';
 import { VoiceNotePlayer } from './VoiceNotePlayer';
 import { isSameDay } from '../utils/messageUtils';
+import { Avatar } from '@/shared/components';
 import type { ChatMessage } from '@/types';
 import { createStyles } from './styles/MessageBubble.styles';
 
@@ -22,9 +23,11 @@ interface MessageBubbleProps {
   deliveredUpToIndex: number;
   index: number;
   showReadReceipts?: boolean;
+  isStarred?: boolean;
   onLongPress?: (message: ChatMessage) => void;
   onRetryFailed?: (message: ChatMessage) => void;
   resolveName?: (userId: string) => string | null;
+  resolveAvatar?: (userId: string) => string | null;
 }
 
 export function MessageBubble({
@@ -37,16 +40,25 @@ export function MessageBubble({
   deliveredUpToIndex,
   index,
   showReadReceipts = true,
+  isStarred,
   onLongPress,
   onRetryFailed,
   resolveName,
+  resolveAvatar,
 }: MessageBubbleProps) {
   const styles      = useThemedStyles(createStyles);
   const { accentColor, fontSizePt } = useAppSettings();
   const isMine      = message.senderId === myUserId;
   const showDate    = !prevMessage || !isSameDay(prevMessage.createdAt, message.createdAt);
-  const showSender  = isGroup && !isMine && prevMessage?.senderId !== message.senderId;
+  const senderChanged = !prevMessage || prevMessage.senderId !== message.senderId || prevMessage.type === 'system';
+  const timeGap = prevMessage
+    ? new Date(message.createdAt).getTime() - new Date(prevMessage.createdAt).getTime() > 5 * 60 * 1000
+    : false;
+  const showSender  = isGroup && !isMine && (senderChanged || showDate || timeGap);
   const isTail      = !nextMessage || nextMessage.senderId !== message.senderId;
+  const showAvatarCol = isGroup && !isMine;
+  const avatarUri   = showAvatarCol ? (resolveAvatar?.(message.senderId) ?? message.sender?.avatar ?? null) : null;
+  const avatarName  = showAvatarCol ? (resolveName?.(message.senderId) ?? message.sender?.name ?? 'Unknown') : '';
   const isRead      = showReadReceipts && readUpToIndex >= 0 && index <= readUpToIndex;
   const isDelivered = isRead || (deliveredUpToIndex >= 0 && index <= deliveredUpToIndex);
   const tickColor   = isRead ? accentColor : '#9E9E9E';
@@ -92,8 +104,17 @@ export function MessageBubble({
       {showDate && <DateSeparator dateStr={message.createdAt} />}
 
       <View style={[styles.row, isMine ? styles.rowMine : styles.rowTheirs]}>
+        {showAvatarCol && (
+          <View style={styles.avatarColumn}>
+            {isTail ? (
+              <Avatar uri={avatarUri} name={avatarName} size={28} />
+            ) : (
+              <View style={styles.avatarSpacer} />
+            )}
+          </View>
+        )}
         <Pressable
-          style={{ maxWidth: '78%', minWidth: 72 }}
+          style={{ maxWidth: showAvatarCol ? '72%' : '78%', minWidth: 72 }}
           onPress={message.failed && onRetryFailed ? () => onRetryFailed(message) : undefined}
           onLongPress={onLongPress ? () => onLongPress(message) : undefined}
           delayLongPress={300}
@@ -104,7 +125,7 @@ export function MessageBubble({
             message.pending && styles.bubblePending,
           ]}>
             {showSender && (
-              <Text style={styles.senderName}>{message.sender?.name ?? 'Unknown'}</Text>
+              <Text style={styles.senderName}>{resolveName?.(message.senderId) ?? message.sender?.name ?? 'Unknown'}</Text>
             )}
 
             {message.replyTo && (
@@ -148,11 +169,12 @@ export function MessageBubble({
                   {message.isDeleted ? 'This message was deleted' : message.content}
                   {/* Invisible ghost reserves space on the last line for the time */}
                   <Text style={styles.ghostTime}>
-                    {'  ' + timeLabel + (isMine && !isGroup && !message.isDeleted ? '  ✓✓' : '')}
+                    {'  ' + (isStarred ? '★ ' : '') + timeLabel + (isMine && !isGroup && !message.isDeleted ? '  ✓✓' : '')}
                   </Text>
                 </Text>
                 {/* Actual time + ticks overlaid at bottom-right */}
                 <View style={[styles.msgMeta, { position: 'absolute', bottom: 0, right: 0 }]}>
+                  {isStarred && <Ionicons name="star" size={10} color="#F1A167" style={{ marginRight: 2 }} />}
                   <Text
                     style={[styles.msgTime, isMine ? styles.msgTimeMine : styles.msgTimeTheirs]}
                     numberOfLines={1}
@@ -167,6 +189,7 @@ export function MessageBubble({
             {/* Time + ticks below content — media only */}
             {(isMedia || isVoice) && (
               <View style={styles.msgMeta}>
+                {isStarred && <Ionicons name="star" size={10} color="#F1A167" style={{ marginRight: 2 }} />}
                 <Text
                   style={[styles.msgTime, isMine ? styles.msgTimeMine : styles.msgTimeTheirs]}
                   numberOfLines={1}
