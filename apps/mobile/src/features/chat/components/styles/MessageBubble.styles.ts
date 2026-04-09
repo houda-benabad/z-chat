@@ -111,4 +111,7 @@ export const createStyles = (_colors: AppColors) => StyleSheet.create({
   avatarSpacer: {
     width: 28,
   },
+
+  forwardedLabel: { flexDirection: 'row' as const, alignItems: 'center' as const, gap: 3, marginBottom: 4 },
+  forwardedText:  { fontSize: 11, fontFamily: typography.fontFamily, color: TIME_COLOR, fontStyle: 'italic' as const },
 });

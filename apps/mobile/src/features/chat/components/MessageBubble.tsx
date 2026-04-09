@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { View, Text, Image, Pressable, StyleSheet } from 'react-native';
+import { useState, useEffect, useRef } from 'react';
+import { View, Text, Image, Pressable, StyleSheet, Animated, Easing } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { formatMessageTime } from '@/shared/utils';
 import { useAppSettings } from '@/shared/context/AppSettingsContext';
@@ -24,6 +24,7 @@ interface MessageBubbleProps {
   index: number;
   showReadReceipts?: boolean;
   isStarred?: boolean;
+  isHighlighted?: boolean;
   onLongPress?: (message: ChatMessage) => void;
   onRetryFailed?: (message: ChatMessage) => void;
   resolveName?: (userId: string) => string | null;
@@ -41,6 +42,7 @@ export function MessageBubble({
   index,
   showReadReceipts = true,
   isStarred,
+  isHighlighted,
   onLongPress,
   onRetryFailed,
   resolveName,
@@ -65,6 +67,17 @@ export function MessageBubble({
 
   const [viewingImage, setViewingImage] = useState<string | null>(null);
   const [imgError,     setImgError]     = useState(false);
+
+  const highlightAnim = useRef(new Animated.Value(0)).current;
+  useEffect(() => {
+    if (!isHighlighted) return;
+    highlightAnim.setValue(0);
+    Animated.sequence([
+      Animated.timing(highlightAnim, { toValue: 0.55, duration: 200, easing: Easing.out(Easing.quad), useNativeDriver: true }),
+      Animated.delay(300),
+      Animated.timing(highlightAnim, { toValue: 0, duration: 500, easing: Easing.in(Easing.quad), useNativeDriver: true }),
+    ]).start();
+  }, [isHighlighted]);
 
   if (message.type === 'system') {
     return (
@@ -124,6 +137,19 @@ export function MessageBubble({
             isMine ? styles.bubbleMine : styles.bubbleTheirs,
             message.pending && styles.bubblePending,
           ]}>
+            <Animated.View
+              style={[
+                StyleSheet.absoluteFillObject,
+                {
+                  backgroundColor: '#E46C53',
+                  opacity: highlightAnim,
+                  borderRadius: 10,
+                  borderBottomRightRadius: isMine ? 2 : 10,
+                  borderBottomLeftRadius: isMine ? 10 : 2,
+                },
+              ]}
+              pointerEvents="none"
+            />
             {showSender && (
               <Text style={styles.senderName}>{resolveName?.(message.senderId) ?? message.sender?.name ?? 'Unknown'}</Text>
             )}
@@ -133,6 +159,13 @@ export function MessageBubble({
                 <Text style={styles.replyText} numberOfLines={2}>
                   {message.replyTo.content ?? message.replyTo.type}
                 </Text>
+              </View>
+            )}
+
+            {message.isForwarded && !message.isDeleted && (
+              <View style={styles.forwardedLabel}>
+                <Ionicons name="arrow-redo-outline" size={11} color="#888888" />
+                <Text style={styles.forwardedText}>Forwarded</Text>
               </View>
             )}
 

@@ -70,6 +70,7 @@ model ChatParticipant {
   lastReadMessageId String?   @map("last_read_message_id")
   isPinned          Boolean   @default(false) @map("is_pinned")
   deletedAt         DateTime? @map("deleted_at")
+  visibleAfter      DateTime? @map("visible_after")
   encryptedGroupKey String?   @map("encrypted_group_key")
   groupKeyVersion   Int       @default(0) @map("group_key_version")
 

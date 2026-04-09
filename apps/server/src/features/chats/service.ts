@@ -38,18 +38,19 @@ export class ChatService {
       rows.map(async (chat: (typeof rows)[number]) => {
         const myParticipant = chat.participants.find((p: { userId: string }) => p.userId === userId);
         const deletedAt = myParticipant?.deletedAt ?? null;
+        const visibleAfter = (myParticipant as any)?.visibleAfter ?? null;
 
         // Hide chat if user deleted it and no new messages have arrived since
         if (deletedAt && chat.updatedAt <= deletedAt) return null;
 
         const lastReadId = myParticipant?.lastReadMessageId;
-        const visibleSince = deletedAt ?? new Date(0);
+        const visibleSince = visibleAfter ?? new Date(0);
 
         let unreadCount = 0;
         if (lastReadId) {
           const lastReadMsg = await this.repo.findMessageById(lastReadId);
           if (lastReadMsg) {
-            // Use the later of lastRead or deletedAt so deleted chats don't
+            // Use the later of lastRead or visibleAfter so deleted chats don't
             // re-surface old unread counts when new messages arrive
             const cutoff =
               lastReadMsg.createdAt > visibleSince ? lastReadMsg.createdAt : visibleSince;
@@ -61,7 +62,7 @@ export class ChatService {
 
         // Only show the last message if it arrived after the deletion
         const lastMessage =
-          chat.messages[0] && (!deletedAt || new Date(chat.messages[0].createdAt) > deletedAt)
+          chat.messages[0] && (!visibleAfter || new Date(chat.messages[0].createdAt) > visibleAfter)
             ? chat.messages[0]
             : null;
 
@@ -117,6 +118,7 @@ export class ChatService {
       content?: string | null;
       mediaUrl?: string | null;
       replyToId?: string | null;
+      isForwarded?: boolean;
     },
     redis: Redis,
     onlineUserIds: Set<string>,
@@ -148,9 +150,16 @@ export class ChatService {
 
     const chatParticipants = await this.repo.findChatParticipants(data.chatId);
 
-    // Queue messages for offline participants (24-hour TTL to prevent memory leak)
     for (const cp of chatParticipants) {
-      if (cp.userId !== data.senderId && !onlineUserIds.has(cp.userId)) {
+      if (cp.userId === data.senderId) continue;
+
+      // Re-surface the chat for recipients who had deleted it (clear deletedAt, keep visibleAfter)
+      if (cp.deletedAt) {
+        await this.repo.restoreChat(data.chatId, cp.userId);
+      }
+
+      // Queue messages for offline participants (24-hour TTL to prevent memory leak)
+      if (!onlineUserIds.has(cp.userId)) {
         const offlineKey = `offline:${cp.userId}`;
         await redis.lpush(offlineKey, JSON.stringify(message));
         await redis.expire(offlineKey, 86400);
@@ -255,17 +264,13 @@ export class ChatService {
       throw new AppError(403, "Not a participant of this chat", "FORBIDDEN");
     }
 
-    // If the user previously deleted this chat but is now viewing it again,
-    // clear the deletion so old messages and read receipts are fully restored.
-    if (participant.deletedAt) {
-      await this.repo.clearDeletedAt(chatId, userId);
-    }
+    const visibleAfter = participant.visibleAfter ?? null;
 
     const messages = await this.repo.findMessages(
       chatId,
       limit,
       cursor,
-      null,
+      visibleAfter,
     );
 
     const hasMore = messages.length > limit;

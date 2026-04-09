@@ -11,6 +11,7 @@ interface ChatHeaderProps {
   isTyping: boolean;
   isGroup: boolean;
   isBlocked?: boolean;
+  isSearchOpen?: boolean;
   topInset: number;
   typingLabel?: string;
   onBack: () => void;
@@ -25,6 +26,7 @@ export function ChatHeader({
   isTyping,
   isGroup,
   isBlocked,
+  isSearchOpen,
   topInset,
   typingLabel,
   onBack,
@@ -76,7 +78,7 @@ export function ChatHeader({
         </Pressable>
         {onSearchPress && (
           <Pressable hitSlop={10} style={styles.actionBtn} onPress={onSearchPress}>
-            <Ionicons name="search-outline" size={20} color="#fff" />
+            <Ionicons name={isSearchOpen ? 'close-outline' : 'search-outline'} size={20} color="#fff" />
           </Pressable>
         )}
       </View>

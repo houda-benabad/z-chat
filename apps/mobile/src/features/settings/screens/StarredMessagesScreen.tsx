@@ -43,6 +43,7 @@ export default function StarredMessagesScreen() {
             params: {
               chatId: msg.chatId,
               name: chatName,
+              messageId: msg.id,
               ...(isGroup ? { chatType: 'group', recipientAvatar: msg.chat.avatar ?? '' } : {}),
             },
           } as any);

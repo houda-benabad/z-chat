@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { useFocusEffect, useRouter, useLocalSearchParams } from 'expo-router';
+import { useFocusEffect, useRouter } from 'expo-router';
 import { TextInput, Alert } from 'react-native';
 import * as Contacts from 'expo-contacts';
 import { contactApi } from '@/shared/services/api';
@@ -27,7 +27,6 @@ export interface UseNewChatReturn {
 
 export function useNewChat(): UseNewChatReturn {
   const router = useRouter();
-  const { forwardContent } = useLocalSearchParams<{ forwardContent?: string }>();
   const searchRef = useRef<TextInput>(null);
 
   const PAGE_SIZE = 50;
@@ -101,10 +100,9 @@ export function useNewChat(): UseNewChatReturn {
         recipientId: contact.contactUserId,
         recipientAvatar: contact.contactUser.avatar ?? '',
         recipientIsOnline: contact.contactUser.isOnline ? '1' : '0',
-        ...(forwardContent ? { forwardContent } : {}),
       },
     });
-  }, [router, openingId, forwardContent]);
+  }, [router, openingId]);
 
   const handleSyncContacts = useCallback(async () => {
     const { status } = await Contacts.requestPermissionsAsync();

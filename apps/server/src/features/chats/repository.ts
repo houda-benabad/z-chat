@@ -119,13 +119,14 @@ export class ChatRepository {
   }
 
   async softDeleteChat(chatId: string, userId: string) {
+    const now = new Date();
     return this.prisma.chatParticipant.update({
       where: { chatId_userId: { chatId, userId } },
-      data: { deletedAt: new Date() },
+      data: { deletedAt: now, visibleAfter: now },
     });
   }
 
-  async clearDeletedAt(chatId: string, userId: string) {
+  async restoreChat(chatId: string, userId: string) {
     return this.prisma.chatParticipant.update({
       where: { chatId_userId: { chatId, userId } },
       data: { deletedAt: null },
@@ -164,6 +165,7 @@ export class ChatRepository {
         lastReadMessageId: true,
         encryptedGroupKey: true,
         groupKeyVersion: true,
+        deletedAt: true,
         user: { select: PARTICIPANT_USER_SELECT },
       },
     });
@@ -184,6 +186,7 @@ export class ChatRepository {
     mediaUrl?: string | null;
     replyToId?: string | null;
     disappearsAt?: Date | null;
+    isForwarded?: boolean;
   }) {
     if (data.replyToId) {
       const referenced = await this.prisma.message.findUnique({
@@ -204,6 +207,7 @@ export class ChatRepository {
         mediaUrl: data.mediaUrl,
         replyToId: data.replyToId,
         disappearsAt: data.disappearsAt,
+        isForwarded: data.isForwarded ?? false,
       },
       include: {
         sender: { select: { id: true, name: true, avatar: true } },
@@ -233,7 +237,7 @@ export class ChatRepository {
         chatId,
         isDeleted: false,
         content: { contains: query, mode: 'insensitive' },
-        ...(participant.deletedAt ? { createdAt: { gt: participant.deletedAt } } : {}),
+        ...(participant.visibleAfter ? { createdAt: { gt: participant.visibleAfter } } : {}),
       },
       include: {
         sender: { select: { id: true, name: true, avatar: true } },

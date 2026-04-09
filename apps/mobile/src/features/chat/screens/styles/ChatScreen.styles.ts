@@ -3,7 +3,6 @@ import type { AppColors } from '@/shared/context/AppSettingsContext';
 
 const CHAT_BG = '#ECE5DD';
 
-
 export const createStyles = (colors: AppColors) => StyleSheet.create({
   container: { flex: 1, backgroundColor: CHAT_BG },
   offlineBanner: {
@@ -41,28 +40,6 @@ export const createStyles = (colors: AppColors) => StyleSheet.create({
   searchInput: {
     flex: 1,
     fontSize: 15,
-    color: colors.text,
-  },
-  searchResults: {
-    maxHeight: 220,
-    backgroundColor: colors.surface,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: colors.border,
-  },
-  searchResultItem: {
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: colors.border,
-  },
-  searchResultSender: {
-    fontSize: 12,
-    color: colors.primary,
-    fontWeight: '600',
-    marginBottom: 2,
-  },
-  searchResultText: {
-    fontSize: 14,
     color: colors.text,
   },
 });

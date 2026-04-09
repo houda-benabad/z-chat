@@ -10,6 +10,7 @@ import {
   ActivityIndicator,
   AppState,
   Pressable,
+  StyleSheet,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
@@ -26,7 +27,7 @@ import { useChatSocket } from '../hooks/useChatSocket';
 import { useBlockStatus } from '../hooks/useBlockStatus';
 import { useContactStatus } from '../hooks/useContactStatus';
 import { useKeyPair } from '../hooks/useKeyPair';
-import { decryptChatMessage } from '../utils/decryptChatMessage';
+import { useMessageSearch } from '../hooks/useMessageSearch';
 import {
   ChatHeader,
   MessageBubble,
@@ -34,24 +35,27 @@ import {
   BlockedBar,
   RemovedFromGroupBar,
   UnknownContactBar,
+  SearchResultList,
 } from '../components';
 import { MessageActions } from '../components/MessageActions';
+import { ForwardModal } from '../components/ForwardModal';
+import { useForwardModal } from '../hooks/useForwardModal';
 import { useThemedStyles } from '@/shared/hooks/useThemedStyles';
 import { createStyles } from './styles/ChatScreen.styles';
 import type { Socket } from 'socket.io-client';
 import type { ChatMessage, ContactItem } from '@/types';
 import { resolveTypingLabel } from '@/shared/utils';
-const CHAT_BG = '#ECE5DD';
 
 export default function ChatScreen() {
   const styles = useThemedStyles(createStyles);
   const {
-    chatId: paramChatId, name, recipientId = '', chatType, recipientIsOnline, forwardContent, recipientAvatar, backTo,
+    chatId: paramChatId, name, recipientId = '', chatType, recipientIsOnline, recipientAvatar, backTo, messageId: jumpToMessageId,
   } = useLocalSearchParams<{
     chatId: string; name: string; recipientId: string;
     chatType?: string; recipientIsOnline?: string;
-    forwardContent?: string; recipientAvatar?: string;
+    recipientAvatar?: string;
     backTo?: string;
+    messageId?: string;
   }>();
   const isGroup = chatType === 'group';
   // activeChatId starts empty for new chats and is set once the first message creates the chat
@@ -61,6 +65,7 @@ export default function ChatScreen() {
   const { userId: myUserId, loading: userLoading } = useCurrentUser();
   const { accentColor, settings, appColors } = useAppSettings();
   const CORAL = accentColor;
+  const CHAT_BG = '#ECE5DD';
 
   // Live group metadata (updated via socket when admin changes name/avatar)
   const [liveGroupName, setLiveGroupName] = useState(name || '');
@@ -255,28 +260,51 @@ export default function ChatScreen() {
     await sendMedia(msg.localUri, msg.localMimeType ?? 'image/jpeg', msg.type as 'voice_note' | 'image');
   }, [removeMessage, sendMedia]);
 
-  // ─── Search ───────────────────────────────────────────────────────────────
-  const [searchOpen, setSearchOpen] = useState(false);
-  const [searchQuery, setSearchQuery] = useState('');
-  const [searchResults, setSearchResults] = useState<ChatMessage[]>([]);
-  const [searchLoading, setSearchLoading] = useState(false);
+  // ─── Search ─────────────────────────────────────────────────────────────────────────
+  const {
+    searchOpen, searchQuery, searchResults,
+    openSearch, closeSearch, handleQueryChange, clearQuery,
+  } = useMessageSearch(messages);
 
-  const handleSearch = useCallback(async (q: string) => {
-    setSearchQuery(q);
-    if (!q.trim()) { setSearchResults([]); return; }
-    setSearchLoading(true);
-    try {
-      const { messages: raw } = await chatApi.searchMessages(activeChatId, q);
-      const decrypted = await Promise.all(
-        raw.map((m) => decryptChatMessage(m, { isGroup, recipientPublicKey, groupKey }))
-      );
-      setSearchResults(decrypted);
-    } catch { /* ignore */ }
-    finally { setSearchLoading(false); }
-  }, [activeChatId, isGroup, recipientPublicKey, groupKey]);
+  const [highlightedMessageId, setHighlightedMessageId] = useState<string | null>(null);
+
+  const handleResultPress = useCallback((messageId: string) => {
+    const index = messages.findIndex((m) => m.id === messageId);
+    if (index === -1) return;
+    closeSearch();
+
+    // FlatList is always mounted — small delay for state flush, then scroll
+    setTimeout(() => {
+      flatListRef.current?.scrollToIndex({ index, animated: true, viewPosition: 0.5 });
+    }, 50);
+
+    // Highlight fires after scroll (and any onScrollToIndexFailed retry) has settled
+    setTimeout(() => {
+      setHighlightedMessageId(messageId);
+    }, 700);
+
+    setTimeout(() => {
+      setHighlightedMessageId(null);
+    }, 1900);
+  }, [closeSearch, messages]);
 
   // Load messages on mount
   useEffect(() => { loadMessages(); }, [loadMessages]);
+
+  // Jump to a specific message when navigated from starred messages
+  const hasJumpedRef = useRef(false);
+  useEffect(() => {
+    if (!jumpToMessageId || hasJumpedRef.current || messages.length === 0) return;
+    const index = messages.findIndex((m) => m.id === jumpToMessageId);
+    if (index === -1) return;
+    hasJumpedRef.current = true;
+
+    setTimeout(() => {
+      flatListRef.current?.scrollToIndex({ index, animated: true, viewPosition: 0.5 });
+    }, 50);
+    setTimeout(() => { setHighlightedMessageId(jumpToMessageId); }, 700);
+    setTimeout(() => { setHighlightedMessageId(null); }, 1900);
+  }, [messages, jumpToMessageId]);
 
   // Advance delivered watermark when recipient is online
   useEffect(() => {
@@ -353,10 +381,28 @@ export default function ChatScreen() {
     }
   }, [activeChatId, updateMessage]);
 
+  const forwardModal = useForwardModal({
+    socket,
+    myUserId,
+    onSent: ({ chatId, name, chatType, recipientId: rid, recipientAvatar: rAvatar, isOnline }) => {
+      router.push({
+        pathname: '/chat',
+        params: {
+          chatId,
+          name,
+          chatType,
+          recipientId: rid,
+          recipientAvatar: rAvatar ?? '',
+          recipientIsOnline: isOnline ? '1' : '0',
+          backTo: '/chat-list',
+        },
+      });
+    },
+  });
+
   const handleForwardMessage = useCallback((msg: ChatMessage) => {
-    // Navigate to contact picker to forward
-    router.push({ pathname: '/new-chat', params: { forwardContent: msg.content ?? '' } });
-  }, [router]);
+    forwardModal.open(msg);
+  }, [forwardModal]);
 
   // ─── Composer ──────────────────────────────────────────────────────────────
   const handleMessageFailed = useCallback((pendingId: string) => {
@@ -366,7 +412,6 @@ export default function ChatScreen() {
   const { inputText, handleTextChange, handleSend } = useMessageComposer({
     socket, chatId: activeChatId, myUserId, isGroup, recipientPublicKey, groupKey,
     replyToId: replyToMessage?.id ?? null,
-    initialText: forwardContent,
     recipientId,
     onChatCreated: setActiveChatId,
     onPendingMessage: addMessage,
@@ -414,7 +459,8 @@ export default function ChatScreen() {
             ? () => router.push({ pathname: '/user-profile', params: { userId: recipientId, name: displayName } })
             : undefined
         }
-        onSearchPress={isRemovedFromGroup ? undefined : () => setSearchOpen((o) => !o)}
+        isSearchOpen={searchOpen}
+        onSearchPress={isRemovedFromGroup ? undefined : (searchOpen ? closeSearch : openSearch)}
       />
 
       {!isConnected && (
@@ -448,33 +494,6 @@ export default function ChatScreen() {
         />
       )}
 
-      {searchOpen && (
-        <View style={styles.searchBar}>
-          <TextInput
-            style={styles.searchInput}
-            placeholder="Search messages..."
-            placeholderTextColor="#999"
-            value={searchQuery}
-            onChangeText={handleSearch}
-            autoFocus
-          />
-          {searchLoading && <ActivityIndicator size="small" color={CORAL} style={{ marginRight: 8 }} />}
-        </View>
-      )}
-      {searchOpen && searchResults.length > 0 && (
-        <FlatList
-          data={searchResults}
-          keyExtractor={(m) => m.id}
-          style={styles.searchResults}
-          renderItem={({ item }) => (
-            <View style={styles.searchResultItem}>
-              <Text style={styles.searchResultSender}>{item.sender?.name ?? 'Unknown'}</Text>
-              <Text style={styles.searchResultText} numberOfLines={2}>{item.content}</Text>
-            </View>
-          )}
-        />
-      )}
-
       <KeyboardAvoidingView
         style={{ flex: 1 }}
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
@@ -496,6 +515,7 @@ export default function ChatScreen() {
               index={index}
               showReadReceipts={settings?.readReceipts ?? true}
               isStarred={starredMessageIds.has(item.id)}
+              isHighlighted={item.id === highlightedMessageId}
               onLongPress={setActionMessage}
               resolveName={resolveName}
               resolveAvatar={resolveAvatar}
@@ -514,6 +534,17 @@ export default function ChatScreen() {
           onContentSizeChange={() => flatListRef.current?.scrollToEnd({ animated: false })}
           onStartReached={loadOlderMessages}
           onStartReachedThreshold={0.1}
+          onScrollToIndexFailed={(info) => {
+            // Scroll to top to force old items to render, then retry
+            flatListRef.current?.scrollToOffset({ offset: 0, animated: false });
+            setTimeout(() => {
+              flatListRef.current?.scrollToIndex({
+                index: info.index,
+                animated: true,
+                viewPosition: 0.5,
+              });
+            }, 300);
+          }}
           ListHeaderComponent={
             loadingMore
               ? <View style={styles.loadingMore}><ActivityIndicator size="small" color={CORAL} /></View>
@@ -554,6 +585,33 @@ export default function ChatScreen() {
             onVoiceCancel={cancelRecording}
           />
         )}
+
+        {/* Search overlay — always-mounted FlatList stays intact underneath */}
+        {searchOpen && (
+          <View style={[StyleSheet.absoluteFillObject, { backgroundColor: '#FFFFFF' }]}>
+            <View style={styles.searchBar}>
+              <Ionicons name="search-outline" size={16} color="#999" style={{ marginRight: 8 }} />
+              <TextInput
+                style={styles.searchInput}
+                placeholder="Search messages..."
+                placeholderTextColor="#999"
+                value={searchQuery}
+                onChangeText={handleQueryChange}
+                autoFocus
+              />
+              {searchQuery.length > 0 && (
+                <Pressable onPress={clearQuery} hitSlop={8}>
+                  <Ionicons name="close-circle" size={18} color="#999" />
+                </Pressable>
+              )}
+            </View>
+            <SearchResultList
+              results={searchResults}
+              query={searchQuery}
+              onResultPress={handleResultPress}
+            />
+          </View>
+        )}
       </KeyboardAvoidingView>
 
       <MessageActions
@@ -566,6 +624,18 @@ export default function ChatScreen() {
         onDelete={handleDeleteMessage}
         onForward={handleForwardMessage}
         onToggleStar={(msg) => toggleStar(msg.id)}
+      />
+
+      <ForwardModal
+        visible={forwardModal.visible}
+        chats={forwardModal.filteredChats}
+        selectedIds={forwardModal.selectedIds}
+        search={forwardModal.search}
+        sending={forwardModal.sending}
+        onSearch={forwardModal.onSearch}
+        onToggle={forwardModal.toggleRecipient}
+        onSend={forwardModal.handleSend}
+        onClose={forwardModal.close}
       />
 
       {showRemovedSnackbar && (

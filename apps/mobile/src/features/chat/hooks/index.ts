@@ -1,3 +1,4 @@
+export { useMessageSearch } from './useMessageSearch';
 export { useChatList } from './useChatList';
 export { useChatListProfile } from './useChatListProfile';
 export { useMessages } from './useMessages';

@@ -110,6 +110,9 @@ export function useChatList(myUserId: string): UseChatListReturn {
   }, [loadChats]);
 
   const deleteConversation = useCallback((chatId: string) => {
+    // Guard against loadChats() refetching this chat during the undo window
+    deletingIds.current.add(chatId);
+
     // Save only the deleted chat for undo (preserves socket updates to other chats)
     const deletedChat = chatsRef.current.find((c) => c.id === chatId);
 
@@ -123,6 +126,7 @@ export function useChatList(myUserId: string): UseChatListReturn {
 
     const undo = () => {
       if (undoTimerRef.current) clearTimeout(undoTimerRef.current);
+      deletingIds.current.delete(chatId);
       setPendingDelete(null);
       if (deletedChat && !chatsRef.current.some((c) => c.id === chatId)) {
         const restored = [...chatsRef.current, deletedChat].sort(
@@ -138,7 +142,6 @@ export function useChatList(myUserId: string): UseChatListReturn {
     if (undoTimerRef.current) clearTimeout(undoTimerRef.current);
     undoTimerRef.current = setTimeout(async () => {
       setPendingDelete(null);
-      deletingIds.current.add(chatId);
       try {
         await chatApi.deleteConversation(chatId);
       } catch {

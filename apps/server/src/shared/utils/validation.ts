@@ -31,6 +31,7 @@ export const sendMessageSchema = z.object({
   content: z.string().max(4096).optional(),
   mediaUrl: z.string().url().optional(),
   replyToId: z.string().uuid().optional(),
+  isForwarded: z.boolean().optional(),
 }).refine((d) => d.content || d.mediaUrl, {
   message: "Message must have content or media",
 });

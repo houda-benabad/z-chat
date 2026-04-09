@@ -18,7 +18,7 @@ interface ChatsTabProps {
   hasMore: boolean;
   navHeight: number;
   onRefresh: () => Promise<void>;
-  onDelete: (chatId: string) => Promise<void>;
+  onDelete: (chatId: string) => void;
   markAsRead: (chatId: string) => void;
   onLoadMore: () => Promise<void>;
 }
@@ -42,10 +42,28 @@ export function ChatsTab({
   const swipeableRefs  = useRef<Map<string, Swipeable | null>>(new Map());
   const swipeActiveRef = useRef(false);
 
+  const openSwipeableId = useRef<string | null>(null);
+
   const handleDelete = useCallback((chatId: string) => {
+    openSwipeableId.current = null;
     swipeActiveRef.current = false;
     onDelete(chatId);
   }, [onDelete]);
+
+  const handleWillOpen = useCallback((chatId: string) => {
+    openSwipeableId.current = chatId;
+    swipeActiveRef.current = true;
+    swipeableRefs.current.forEach((ref, id) => {
+      if (id !== chatId) ref?.close();
+    });
+  }, []);
+
+  const handleClose = useCallback((chatId: string) => {
+    if (openSwipeableId.current === chatId) {
+      openSwipeableId.current = null;
+      swipeActiveRef.current = false;
+    }
+  }, []);
 
   const handleChatPress = useCallback((item: ChatListItemType) => {
     const isGroup   = item.type === 'group';
@@ -90,6 +108,8 @@ export function ChatsTab({
           myUserId={myUserId}
           onPress={handleChatPress}
           onDelete={handleDelete}
+          onWillOpen={handleWillOpen}
+          onClose={handleClose}
           swipeActiveRef={swipeActiveRef}
           onSwipeableRef={(id, ref) => swipeableRefs.current.set(id, ref)}
         />

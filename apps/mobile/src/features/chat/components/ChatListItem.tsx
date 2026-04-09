@@ -15,6 +15,8 @@ interface Props {
   myUserId: string;
   onPress: (item: ChatListItemType) => void;
   onDelete: (chatId: string) => void;
+  onWillOpen: (chatId: string) => void;
+  onClose: (chatId: string) => void;
   swipeActiveRef: React.MutableRefObject<boolean>;
   onSwipeableRef: (chatId: string, ref: Swipeable | null) => void;
 }
@@ -25,6 +27,8 @@ export function ChatListItem({
   myUserId,
   onPress,
   onDelete,
+  onWillOpen,
+  onClose,
   swipeActiveRef,
   onSwipeableRef,
 }: Props) {
@@ -61,8 +65,8 @@ export function ChatListItem({
     <Swipeable
       ref={(ref) => onSwipeableRef(item.id, ref)}
       renderRightActions={renderDeleteAction}
-      onSwipeableWillOpen={() => { swipeActiveRef.current = true; }}
-      onSwipeableClose={() => { swipeActiveRef.current = false; }}
+      onSwipeableWillOpen={() => { onWillOpen(item.id); }}
+      onSwipeableClose={() => { onClose(item.id); }}
       overshootRight={false}
       rightThreshold={80}
     >

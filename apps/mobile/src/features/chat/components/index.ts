@@ -13,3 +13,5 @@ export { MessageActions } from './MessageActions';
 export { ImageViewer } from './ImageViewer';
 export { VoiceNotePlayer } from './VoiceNotePlayer';
 export { SystemEventBar } from './SystemEventBar';
+export { SearchResultItem } from './SearchResultItem';
+export { SearchResultList } from './SearchResultList';
