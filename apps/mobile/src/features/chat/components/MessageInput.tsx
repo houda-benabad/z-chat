@@ -3,8 +3,6 @@ import { View, Text, TextInput, Pressable, ActivityIndicator, Alert } from 'reac
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as ImagePicker from 'expo-image-picker';
-import EmojiPicker from 'rn-emoji-keyboard';
-import type { EmojiType } from 'rn-emoji-keyboard';
 import { useThemedStyles } from '@/shared/hooks/useThemedStyles';
 import { createStyles } from './styles/MessageInput.styles';
 import type { ChatMessage } from '@/types';
@@ -49,11 +47,6 @@ export function MessageInput({
 }: MessageInputProps) {
   const styles = useThemedStyles(createStyles);
   const hasText = value.trim().length > 0;
-  const [emojiOpen, setEmojiOpen] = useState(false);
-
-  const handleEmojiPick = (emoji: EmojiType) => {
-    onChangeText(value + emoji.emoji);
-  };
 
   const handleAttachPress = async () => {
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
@@ -123,9 +116,6 @@ export function MessageInput({
 
       <View style={styles.inputRow}>
       <View style={styles.inputWrap}>
-        <Pressable hitSlop={8} onPress={() => setEmojiOpen(true)}>
-          <Ionicons name="happy-outline" size={22} color="#aaa" />
-        </Pressable>
         <TextInput
           style={styles.textInput}
           placeholder="Message"
@@ -175,13 +165,6 @@ export function MessageInput({
         </Pressable>
       )}
       </View>
-
-      <EmojiPicker
-        onEmojiSelected={handleEmojiPick}
-        open={emojiOpen}
-        onClose={() => setEmojiOpen(false)}
-        enableRecentlyUsed
-      />
     </View>
   );
 }
