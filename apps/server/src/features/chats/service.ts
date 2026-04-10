@@ -215,6 +215,9 @@ export class ChatService {
 
       let encryptedGroupKey: string | null = null;
       let recipientPublicKey: string | null = null;
+      let recipientId: string | null = null;
+      let recipientAvatar: string | null = null;
+      let recipientName: string | null = null;
 
       if (chat.type === "group") {
         const myEntry = participants.find((p: any) => p.userId === userId);
@@ -222,6 +225,9 @@ export class ChatService {
       } else {
         const other = participants.find((p: any) => p.userId !== userId);
         recipientPublicKey = other?.user?.publicKey ?? null;
+        recipientId = other?.userId ?? null;
+        recipientAvatar = other?.user?.avatar ?? null;
+        recipientName = other?.user?.name ?? null;
       }
 
       // Strip participants from the response — only return the derived keys
@@ -235,6 +241,9 @@ export class ChatService {
         },
         encryptedGroupKey,
         recipientPublicKey,
+        recipientId,
+        recipientAvatar,
+        recipientName,
       };
     });
 
@@ -285,13 +294,40 @@ export class ChatService {
 
     const participants = await this.repo.findChatParticipants(chatId);
 
-    // Only expose each participant's own encrypted group key — never expose others'
-    const sanitizedParticipants = participants.map((p: (typeof participants)[number]) => ({
-      userId: p.userId,
-      lastReadMessageId: p.lastReadMessageId,
-      encryptedGroupKey: p.userId === userId ? p.encryptedGroupKey : undefined,
-      groupKeyVersion: p.userId === userId ? p.groupKeyVersion : undefined,
-      user: p.user,
+    // Bug 2: mask watermark for participants who have read receipts disabled
+    const participantUserIds = participants.map((p: (typeof participants)[number]) => p.userId);
+    const readReceiptsMap = await this.repo.getReadReceiptsSettings(participantUserIds);
+
+    // Bug 3: batch-fetch createdAt for lastReadMessage IDs (message may be deleted/absent from query)
+    const lastReadIds = participants
+      .map((p: (typeof participants)[number]) => p.lastReadMessageId)
+      .filter((id): id is string => id != null);
+    const lastReadCreatedAtMap = await this.repo.getMessageCreatedAtByIds(lastReadIds);
+
+    // Only expose each participant's own encrypted group key — never expose others'.
+    // If a participant has blocked the requester, hide their live presence and avatar.
+    const sanitizedParticipants = await Promise.all(participants.map(async (p: (typeof participants)[number]) => {
+      const readReceipts = readReceiptsMap.get(p.userId) ?? true;
+      const lastReadMsgCreatedAt = p.lastReadMessageId
+        ? (lastReadCreatedAtMap.get(p.lastReadMessageId) ?? null)
+        : null;
+
+      let user = p.user;
+      if (p.userId !== userId) {
+        const hasBlockedRequester = await this.repo.isBlockedBy(p.userId, userId);
+        if (hasBlockedRequester) {
+          user = { ...user, isOnline: false, lastSeen: null, avatar: null };
+        }
+      }
+
+      return {
+        userId: p.userId,
+        lastReadMessageId: readReceipts ? p.lastReadMessageId : null,
+        lastReadMessageCreatedAt: readReceipts ? (lastReadMsgCreatedAt?.toISOString() ?? null) : null,
+        encryptedGroupKey: p.userId === userId ? p.encryptedGroupKey : undefined,
+        groupKeyVersion: p.userId === userId ? p.groupKeyVersion : undefined,
+        user,
+      };
     }));
 
     return {

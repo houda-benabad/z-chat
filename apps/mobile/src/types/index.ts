@@ -64,6 +64,8 @@ export interface ChatMessage {
   pending?: boolean;
   /** Client-only: true when the server ack returned an error */
   failed?: boolean;
+  /** Client-only: true when the message was rejected because the recipient has blocked the sender */
+  blockedByRecipient?: boolean;
   /** Client-only: local file URI for retrying a failed media upload */
   localUri?: string;
   /** Client-only: MIME type for retrying a failed media upload */
@@ -184,6 +186,9 @@ export interface StarredMessageItem {
   };
   encryptedGroupKey: string | null;
   recipientPublicKey: string | null;
+  recipientId: string | null;
+  recipientAvatar: string | null;
+  recipientName: string | null;
 }
 
 export interface BlockedUserItem {

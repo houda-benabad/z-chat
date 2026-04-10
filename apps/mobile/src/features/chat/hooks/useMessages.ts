@@ -8,6 +8,7 @@ import type { ChatMessage } from '@/types';
 export type ParticipantData = {
   userId: string;
   lastReadMessageId: string | null;
+  lastReadMessageCreatedAt: string | null;
   encryptedGroupKey?: string | null;
   groupKeyVersion?: number;
   user: { isOnline: boolean; publicKey?: string | null; phone: string; name: string | null };
@@ -32,6 +33,8 @@ export interface UseMessagesReturn {
   confirmMessage: (pendingId: string, confirmed: ChatMessage, plaintext: string) => void;
   /** Mark a pending bubble as failed. */
   markMessageFailed: (pendingId: string) => void;
+  /** Mark a pending bubble as blocked (sent but silently rejected — shows one tick, no retry). */
+  markMessageBlocked: (pendingId: string) => void;
   /** Remove a message by id (used to clear failed bubbles on retry). */
   removeMessage: (id: string) => void;
   /** Patch an existing message by id with partial updates. */
@@ -110,6 +113,12 @@ export function useMessages({
   const markMessageFailed = useCallback((pendingId: string) => {
     setMessages((prev) =>
       prev.map((m) => m.id === pendingId ? { ...m, failed: true, pending: false } : m)
+    );
+  }, []);
+
+  const markMessageBlocked = useCallback((pendingId: string) => {
+    setMessages((prev) =>
+      prev.map((m) => m.id === pendingId ? { ...m, blockedByRecipient: true, pending: false } : m)
     );
   }, []);
 
@@ -217,6 +226,7 @@ export function useMessages({
     addMessage,
     confirmMessage,
     markMessageFailed,
+    markMessageBlocked,
     removeMessage,
     updateMessage,
     loadMessages,

@@ -66,6 +66,10 @@ export const addContactSchema = z.object({
   nickname: z.string().max(100).optional(),
 });
 
+export const updateContactNicknameSchema = z.object({
+  nickname: z.string().max(100),
+});
+
 export const syncContactsSchema = z.object({
   phones: z.array(z.string().regex(phoneRegex)).min(1).max(500),
 });

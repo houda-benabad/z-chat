@@ -24,6 +24,19 @@ export class UserService {
       return rest;
     }
 
+    // If the profile owner has blocked the requester, hide all live info
+    const isBlockedByTarget = await this.repo.isBlockedBy(id, requesterId);
+    if (isBlockedByTarget) {
+      const { settings: _s, isOnline: _o, lastSeen: _l, ...base } = user;
+      return {
+        ...base,
+        isOnline: false,
+        lastSeen: null,
+        avatar: null,
+        about: null,
+      };
+    }
+
     const settings = user.settings;
     const isContact = settings ? await this.repo.isContact(requesterId, id) : false;
 

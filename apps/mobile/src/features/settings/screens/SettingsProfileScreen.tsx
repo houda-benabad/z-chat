@@ -12,9 +12,12 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useAppSettings } from '@/shared/context/AppSettingsContext';
+import { ImageCropperModal } from '@/shared/components';
 import { useSettingsProfile } from '../hooks/useSettingsProfile';
 import { createStyles } from './styles/SettingsProfileScreen.styles';
 import { useThemedStyles } from '@/shared/hooks/useThemedStyles';
+
+const DEFAULT_AVATAR = require('../../../../assets/default-avatar.png');
 
 export default function SettingsProfileScreen() {
   const styles = useThemedStyles(createStyles);
@@ -33,6 +36,7 @@ export default function SettingsProfileScreen() {
     setAbout,
     handlePickAvatar,
     handleSave,
+    cropper,
   } = useSettingsProfile();
 
   if (loading) {
@@ -78,11 +82,7 @@ export default function SettingsProfileScreen() {
                 style={styles.avatarImage}
               />
             ) : (
-              <View style={styles.avatar}>
-                <Text style={styles.avatarText}>
-                  {name.trim() ? name[0]!.toUpperCase() : '?'}
-                </Text>
-              </View>
+              <Image source={DEFAULT_AVATAR} style={styles.avatarImage} />
             )}
             {uploadingAvatar ? (
               <View style={styles.avatarOverlay}>
@@ -132,6 +132,16 @@ export default function SettingsProfileScreen() {
           <Text style={styles.fieldReadOnly}>{profile?.phone}</Text>
         </View>
       </ScrollView>
+
+      <ImageCropperModal
+        visible={cropper.visible}
+        sourceUri={cropper.sourceUri}
+        sourceWidth={cropper.sourceWidth}
+        sourceHeight={cropper.sourceHeight}
+        processing={cropper.processing}
+        onConfirm={cropper.confirmCrop}
+        onCancel={cropper.cancelCrop}
+      />
     </KeyboardAvoidingView>
   );
 }

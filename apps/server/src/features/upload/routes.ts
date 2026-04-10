@@ -7,11 +7,36 @@ import { authMiddleware } from "../../shared/middleware/auth";
 import { UploadController } from "./controller";
 import { detectMimeCategory } from "../../shared/utils/magicBytes";
 
+const MIME_EXT: Record<string, string> = {
+  "image/jpeg": ".jpg",
+  "image/png":  ".png",
+  "image/gif":  ".gif",
+  "image/webp": ".webp",
+  "image/heic": ".heic",
+  "image/heif": ".heif",
+  "video/mp4":        ".mp4",
+  "video/quicktime":  ".mov",
+  "video/webm":       ".webm",
+  "video/x-matroska": ".mkv",
+  "audio/mpeg": ".mp3",
+  "audio/mp4":  ".m4a",
+  "audio/aac":  ".aac",
+  "audio/ogg":  ".ogg",
+  "audio/webm": ".webm",
+  "audio/wav":  ".wav",
+  "application/pdf":  ".pdf",
+  "application/msword": ".doc",
+  "application/vnd.openxmlformats-officedocument.wordprocessingml.document": ".docx",
+};
+
+function extFromMime(mime: string): string {
+  return MIME_EXT[mime.toLowerCase()] ?? ".bin";
+}
+
 const storage = multer.diskStorage({
   destination: path.join(process.cwd(), "public/uploads"),
   filename: (_req, file, cb) => {
-    const ext = path.extname(file.originalname) || ".jpg";
-    cb(null, `${randomUUID()}${ext}`);
+    cb(null, `${randomUUID()}${extFromMime(file.mimetype)}`);
   },
 });
 
@@ -31,11 +56,12 @@ const mediaUpload = multer({
     if (
       file.mimetype.startsWith("image/") ||
       file.mimetype.startsWith("video/") ||
-      file.mimetype.startsWith("audio/")
+      file.mimetype.startsWith("audio/") ||
+      file.mimetype.startsWith("application/")
     ) {
       cb(null, true);
     } else {
-      cb(new Error("Only image, video, and audio files are allowed"));
+      cb(new Error("Only image, video, audio, and document files are allowed"));
     }
   },
 });
@@ -76,7 +102,7 @@ export function createUploadRouter(jwtSecret: string, uploadBaseUrl: string): Ro
   router.post(
     "/media",
     mediaUpload.single("media"),
-    validateMagicBytes(["image/", "video/", "audio/"]),
+    validateMagicBytes(["image/", "video/", "audio/", "application/"]),
     controller.uploadMedia,
   );
 

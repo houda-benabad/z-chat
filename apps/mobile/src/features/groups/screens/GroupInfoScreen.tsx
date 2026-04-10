@@ -12,7 +12,7 @@ import { useGroupInfo } from '../hooks/useGroupInfo';
 import { useAppSettings } from '@/shared/context/AppSettingsContext';
 import { createStyles } from './styles/GroupInfoScreen.styles';
 import { useThemedStyles } from '@/shared/hooks/useThemedStyles';
-import { Avatar } from '@/shared/components';
+import { Avatar, ImageCropperModal } from '@/shared/components';
 
 
 export default function GroupInfoScreen() {
@@ -35,6 +35,7 @@ export default function GroupInfoScreen() {
     handleSaveName,
     handleCancelEditName,
     handlePickAvatar,
+    cropper,
     handleRemoveMember,
     handleToggleAdmin,
     handleLeaveGroup,
@@ -227,6 +228,16 @@ export default function GroupInfoScreen() {
             );
           })}
         </View>
+
+        <ImageCropperModal
+          visible={cropper.visible}
+          sourceUri={cropper.sourceUri}
+          sourceWidth={cropper.sourceWidth}
+          sourceHeight={cropper.sourceHeight}
+          processing={cropper.processing}
+          onConfirm={cropper.confirmCrop}
+          onCancel={cropper.cancelCrop}
+        />
 
         {/* Leave group */}
         <Pressable

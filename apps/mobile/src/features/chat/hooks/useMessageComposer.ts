@@ -22,6 +22,7 @@ interface UseMessageComposerParams {
   onPendingMessage: (msg: ChatMessage) => void;
   onMessageSent: (pendingId: string, message: ChatMessage, plaintext: string) => void;
   onMessageFailed?: (pendingId: string) => void;
+  onMessageBlocked?: (pendingId: string) => void;
   onEncryptionError?: (message: string) => void;
 }
 
@@ -45,6 +46,7 @@ export function useMessageComposer({
   onPendingMessage,
   onMessageSent,
   onMessageFailed,
+  onMessageBlocked,
   onEncryptionError,
 }: UseMessageComposerParams): UseMessageComposerReturn {
   const [inputText, setInputText] = useState(initialText ?? '');
@@ -121,16 +123,18 @@ export function useMessageComposer({
     socket.emit(
       'message:send',
       { chatId: activeChatId, type: 'text', content: payload, replyToId: replyToId ?? undefined },
-      async (res: { message?: ChatMessage; error?: string }) => {
+      async (res: { message?: ChatMessage; error?: string; code?: string }) => {
         if (res?.message) {
           const decrypted = await decryptChatMessage(res.message, { isGroup, recipientPublicKey, groupKey });
           onMessageSent(pendingId, decrypted, content);
+        } else if (res?.code === 'BLOCKED') {
+          onMessageBlocked?.(pendingId);
         } else {
           onMessageFailed?.(pendingId);
         }
       },
     );
-  }, [socket, inputText, chatId, myUserId, isGroup, recipientPublicKey, groupKey, replyToId, recipientId, onChatCreated, onPendingMessage, onMessageSent, onMessageFailed, onEncryptionError]);
+  }, [socket, inputText, chatId, myUserId, isGroup, recipientPublicKey, groupKey, replyToId, recipientId, onChatCreated, onPendingMessage, onMessageSent, onMessageFailed, onMessageBlocked, onEncryptionError]);
 
   const handleTextChange = useCallback(
     (text: string) => {

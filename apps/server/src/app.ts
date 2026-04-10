@@ -26,7 +26,11 @@ export function createApp(
 ) {
   const app = express();
 
-  app.use(helmet({ crossOriginResourcePolicy: { policy: "cross-origin" } }));
+  app.use(helmet({
+    crossOriginResourcePolicy: { policy: "cross-origin" },
+    // Allow uploaded media (e.g. PDFs) to be embedded in <iframe> from the web app origin
+    frameguard: false,
+  }));
   app.use(cors({ origin: allowedOrigin, credentials: true }));
   app.use(express.json({ limit: "1mb" }));
 

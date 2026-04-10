@@ -101,6 +101,30 @@ export const createStyles = (_colors: AppColors) => StyleSheet.create({
     borderRadius: 10,
     marginBottom: 2,
   },
+  videoBubble: {
+    backgroundColor: '#1a1a1a',
+    alignItems: 'center' as const,
+    justifyContent: 'center' as const,
+  },
+  videoLabel: {
+    fontSize: 12,
+    color: '#ccc',
+    marginTop: 4,
+  },
+  documentBubble: {
+    flexDirection: 'row' as const,
+    alignItems: 'center' as const,
+    paddingVertical: 8,
+    paddingHorizontal: 4,
+    gap: 10,
+    minWidth: 140,
+  },
+  documentLabel: {
+    flex: 1,
+    fontSize: 14,
+    fontFamily: typography.fontFamily,
+    color: TEXT_COLOR,
+  },
 
   avatarColumn: {
     width: 28,

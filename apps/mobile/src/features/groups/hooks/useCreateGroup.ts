@@ -1,9 +1,10 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Alert } from 'react-native';
 import { useRouter } from 'expo-router';
-import * as ImagePicker from 'expo-image-picker';
 import { contactApi, groupApi, uploadMedia } from '@/shared/services/api';
 import { generateGroupKey, generateGroupKeyBundle } from '@/shared/services/crypto';
+import { useImageCropper } from '@/shared/hooks';
+import type { UseImageCropperReturn } from '@/shared/hooks/useImageCropper';
 import type { ContactItem } from '@/types';
 
 type Step = 'select-members' | 'group-details';
@@ -28,6 +29,7 @@ export interface UseCreateGroupReturn {
   handlePickAvatar: () => Promise<void>;
   handleNext: () => void;
   handleCreate: () => Promise<void>;
+  cropper: UseImageCropperReturn;
 }
 
 export function useCreateGroup(): UseCreateGroupReturn {
@@ -89,30 +91,13 @@ export function useCreateGroup(): UseCreateGroupReturn {
     });
   }, []);
 
-  const handlePickAvatar = useCallback(async () => {
-    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (status !== 'granted') {
-      Alert.alert('Permission denied', 'Allow photo access to set a group picture');
-      return;
-    }
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
-      allowsEditing: true,
-      aspect: [1, 1],
-      quality: 0.8,
-    });
-    if (result.canceled || !result.assets[0]) return;
-    const uri = result.assets[0].uri;
-    setUploadingAvatar(true);
-    try {
-      const url = await uploadMedia(uri, 'image/jpeg');
-      setGroupAvatar(url);
-    } catch {
-      Alert.alert('Upload failed', 'Could not upload group picture. Please try again.');
-    } finally {
-      setUploadingAvatar(false);
-    }
-  }, []);
+  const cropper = useImageCropper(
+    useCallback((croppedUri: string) => {
+      setGroupAvatar(croppedUri);
+    }, []),
+  );
+
+  const handlePickAvatar = cropper.pickAndCrop;
 
   const handleNext = useCallback(() => {
     if (selectedIds.size === 0) {
@@ -131,10 +116,25 @@ export function useCreateGroup(): UseCreateGroupReturn {
 
     setCreating(true);
     try {
+      // Upload local avatar URI if one was cropped
+      let avatarUrl: string | undefined;
+      if (groupAvatar) {
+        setUploadingAvatar(true);
+        try {
+          avatarUrl = await uploadMedia(groupAvatar, 'image/jpeg');
+        } catch {
+          Alert.alert('Upload failed', 'Could not upload group picture. Please try again.');
+          setUploadingAvatar(false);
+          setCreating(false);
+          return;
+        }
+        setUploadingAvatar(false);
+      }
+
       const { chat } = await groupApi.createGroup({
         name,
         description: groupDescription.trim() || undefined,
-        avatar: groupAvatar ?? undefined,
+        avatar: avatarUrl,
         memberIds: [...selectedIds],
       });
 
@@ -168,7 +168,7 @@ export function useCreateGroup(): UseCreateGroupReturn {
           chatId: chat.id,
           name,
           chatType: 'group',
-          recipientAvatar: groupAvatar ?? '',
+          recipientAvatar: avatarUrl ?? '',
         },
       });
     } catch {
@@ -198,5 +198,6 @@ export function useCreateGroup(): UseCreateGroupReturn {
     handlePickAvatar,
     handleNext,
     handleCreate,
+    cropper,
   };
 }

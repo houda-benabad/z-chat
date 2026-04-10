@@ -12,6 +12,7 @@ export interface UseUserProfileReturn {
   loading: boolean;
   userId: string;
   contactId: string | null;
+  contactNickname: string | null;
   menuVisible: boolean;
   setMenuVisible: (v: boolean) => void;
   actionError: string | null;
@@ -20,6 +21,13 @@ export interface UseUserProfileReturn {
   isBlocked: boolean;
   fadeAnim: Animated.Value;
   displayName: string;
+  editNameVisible: boolean;
+  editNameValue: string;
+  editNameLoading: boolean;
+  setEditNameValue: (v: string) => void;
+  handleOpenEditName: () => void;
+  handleCloseEditName: () => void;
+  handleSaveNickname: () => Promise<void>;
   handleBlock: () => Promise<void>;
   handleUnblock: () => Promise<void>;
   handleDeleteContact: () => Promise<void>;
@@ -44,6 +52,9 @@ export function useUserProfile(): UseUserProfileReturn {
   const [actionDone, setActionDone] = useState<string | null>(null);
   const [actionLoading, setActionLoading] = useState(false);
   const [isBlocked, setIsBlocked] = useState(false);
+  const [editNameVisible, setEditNameVisible] = useState(false);
+  const [editNameValue, setEditNameValue] = useState('');
+  const [editNameLoading, setEditNameLoading] = useState(false);
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const contactFetchIdRef = useRef(0);
 
@@ -147,6 +158,30 @@ export function useUserProfile(): UseUserProfileReturn {
     router.push(`/add-contact?${params.toString()}`);
   }, [profile, router]);
 
+  const handleOpenEditName = useCallback(() => {
+    setEditNameValue(contactNickname ?? profile?.name ?? '');
+    setEditNameVisible(true);
+  }, [contactNickname, profile?.name]);
+
+  const handleCloseEditName = useCallback(() => {
+    setEditNameVisible(false);
+  }, []);
+
+  const handleSaveNickname = useCallback(async () => {
+    if (!contactId) return;
+    setEditNameLoading(true);
+    try {
+      const { contact } = await contactApi.updateNickname(contactId, editNameValue.trim());
+      setContactNickname(contact.nickname ?? null);
+      setEditNameVisible(false);
+      showToast('Name updated');
+    } catch (err) {
+      setActionError(err instanceof Error ? err.message : 'Failed to update name');
+    } finally {
+      setEditNameLoading(false);
+    }
+  }, [contactId, editNameValue, showToast]);
+
   const handleMessagePress = useCallback(async () => {
     let chatId = '';
     try {
@@ -174,6 +209,7 @@ export function useUserProfile(): UseUserProfileReturn {
     loading,
     userId,
     contactId,
+    contactNickname,
     menuVisible,
     setMenuVisible,
     actionError,
@@ -182,6 +218,13 @@ export function useUserProfile(): UseUserProfileReturn {
     isBlocked,
     fadeAnim,
     displayName,
+    editNameVisible,
+    editNameValue,
+    editNameLoading,
+    setEditNameValue,
+    handleOpenEditName,
+    handleCloseEditName,
+    handleSaveNickname,
     handleBlock,
     handleUnblock,
     handleDeleteContact,

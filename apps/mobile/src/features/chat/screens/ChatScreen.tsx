@@ -11,6 +11,8 @@ import {
   AppState,
   Pressable,
   StyleSheet,
+  NativeSyntheticEvent,
+  NativeScrollEvent,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
@@ -110,29 +112,36 @@ export default function ChatScreen() {
   const {
     messages, loading, loadingMore, loadError, isForbidden,
     groupKey, recipientPublicKey, participants,
-    addMessage, confirmMessage, markMessageFailed, removeMessage, updateMessage, loadMessages, loadOlderMessages,
+    addMessage, confirmMessage, markMessageFailed, markMessageBlocked, removeMessage, updateMessage, loadMessages, loadOlderMessages,
     starredMessageIds, toggleStar,
   } = useMessages({ chatId: activeChatId, isGroup, recipientId });
 
   // ─── Session state ─────────────────────────────────────────────────────────
-  const [isOnline, setIsOnline] = useState(recipientIsOnline === '1');
+  const [isOnline, setIsOnline] = useState(false);
   const [typingUserIds, setTypingUserIds] = useState<Set<string>>(new Set());
   const isTyping = typingUserIds.size > 0;
   const [contacts, setContacts] = useState<ContactItem[]>([]);
   const [recipientLastReadMsgId, setRecipientLastReadMsgId] = useState<string | null>(null);
+  const [recipientLastReadAt, setRecipientLastReadAt] = useState<string | null>(null);
   const [deliveredUpToMsgId, setDeliveredUpToMsgId] = useState<string | null>(null);
 
   // Seed read-receipt watermark from server data so ticks render on first load
-  // (socket events will override this with newer values in real time)
+  // (socket events will override this with newer values in real time).
+  // Also sync avatar and online status from server data, which has block filtering applied
+  // (blocked-by-recipient users get isOnline:false and avatar:null from getMessages).
   useEffect(() => {
     if (isGroup || !myUserId || participants.length === 0) return;
     const other = participants.find((p) => p.userId !== myUserId);
     if (other?.lastReadMessageId) {
       setRecipientLastReadMsgId(other.lastReadMessageId);
     }
+    setRecipientLastReadAt(other?.lastReadMessageCreatedAt ?? null);
+    setLiveAvatar(other?.user.avatar || undefined);
+    if (!onlineSetBySocket.current) setIsOnline(other?.user.isOnline ?? false);
   }, [participants, myUserId, isGroup]);
   const onlineSetBySocket = useRef(false);
   const flatListRef = useRef<FlatList>(null);
+  const isAtBottomRef = useRef(true);
 
   // Verify online status on mount (URL param may be stale)
   useEffect(() => {
@@ -182,7 +191,19 @@ export default function ChatScreen() {
   }, []);
 
   // ─── Block status ──────────────────────────────────────────────────────────
-  const { isBlocked, setIsBlocked, handleUnblock } = useBlockStatus({ recipientId, isGroup });
+  const { isBlocked, setIsBlocked, handleUnblock, handleDeleteConversation } = useBlockStatus({ recipientId, isGroup, chatId: activeChatId });
+
+  // Re-fetch recipient's profile when they get unblocked so the header reflects
+  // their current online status immediately (isBlocked: true → false edge only)
+  const wasBlocked = useRef(isBlocked);
+  useEffect(() => {
+    const justUnblocked = wasBlocked.current && !isBlocked;
+    wasBlocked.current = isBlocked;
+    if (!justUnblocked || isGroup || !recipientId) return;
+    userApi.getUser(recipientId)
+      .then(({ user }) => { if (!onlineSetBySocket.current) setIsOnline(user.isOnline); })
+      .catch(() => {});
+  }, [isBlocked, isGroup, recipientId]);
   const { isContact, contactNickname, recipientPhone, handleAddContact: handleAddUnknownContact } = useContactStatus({ recipientId, isGroup });
   const displayName = contactNickname ?? (isContact ? name : (recipientPhone ?? name)) ?? '';
 
@@ -194,9 +215,9 @@ export default function ChatScreen() {
   const [uploadingMedia, setUploadingMedia] = useState(false);
 
   // ─── Voice notes ───────────────────────────────────────────────────────────
-  const { isRecording, durationMs, startRecording, stopRecording, cancelRecording } = useVoiceRecorder();
+  const { isRecording, durationMs, startRecording, stopRecording, cancelRecording, getMimeType } = useVoiceRecorder();
 
-  const sendMedia = useCallback(async (uri: string, mimeType: string, type: 'voice_note' | 'image') => {
+  const sendMedia = useCallback(async (uri: string, mimeType: string, type: 'voice_note' | 'image' | 'video' | 'document') => {
     if (!socket) return;
     setUploadingMedia(true);
 
@@ -228,9 +249,11 @@ export default function ChatScreen() {
       socket.emit(
         'message:send',
         { chatId: chatIdToUse, type, mediaUrl },
-        (res: { message?: ChatMessage; error?: string }) => {
+        (res: { message?: ChatMessage; error?: string; code?: string }) => {
           if (res?.message) {
             confirmMessage(pendingId, { ...res.message, mediaUrl }, '');
+          } else if (res?.code === 'BLOCKED') {
+            markMessageBlocked(pendingId);
           } else {
             markMessageFailed(pendingId);
           }
@@ -241,23 +264,23 @@ export default function ChatScreen() {
     } finally {
       setUploadingMedia(false);
     }
-  }, [socket, activeChatId, recipientId, myUserId, addMessage, confirmMessage, markMessageFailed]);
+  }, [socket, activeChatId, recipientId, myUserId, addMessage, confirmMessage, markMessageFailed, markMessageBlocked]);
 
   const handleVoiceStop = useCallback(async () => {
     const uri = await stopRecording();
     if (!uri) return;
-    const mimeType = Platform.OS === 'web' ? 'audio/webm' : 'audio/m4a';
+    const mimeType = getMimeType() || (Platform.OS === 'web' ? 'audio/webm' : 'audio/m4a');
     await sendMedia(uri, mimeType, 'voice_note');
-  }, [stopRecording, sendMedia]);
+  }, [stopRecording, sendMedia, getMimeType]);
 
-  const handleMediaSelected = useCallback(async (uri: string, mimeType: string) => {
-    await sendMedia(uri, mimeType, 'image');
+  const handleMediaSelected = useCallback(async (uri: string, mimeType: string, mediaType: 'image' | 'video' | 'document') => {
+    await sendMedia(uri, mimeType, mediaType);
   }, [sendMedia]);
 
   const handleRetryMedia = useCallback(async (msg: ChatMessage) => {
     if (!msg.localUri) return;
     removeMessage(msg.id);
-    await sendMedia(msg.localUri, msg.localMimeType ?? 'image/jpeg', msg.type as 'voice_note' | 'image');
+    await sendMedia(msg.localUri, msg.localMimeType ?? 'image/jpeg', msg.type as 'voice_note' | 'image' | 'video' | 'document');
   }, [removeMessage, sendMedia]);
 
   // ─── Search ─────────────────────────────────────────────────────────────────────────
@@ -267,6 +290,7 @@ export default function ChatScreen() {
   } = useMessageSearch(messages);
 
   const [highlightedMessageId, setHighlightedMessageId] = useState<string | null>(null);
+  const [snackbarMsg, setSnackbarMsg] = useState<string | null>(null);
 
   const handleResultPress = useCallback((messageId: string) => {
     const index = messages.findIndex((m) => m.id === messageId);
@@ -287,6 +311,19 @@ export default function ChatScreen() {
       setHighlightedMessageId(null);
     }, 1900);
   }, [closeSearch, messages]);
+
+  const handleReplyPress = useCallback((replyToId: string) => {
+    const index = messages.findIndex((m) => m.id === replyToId);
+    if (index === -1) {
+      setSnackbarMsg('Scroll up to find this message');
+      return;
+    }
+    setTimeout(() => {
+      flatListRef.current?.scrollToIndex({ index, animated: true, viewPosition: 0.5 });
+    }, 50);
+    setTimeout(() => { setHighlightedMessageId(replyToId); }, 700);
+    setTimeout(() => { setHighlightedMessageId(null); }, 2600);
+  }, [messages]);
 
   // Load messages on mount
   useEffect(() => { loadMessages(); }, [loadMessages]);
@@ -317,9 +354,10 @@ export default function ChatScreen() {
     }
   }, [isOnline, messages, myUserId]);
 
-  // Send read receipt when last message changes
+  // Send read receipt when last message changes — only if scrolled to bottom
   useEffect(() => {
     if (!socket || !activeChatId || !myUserId || messages.length === 0) return;
+    if (!isAtBottomRef.current) return;
     const last = messages[messages.length - 1];
     if (last && last.senderId !== myUserId) {
       socket.emit('message:read', { chatId: activeChatId, messageId: last.id });
@@ -327,10 +365,17 @@ export default function ChatScreen() {
   }, [socket, messages, activeChatId, myUserId]);
 
   // Derived indexes for tick marks
-  const readUpToIndex = useMemo(
-    () => (!recipientLastReadMsgId ? -1 : messages.findIndex((m) => m.id === recipientLastReadMsgId)),
-    [messages, recipientLastReadMsgId],
-  );
+  const readUpToIndex = useMemo(() => {
+    if (!recipientLastReadMsgId) return -1;
+    const idx = messages.findIndex((m) => m.id === recipientLastReadMsgId);
+    if (idx !== -1) return idx;
+    // Watermark message was deleted — fall back to timestamp so older messages still show seen
+    if (recipientLastReadAt && messages.length > 0) {
+      const last = messages[messages.length - 1]!;
+      if (last.createdAt <= recipientLastReadAt) return messages.length - 1;
+    }
+    return -1;
+  }, [messages, recipientLastReadMsgId, recipientLastReadAt]);
   const deliveredUpToIndex = useMemo(
     () => (!deliveredUpToMsgId ? -1 : messages.findIndex((m) => m.id === deliveredUpToMsgId)),
     [messages, deliveredUpToMsgId],
@@ -354,6 +399,22 @@ export default function ChatScreen() {
     const contact = contacts.find((c) => c.contactUserId === userId);
     return contact?.contactUser.avatar ?? null;
   }, [contacts]);
+
+  // Update isAtBottomRef on scroll; emit read receipt when user scrolls back to bottom
+  const handleScroll = useCallback((event: NativeSyntheticEvent<NativeScrollEvent>) => {
+    const { contentOffset, contentSize, layoutMeasurement } = event.nativeEvent;
+    const isAtBottom = contentSize.height - layoutMeasurement.height - contentOffset.y < 60;
+    const wasAtBottom = isAtBottomRef.current;
+    isAtBottomRef.current = isAtBottom;
+    if (!wasAtBottom && isAtBottom && socket && activeChatId && myUserId && messages.length > 0) {
+      for (let i = messages.length - 1; i >= 0; i--) {
+        if (messages[i]?.senderId !== myUserId) {
+          socket.emit('message:read', { chatId: activeChatId, messageId: messages[i]!.id });
+          break;
+        }
+      }
+    }
+  }, [socket, activeChatId, myUserId, messages]);
 
   // ─── Real-time events ──────────────────────────────────────────────────────
   const handleKeyUpdated = useCallback(() => { loadMessages(); }, [loadMessages]);
@@ -420,6 +481,7 @@ export default function ChatScreen() {
       setReplyToMessage(null);
     },
     onMessageFailed: handleMessageFailed,
+    onMessageBlocked: markMessageBlocked,
     onEncryptionError: (msg) => alert('Encryption Error', msg),
   });
 
@@ -444,7 +506,7 @@ export default function ChatScreen() {
     <View style={styles.container}>
       <ChatHeader
         name={isGroup ? liveGroupName : displayName}
-        recipientAvatar={isGroup ? liveAvatar : (recipientAvatar || undefined)}
+        recipientAvatar={liveAvatar}
         isOnline={isOnline}
         isTyping={isTyping}
         isGroup={isGroup}
@@ -517,6 +579,7 @@ export default function ChatScreen() {
               isStarred={starredMessageIds.has(item.id)}
               isHighlighted={item.id === highlightedMessageId}
               onLongPress={setActionMessage}
+              onReplyPress={handleReplyPress}
               resolveName={resolveName}
               resolveAvatar={resolveAvatar}
               onRetryFailed={(msg) => {
@@ -531,6 +594,8 @@ export default function ChatScreen() {
           )}
           style={styles.msgList}
           contentContainerStyle={styles.msgContent}
+          onScroll={handleScroll}
+          scrollEventThrottle={16}
           onContentSizeChange={() => flatListRef.current?.scrollToEnd({ animated: false })}
           onStartReached={loadOlderMessages}
           onStartReachedThreshold={0.1}
@@ -565,7 +630,7 @@ export default function ChatScreen() {
         {isTyping && !isBlocked && !isRemovedFromGroup && <TypingDots label={isGroup ? typingLabel : undefined} />}
 
         {isBlocked ? (
-          <BlockedBar onUnblock={handleUnblock} bottomInset={insets.bottom} />
+          <BlockedBar onUnblock={handleUnblock} onDelete={handleDeleteConversation} bottomInset={insets.bottom} />
         ) : isRemovedFromGroup ? (
           <RemovedFromGroupBar bottomInset={insets.bottom} />
         ) : (
@@ -642,6 +707,13 @@ export default function ChatScreen() {
         <Snackbar
           message="You were removed from this group"
           onDismiss={() => setShowRemovedSnackbar(false)}
+        />
+      )}
+
+      {snackbarMsg && (
+        <Snackbar
+          message={snackbarMsg}
+          onDismiss={() => setSnackbarMsg(null)}
         />
       )}
     </View>

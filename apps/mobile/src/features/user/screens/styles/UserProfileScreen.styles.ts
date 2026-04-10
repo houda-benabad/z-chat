@@ -78,13 +78,28 @@ export const createStyles = (colors: AppColors) => StyleSheet.create({
     borderWidth: 2.5,
     borderColor: CORAL,
   },
+  heroNameRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 4,
+  },
   heroName: {
     fontSize: 22,
     fontFamily: typography.fontFamily,
     fontWeight: typography.weights.bold,
     color: '#fff',
-    marginBottom: 4,
     textAlign: 'center',
+  },
+  heroNameEditBtn: {
+    padding: 4,
+  },
+  heroRealName: {
+    fontSize: typography.sizes.sm,
+    fontFamily: typography.fontFamily,
+    color: 'rgba(255,255,255,0.65)',
+    textAlign: 'center',
+    marginBottom: 2,
   },
   heroStatus: {
     fontSize: typography.sizes.sm,
@@ -279,6 +294,92 @@ export const createStyles = (colors: AppColors) => StyleSheet.create({
   menuItemText: {
     fontSize: typography.sizes.md,
     fontFamily: typography.fontFamily,
+  },
+
+  // Edit name bottom sheet
+  editSheetOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.45)',
+    justifyContent: 'flex-end',
+  },
+  editSheetKAV: {
+    width: '100%',
+  },
+  editSheet: {
+    backgroundColor: colors.surface,
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    paddingHorizontal: 20,
+    paddingTop: 12,
+  },
+  editSheetHandle: {
+    width: 36,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: colors.border,
+    alignSelf: 'center',
+    marginBottom: 20,
+  },
+  editSheetTitle: {
+    fontSize: typography.sizes.lg,
+    fontFamily: typography.fontFamily,
+    fontWeight: typography.weights.semibold,
+    color: colors.text,
+    marginBottom: 16,
+  },
+  editSheetInput: {
+    borderWidth: 1.5,
+    borderColor: CORAL,
+    borderRadius: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    fontSize: typography.sizes.md,
+    fontFamily: typography.fontFamily,
+    color: colors.text,
+    backgroundColor: colors.background,
+  },
+  editSheetInputPlaceholder: {
+    color: colors.textSecondary,
+  },
+  editSheetClear: {
+    alignSelf: 'flex-start',
+    marginTop: 10,
+  },
+  editSheetClearText: {
+    fontSize: typography.sizes.sm,
+    fontFamily: typography.fontFamily,
+    color: CORAL,
+  },
+  editSheetActions: {
+    flexDirection: 'row',
+    gap: 10,
+    marginTop: 20,
+  },
+  editSheetCancel: {
+    flex: 1,
+    paddingVertical: 13,
+    borderRadius: 12,
+    backgroundColor: colors.border,
+    alignItems: 'center',
+  },
+  editSheetCancelText: {
+    fontSize: typography.sizes.md,
+    fontFamily: typography.fontFamily,
+    fontWeight: typography.weights.medium,
+    color: colors.text,
+  },
+  editSheetSave: {
+    flex: 1,
+    paddingVertical: 13,
+    borderRadius: 12,
+    backgroundColor: CORAL,
+    alignItems: 'center',
+  },
+  editSheetSaveText: {
+    fontSize: typography.sizes.md,
+    fontFamily: typography.fontFamily,
+    fontWeight: typography.weights.semibold,
+    color: '#fff',
   },
 
   // Toast

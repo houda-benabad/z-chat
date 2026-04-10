@@ -31,20 +31,23 @@ export default function StarredMessagesScreen() {
   const renderItem = ({ item }: { item: StarredMessageItem }) => {
     const msg = item.message;
     const senderName = msg.sender?.name ?? 'Unknown';
-    const chatName = msg.chat.type === 'group' ? (msg.chat.name ?? 'Group') : senderName;
+    const isGroup = msg.chat.type === 'group';
+    const chatName = isGroup ? (msg.chat.name ?? 'Group') : (item.recipientName ?? senderName);
 
     return (
       <Pressable
         style={styles.messageRow}
         onPress={() => {
-          const isGroup = msg.chat.type === 'group';
           router.push({
             pathname: '/chat',
             params: {
               chatId: msg.chatId,
               name: chatName,
               messageId: msg.id,
-              ...(isGroup ? { chatType: 'group', recipientAvatar: msg.chat.avatar ?? '' } : {}),
+              backTo: '/chat-list',
+              ...(isGroup
+                ? { chatType: 'group', recipientAvatar: msg.chat.avatar ?? '' }
+                : { recipientId: item.recipientId ?? '', recipientAvatar: item.recipientAvatar ?? '' }),
             },
           } as any);
         }}

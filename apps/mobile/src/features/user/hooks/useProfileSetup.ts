@@ -1,11 +1,11 @@
 import { useState, useCallback } from 'react';
-import { Alert } from 'react-native';
 import { useRouter } from 'expo-router';
-import * as ImagePicker from 'expo-image-picker';
 import { MAX_DISPLAY_NAME_LENGTH, MAX_ABOUT_LENGTH } from '@z-chat/shared';
 import { userApi, uploadAvatar, ApiError } from '@/shared/services/api';
 import { getOrCreateKeyPair } from '@/shared/services/crypto';
 import { useUserProfile } from '@/shared/context/UserProfileContext';
+import { useImageCropper } from '@/shared/hooks';
+import type { UseImageCropperReturn } from '@/shared/hooks/useImageCropper';
 
 export interface UseProfileSetupReturn {
   displayName: string;
@@ -18,6 +18,7 @@ export interface UseProfileSetupReturn {
   isValid: boolean;
   handlePickAvatar: () => Promise<void>;
   handleContinue: () => Promise<void>;
+  cropper: UseImageCropperReturn;
 }
 
 export function useProfileSetup(): UseProfileSetupReturn {
@@ -31,29 +32,13 @@ export function useProfileSetup(): UseProfileSetupReturn {
 
   const isValid = displayName.trim().length > 0;
 
-  const handlePickAvatar = useCallback(async () => {
-    const permissionResult =
-      await ImagePicker.requestMediaLibraryPermissionsAsync();
+  const cropper = useImageCropper(
+    useCallback((croppedUri: string) => {
+      setAvatarUri(croppedUri);
+    }, []),
+  );
 
-    if (!permissionResult.granted) {
-      Alert.alert(
-        'Permission Required',
-        'Please allow access to your photo library to set a profile picture.',
-      );
-      return;
-    }
-
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ['images'],
-      allowsEditing: true,
-      aspect: [1, 1],
-      quality: 0.8,
-    });
-
-    if (!result.canceled && result.assets[0]) {
-      setAvatarUri(result.assets[0].uri);
-    }
-  }, []);
+  const handlePickAvatar = cropper.pickAndCrop;
 
   const handleContinue = useCallback(async () => {
     if (!isValid) return;
@@ -112,5 +97,6 @@ export function useProfileSetup(): UseProfileSetupReturn {
     isValid,
     handlePickAvatar,
     handleContinue,
+    cropper,
   };
 }

@@ -303,7 +303,7 @@ export class ChatRepository {
                     userId: true,
                     encryptedGroupKey: true,
                     groupKeyVersion: true,
-                    user: { select: { publicKey: true } },
+                    user: { select: { publicKey: true, name: true, avatar: true } },
                   },
                 },
               },
@@ -326,6 +326,28 @@ export class ChatRepository {
       select: { messageId: true },
     });
     return rows.map((r: { messageId: string }) => r.messageId);
+  }
+
+  async getReadReceiptsSettings(userIds: string[]): Promise<Map<string, boolean>> {
+    if (userIds.length === 0) return new Map();
+    const rows = await this.prisma.userSettings.findMany({
+      where: { userId: { in: userIds } },
+      select: { userId: true, readReceipts: true },
+    });
+    const map = new Map<string, boolean>();
+    for (const row of rows) map.set(row.userId, row.readReceipts);
+    return map;
+  }
+
+  async getMessageCreatedAtByIds(ids: string[]): Promise<Map<string, Date>> {
+    if (ids.length === 0) return new Map();
+    const rows = await this.prisma.message.findMany({
+      where: { id: { in: ids } },
+      select: { id: true, createdAt: true },
+    });
+    const map = new Map<string, Date>();
+    for (const row of rows) map.set(row.id, row.createdAt);
+    return map;
   }
 
   async deleteExpiredMessages() {

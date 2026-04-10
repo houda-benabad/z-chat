@@ -1,8 +1,0 @@
-The Structural Change That Would Have Stopped This
-Two controls that were widely recommended but not universally adopted would have prevented compromise even during the three-hour window.
-
-Use npm ci in CI/CD, never npm install. npm ci enforces strict lockfile compliance. It installs exactly the versions in your lockfile and fails if package.json and the lockfile are out of sync. An attacker publishing a new version to the registry cannot affect a build that never consults the registry for versions — it only reads from the lockfile.
-
-Use --ignore-scripts for automated installs. Running npm ci --ignore-scripts prevents postinstall hooks from executing entirely. The entire Axios attack was delivered through a postinstall hook. This flag would have blocked it completely — though be aware it can break packages that legitimately require native compilation during install.
-
-These aren't exotic security measures. They're npm flags. The fact that so many pipelines don't use them by default is part of why supply chain attacks through postinstall scripts remain so effective.

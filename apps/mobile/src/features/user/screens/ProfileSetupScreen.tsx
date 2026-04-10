@@ -13,6 +13,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { MAX_DISPLAY_NAME_LENGTH, MAX_ABOUT_LENGTH } from '@z-chat/shared';
 import { useAppSettings } from '@/shared/context/AppSettingsContext';
 import { useThemedStyles } from '@/shared/hooks/useThemedStyles';
+import { ImageCropperModal } from '@/shared/components';
 import { useProfileSetup } from '../hooks/useProfileSetup';
 import { createStyles } from './styles/ProfileSetupScreen.styles';
 
@@ -32,6 +33,7 @@ export default function ProfileSetupScreen() {
     isValid,
     handlePickAvatar,
     handleContinue,
+    cropper,
   } = useProfileSetup();
 
   return (
@@ -133,6 +135,16 @@ export default function ProfileSetupScreen() {
           </Pressable>
         </View>
       </ScrollView>
+
+      <ImageCropperModal
+        visible={cropper.visible}
+        sourceUri={cropper.sourceUri}
+        sourceWidth={cropper.sourceWidth}
+        sourceHeight={cropper.sourceHeight}
+        processing={cropper.processing}
+        onConfirm={cropper.confirmCrop}
+        onCancel={cropper.cancelCrop}
+      />
     </KeyboardAvoidingView>
   );
 }

@@ -4,6 +4,8 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useThemedStyles } from '@/shared/hooks/useThemedStyles';
 import { createStyles } from './styles/ChatHeader.styles';
 
+const DEFAULT_AVATAR = require('../../../../assets/default-avatar.png');
+
 interface ChatHeaderProps {
   name: string;
   recipientAvatar?: string;
@@ -60,7 +62,7 @@ export function ChatHeader({
           {recipientAvatar ? (
             <Image source={{ uri: recipientAvatar }} style={styles.avatarImage} />
           ) : (
-            <Text style={styles.avatarText}>{(name ?? '?')[0]?.toUpperCase()}</Text>
+            <Image source={DEFAULT_AVATAR} style={styles.avatarImage} />
           )}
         </View>
         <View style={styles.text}>

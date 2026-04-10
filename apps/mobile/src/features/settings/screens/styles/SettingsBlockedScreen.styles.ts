@@ -58,6 +58,11 @@ export const createStyles = (colors: AppColors) => StyleSheet.create({
     fontWeight: typography.weights.semibold,
     color: colors.white,
   },
+  avatarImage: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+  },
   contactInfo: {
     flex: 1,
   },

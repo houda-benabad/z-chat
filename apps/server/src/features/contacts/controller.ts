@@ -28,6 +28,12 @@ export class ContactController {
     res.json({ message: "Contact removed" });
   });
 
+  updateNickname = asyncHandler(async (req: AuthRequest, res: Response) => {
+    const { nickname } = req.body;
+    const result = await this.service.updateNickname(req.userId!, String(req.params.id), nickname);
+    res.json(result);
+  });
+
   syncContacts = asyncHandler(async (req: AuthRequest, res: Response) => {
     const { phones } = req.body;
     const users = await this.service.syncContacts(req.userId!, phones);

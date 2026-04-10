@@ -1,11 +1,20 @@
-import { useState } from 'react';
-import { View, Text, TextInput, Pressable, ActivityIndicator, Alert } from 'react-native';
+import { useRef, useState } from 'react';
+import { View, Text, TextInput, Pressable, ActivityIndicator, Modal, type GestureResponderEvent } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import * as ImagePicker from 'expo-image-picker';
+import Animated, {
+  useSharedValue,
+  useAnimatedStyle,
+  withTiming,
+  interpolate,
+  Extrapolation,
+} from 'react-native-reanimated';
 import { useThemedStyles } from '@/shared/hooks/useThemedStyles';
+import { useAttachmentPicker } from '../hooks/useAttachmentPicker';
 import { createStyles } from './styles/MessageInput.styles';
 import type { ChatMessage } from '@/types';
+
+const SLIDE_CANCEL_THRESHOLD = 80;
 
 interface MessageInputProps {
   value: string;
@@ -14,11 +23,11 @@ interface MessageInputProps {
   bottomInset: number;
   replyToMessage?: ChatMessage | null;
   onCancelReply?: () => void;
-  onMediaSelected?: (uri: string, mimeType: string) => Promise<void>;
+  onMediaSelected?: (uri: string, mimeType: string, mediaType: 'image' | 'video' | 'document') => Promise<void>;
   uploadingMedia?: boolean;
   isRecordingVoice?: boolean;
   recordingDurationMs?: number;
-  onVoiceStart?: () => void;
+  onVoiceStart?: () => void | boolean | Promise<boolean | void>;
   onVoiceStop?: () => void;
   onVoiceCancel?: () => void;
 }
@@ -47,60 +56,69 @@ export function MessageInput({
 }: MessageInputProps) {
   const styles = useThemedStyles(createStyles);
   const hasText = value.trim().length > 0;
+  const [isFocused, setIsFocused] = useState(false);
+  const [gestureActive, setGestureActive] = useState(false);
+  const [isCanceling, setIsCanceling] = useState(false);
+  const isActive = isFocused || hasText;
 
-  const handleAttachPress = async () => {
-    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (status !== 'granted') {
-      Alert.alert(
-        'Photo Access Required',
-        'Please enable photo library access in Settings to send images.',
-        [{ text: 'OK' }],
-      );
-      return;
-    }
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
-      quality: 0.8,
-    });
-    if (!result.canceled && result.assets[0]) {
-      const asset = result.assets[0];
-      const mimeType = asset.mimeType ?? 'image/jpeg';
-      await onMediaSelected?.(asset.uri, mimeType);
+  const translationX = useSharedValue(0);
+  const startXRef = useRef(0);
+  const finishedRef = useRef(false);
+
+  const { menuVisible, openMenu, closeMenu, pickPhoto, pickVideo, pickDocument } = useAttachmentPicker({
+    onMediaSelected: onMediaSelected ?? (async () => {}),
+    disabled: uploadingMedia,
+  });
+
+  const showRecording = gestureActive || isRecordingVoice;
+
+  const handleBegin = async (e: GestureResponderEvent) => {
+    startXRef.current = e.nativeEvent.pageX;
+    finishedRef.current = false;
+    translationX.value = 0;
+    setGestureActive(true);
+    setIsCanceling(false);
+    const result = await onVoiceStart?.();
+    if (result === false) {
+      finishedRef.current = true;
+      setGestureActive(false);
+      setIsCanceling(false);
+      translationX.value = withTiming(0, { duration: 150 });
     }
   };
 
-  // While recording: show the recording bar instead of the normal input
-  if (isRecordingVoice) {
-    return (
-      <View style={[styles.container, { paddingBottom: Math.max(bottomInset, 12) }]}>
-        <View style={styles.inputRow}>
-          <Pressable hitSlop={12} onPress={onVoiceCancel}>
-            <Ionicons name="trash-outline" size={24} color="#E46C53" />
-          </Pressable>
-          <View style={styles.inputWrap}>
-            <Ionicons name="radio-button-on" size={14} color="#E46C53" style={{ marginRight: 4 }} />
-            <Text style={[styles.textInput, { color: '#E46C53' }]}>
-              {formatDuration(recordingDurationMs)}
-            </Text>
-          </View>
-          <Pressable style={styles.sendBtn} onPress={onVoiceStop}>
-            <LinearGradient
-              colors={['#E46C53', '#ED2F3C']}
-              style={styles.sendBtnGrad}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 1 }}
-            >
-              <Ionicons name="send" size={18} color="#fff" style={{ marginLeft: 2 }} />
-            </LinearGradient>
-          </Pressable>
-        </View>
-      </View>
-    );
-  }
+  const handleMove = (e: GestureResponderEvent) => {
+    const dx = Math.min(0, e.nativeEvent.pageX - startXRef.current);
+    translationX.value = dx;
+    setIsCanceling(dx < -SLIDE_CANCEL_THRESHOLD);
+  };
+
+  const handleFinish = (canceled: boolean) => {
+    if (finishedRef.current) return;
+    finishedRef.current = true;
+    setGestureActive(false);
+    setIsCanceling(false);
+    translationX.value = withTiming(0, { duration: 150 });
+    if (canceled) onVoiceCancel?.();
+    else onVoiceStop?.();
+  };
+
+  const animatedMicStyle = useAnimatedStyle(() => ({
+    transform: [{ translateX: translationX.value }],
+  }));
+
+  const animatedHintStyle = useAnimatedStyle(() => ({
+    opacity: interpolate(
+      Math.abs(translationX.value),
+      [0, SLIDE_CANCEL_THRESHOLD],
+      [1, 0.3],
+      Extrapolation.CLAMP,
+    ),
+  }));
 
   return (
-    <View style={[styles.container, { paddingBottom: Math.max(bottomInset, 12) }]}>
-      {replyToMessage && (
+    <View style={[styles.container, { paddingBottom: Math.max(bottomInset, 10) }]}>
+      {replyToMessage && !showRecording && (
         <View style={styles.replyBar}>
           <View style={styles.replyBarContent}>
             <Ionicons name="return-down-back-outline" size={16} color="#E46C53" style={{ marginRight: 6 }} />
@@ -115,56 +133,96 @@ export function MessageInput({
       )}
 
       <View style={styles.inputRow}>
-      <View style={styles.inputWrap}>
-        <TextInput
-          style={styles.textInput}
-          placeholder="Message"
-          placeholderTextColor="#bbb"
-          value={value}
-          onChangeText={onChangeText}
-          multiline
-          maxLength={4096}
-          onSubmitEditing={onSend}
-        />
-        <Pressable hitSlop={8} onPress={handleAttachPress} disabled={uploadingMedia}>
-          {uploadingMedia
-            ? <ActivityIndicator size="small" color="#aaa" />
-            : <Ionicons name="attach" size={22} color="#aaa" />
-          }
-        </Pressable>
-      </View>
+        {showRecording ? (
+          <View style={styles.recordingRow}>
+            <View style={styles.recordingDot} />
+            <Text style={styles.recordingTimer}>{formatDuration(recordingDurationMs)}</Text>
+            <Animated.Text style={[styles.slideHint, isCanceling && styles.slideHintCancel, animatedHintStyle]}>
+              {isCanceling ? 'Release to cancel' : '‹ Slide to cancel'}
+            </Animated.Text>
+          </View>
+        ) : (
+          <>
+            <Pressable style={styles.attachBtn} hitSlop={8} onPress={openMenu} disabled={uploadingMedia}>
+              {uploadingMedia
+                ? <ActivityIndicator size="small" color="#aaa" />
+                : <Ionicons name="add-circle-outline" size={28} color="#aaa" />
+              }
+            </Pressable>
 
-      {hasText ? (
-        <Pressable style={styles.sendBtn} onPress={onSend}>
-          <LinearGradient
-            colors={['#E46C53', '#ED2F3C']}
-            style={styles.sendBtnGrad}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
-          >
-            <Ionicons name="send" size={18} color="#fff" style={{ marginLeft: 2 }} />
-          </LinearGradient>
-        </Pressable>
-      ) : (
-        <Pressable
-          style={styles.sendBtn}
-          onPress={() => {}}
-          onLongPress={onVoiceStart}
-          delayLongPress={200}
-        >
-          {({ pressed }) => (
+            <View style={[styles.inputWrap, isActive && styles.inputWrapFocused]}>
+              <TextInput
+                style={styles.textInput}
+                placeholder="Message"
+                placeholderTextColor="#bbb"
+                value={value}
+                onChangeText={onChangeText}
+                maxLength={4096}
+                onSubmitEditing={onSend}
+                underlineColorAndroid="transparent"
+                selectionColor="#E46C53"
+                onFocus={() => setIsFocused(true)}
+                onBlur={() => setIsFocused(false)}
+              />
+            </View>
+          </>
+        )}
+
+        {!showRecording && hasText ? (
+          <Pressable style={styles.sendBtn} onPress={onSend}>
             <LinearGradient
               colors={['#E46C53', '#ED2F3C']}
-              style={[styles.sendBtnGrad, { opacity: pressed ? 0.55 : 1 }]}
+              style={styles.sendBtnGrad}
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 1 }}
             >
-              <Ionicons name="mic-outline" size={18} color="#fff" />
+              <Ionicons name="send" size={18} color="#fff" style={{ marginLeft: 2 }} />
             </LinearGradient>
-          )}
-        </Pressable>
-      )}
+          </Pressable>
+        ) : (
+          <Animated.View
+            style={[styles.sendBtn, animatedMicStyle]}
+            onStartShouldSetResponder={() => true}
+            onMoveShouldSetResponder={() => true}
+            onResponderGrant={handleBegin}
+            onResponderMove={handleMove}
+            onResponderRelease={(e) => {
+              const dx = Math.min(0, e.nativeEvent.pageX - startXRef.current);
+              handleFinish(dx < -SLIDE_CANCEL_THRESHOLD);
+            }}
+            onResponderTerminate={() => handleFinish(true)}
+            onResponderTerminationRequest={() => false}
+          >
+            <LinearGradient
+              colors={isCanceling ? ['#ED2F3C', '#ED2F3C'] : ['#E46C53', '#ED2F3C']}
+              style={styles.sendBtnGrad}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+            >
+              <Ionicons name={isCanceling ? 'trash-outline' : 'mic-outline'} size={18} color="#fff" />
+            </LinearGradient>
+          </Animated.View>
+        )}
       </View>
+
+      <Modal transparent animationType="fade" visible={menuVisible} onRequestClose={closeMenu}>
+        <Pressable style={styles.menuOverlay} onPress={closeMenu}>
+          <View style={styles.attachMenu}>
+            <Pressable style={styles.attachMenuItem} onPress={pickPhoto}>
+              <Ionicons name="image-outline" size={22} color="#E46C53" />
+              <Text style={styles.attachMenuText}>Photo</Text>
+            </Pressable>
+            <Pressable style={styles.attachMenuItem} onPress={pickVideo}>
+              <Ionicons name="videocam-outline" size={22} color="#E46C53" />
+              <Text style={styles.attachMenuText}>Video</Text>
+            </Pressable>
+            <Pressable style={styles.attachMenuItem} onPress={pickDocument}>
+              <Ionicons name="document-outline" size={22} color="#E46C53" />
+              <Text style={styles.attachMenuText}>File</Text>
+            </Pressable>
+          </View>
+        </Pressable>
+      </Modal>
     </View>
   );
 }

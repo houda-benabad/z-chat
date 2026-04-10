@@ -102,6 +102,15 @@ export async function getOrCreateKeyPair(): Promise<string> {
   if (existingPriv) {
     const pub = await loadItem(PUBLIC_KEY_KEY);
     if (pub) return pub;
+
+    // Public key was lost but private key survived (e.g. crash between writes).
+    // Derive the public key from the existing private key instead of generating
+    // a new pair — generating a new pair would overwrite the private key and
+    // make all existing messages undecryptable.
+    const derived = nacl.box.keyPair.fromSecretKey(fromBase64(existingPriv));
+    const recoveredPub = toBase64(derived.publicKey);
+    await storeItem(PUBLIC_KEY_KEY, recoveredPub);
+    return recoveredPub;
   }
 
   const keyPair = nacl.box.keyPair();
@@ -177,10 +186,10 @@ export async function decryptMessage(
   encryptedContent: string,
   otherPublicKeyB64: string,
 ): Promise<string | null> {
-  const privateKey = await getPrivateKeyBytes();
-  if (!privateKey) return null;
-
   try {
+    const privateKey = await getPrivateKeyBytes();
+    if (!privateKey) return null;
+
     const payload = JSON.parse(encryptedContent) as EncryptedPayload;
     if (payload.v !== 1) return null;
 

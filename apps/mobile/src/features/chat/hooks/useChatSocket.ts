@@ -57,10 +57,6 @@ export function useChatSocket({
       });
 
       onNewMessage(decrypted);
-
-      if (message.senderId !== myUserId) {
-        socket.emit('message:read', { chatId, messageId: message.id });
-      }
     };
 
     const handleTypingStart = (d: { chatId: string; userId: string }) => {

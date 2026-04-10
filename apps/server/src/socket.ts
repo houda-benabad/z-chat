@@ -10,6 +10,7 @@ import { UserRepository } from "./features/users/repository";
 import { SettingsRepository } from "./features/settings/repository";
 import { sendPushNotification, messagePreviewText } from "./shared/utils/pushNotifications";
 import { logger } from "./shared/utils/logger";
+import { AppError } from "./shared/utils/errors";
 
 interface AuthenticatedSocket extends Socket {
   userId: string;
@@ -100,9 +101,19 @@ export function createSocketServer(httpServer: HttpServer, prisma: PrismaClient,
       socket.join(`chat:${p.chatId}`);
     }
 
-    // Broadcast online status to all chats
+    // Fetches a fresh block list each time — ensures unblock takes effect immediately
+    const getBlockedSocketIds = async () => {
+      const ids = await settingsRepo.getBlockedUserIds(userId);
+      return ids.flatMap((id) => [...(userSockets.get(id) ?? [])]);
+    };
+
+    // Broadcast online status to all chats, excluding blocked users
+    const onlineBlockedIds = await getBlockedSocketIds();
     for (const p of participations) {
-      socket.to(`chat:${p.chatId}`).emit("user:online", { userId });
+      (onlineBlockedIds.length > 0
+        ? socket.except(onlineBlockedIds).to(`chat:${p.chatId}`)
+        : socket.to(`chat:${p.chatId}`)
+      ).emit("user:online", { userId });
     }
 
     // --- Event: message:send ---
@@ -168,7 +179,8 @@ export function createSocketServer(httpServer: HttpServer, prisma: PrismaClient,
       } catch (err) {
         logger.error({ err, userId, chatId: (data as { chatId?: string })?.chatId }, "message:send failed");
         const errorMessage = err instanceof Error ? err.message : "Failed to send message";
-        ack?.({ error: errorMessage });
+        const errorCode = err instanceof AppError ? err.code : undefined;
+        ack?.({ error: errorMessage, ...(errorCode ? { code: errorCode } : {}) });
       }
     });
 
@@ -240,12 +252,13 @@ export function createSocketServer(httpServer: HttpServer, prisma: PrismaClient,
           // Set user offline
           await userRepo.setOnlineStatus(userId, false);
 
-          // Broadcast offline status
+          // Broadcast offline status, excluding blocked users (fresh query — unblock may have happened)
+          const offlineBlockedIds = await getBlockedSocketIds();
           for (const p of participations) {
-            socket.to(`chat:${p.chatId}`).emit("user:offline", {
-              userId,
-              lastSeen: new Date(),
-            });
+            (offlineBlockedIds.length > 0
+              ? socket.except(offlineBlockedIds).to(`chat:${p.chatId}`)
+              : socket.to(`chat:${p.chatId}`)
+            ).emit("user:offline", { userId, lastSeen: new Date() });
           }
         }
       }

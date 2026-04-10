@@ -6,5 +6,6 @@ export { useMessageComposer } from './useMessageComposer';
 export { useChatSocket } from './useChatSocket';
 export { useBlockStatus } from './useBlockStatus';
 export { useKeyPair } from './useKeyPair';
+export { useAttachmentPicker } from './useAttachmentPicker';
 export type { UseMessagesReturn, ParticipantData } from './useMessages';
 export type { UseChatListReturn } from './useChatList';

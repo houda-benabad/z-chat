@@ -1,8 +1,9 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Alert } from 'react-native';
-import * as ImagePicker from 'expo-image-picker';
 import { uploadAvatar } from '@/shared/services/api';
 import { useUserProfile } from '@/shared/context/UserProfileContext';
+import { useImageCropper } from '@/shared/hooks';
+import type { UseImageCropperReturn } from '@/shared/hooks/useImageCropper';
 
 export function useSettingsProfile() {
   const { profile, loading, updateProfile } = useUserProfile();
@@ -19,22 +20,13 @@ export function useSettingsProfile() {
     }
   }, [profile]);
 
-  const handlePickAvatar = useCallback(async () => {
-    const { granted } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (!granted) {
-      Alert.alert('Permission Required', 'Please allow access to your photo library to change your profile picture.');
-      return;
-    }
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ['images'],
-      allowsEditing: true,
-      aspect: [1, 1],
-      quality: 0.8,
-    });
-    if (!result.canceled && result.assets[0]) {
-      setAvatarUri(result.assets[0].uri);
-    }
-  }, []);
+  const cropper = useImageCropper(
+    useCallback((croppedUri: string) => {
+      setAvatarUri(croppedUri);
+    }, []),
+  );
+
+  const handlePickAvatar = cropper.pickAndCrop;
 
   const handleSave = useCallback(async () => {
     const trimmedName = name.trim();
@@ -83,5 +75,6 @@ export function useSettingsProfile() {
     setAbout,
     handlePickAvatar,
     handleSave,
+    cropper,
   };
 }

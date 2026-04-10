@@ -7,6 +7,8 @@ import { useThemedStyles } from '@/shared/hooks/useThemedStyles';
 import { useAppSettings } from '@/shared/context/AppSettingsContext';
 import type { UserProfile } from '@/types';
 
+const DEFAULT_AVATAR = require('../../../../assets/default-avatar.png');
+
 interface SettingsTabProps {
   profile: UserProfile | null;
   profileLoading: boolean;
@@ -40,9 +42,7 @@ export function SettingsTab({
           ) : profile?.avatar ? (
             <Image source={{ uri: profile.avatar }} style={styles.profileAvatarImage} />
           ) : (
-            <Text style={styles.profileAvatarText}>
-              {profile?.name?.[0]?.toUpperCase() ?? '?'}
-            </Text>
+            <Image source={DEFAULT_AVATAR} style={styles.profileAvatarImage} />
           )}
         </View>
         <View style={styles.profileInfo}>

@@ -4,6 +4,7 @@ import {
   FlatList,
   Pressable,
   ActivityIndicator,
+  Image,
 } from 'react-native';
 
 import { useRouter } from 'expo-router';
@@ -12,6 +13,8 @@ import { useBlockedUsers } from '../hooks/useBlockedUsers';
 import type { BlockedUserItem } from '@/types';
 import { createStyles } from './styles/SettingsBlockedScreen.styles';
 import { useThemedStyles } from '@/shared/hooks/useThemedStyles';
+
+const DEFAULT_AVATAR = require('../../../../assets/default-avatar.png');
 
 export default function SettingsBlockedScreen() {
   const styles = useThemedStyles(createStyles);
@@ -24,9 +27,7 @@ export default function SettingsBlockedScreen() {
     return (
       <View style={styles.contactRow}>
         <View style={styles.avatar}>
-          <Text style={styles.avatarText}>
-            {displayName[0]?.toUpperCase() ?? '?'}
-          </Text>
+          <Image source={DEFAULT_AVATAR} style={styles.avatarImage} />
         </View>
         <View style={styles.contactInfo}>
           <Text style={styles.contactName}>{displayName}</Text>

@@ -7,6 +7,9 @@ import {
   Image,
   Modal,
   Animated,
+  TextInput,
+  KeyboardAvoidingView,
+  Platform,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -16,6 +19,8 @@ import { useUserProfile, formatLastSeen } from '../hooks/useUserProfile';
 import { createStyles } from './styles/UserProfileScreen.styles';
 import { useThemedStyles } from '@/shared/hooks/useThemedStyles';
 import { useAppSettings } from '@/shared/context/AppSettingsContext';
+
+const DEFAULT_AVATAR = require('../../../../assets/default-avatar.png');
 
 const CORAL = '#E46C53';
 const TEAL = '#4D7E82';
@@ -30,6 +35,7 @@ export default function UserProfileScreen() {
     profile,
     loading,
     contactId,
+    contactNickname,
     menuVisible,
     setMenuVisible,
     actionError,
@@ -38,6 +44,13 @@ export default function UserProfileScreen() {
     isBlocked,
     fadeAnim,
     displayName,
+    editNameVisible,
+    editNameValue,
+    editNameLoading,
+    setEditNameValue,
+    handleOpenEditName,
+    handleCloseEditName,
+    handleSaveNickname,
     handleBlock,
     handleUnblock,
     handleDeleteContact,
@@ -81,9 +94,7 @@ export default function UserProfileScreen() {
             {profile?.avatar ? (
               <Image source={{ uri: profile.avatar }} style={styles.avatarImg} />
             ) : (
-              <View style={styles.avatarFallback}>
-                <Text style={styles.avatarInitials}>{initials}</Text>
-              </View>
+              <Image source={DEFAULT_AVATAR} style={styles.avatarImg} />
             )}
           </View>
           {profile?.isOnline && !isBlocked && (
@@ -92,7 +103,17 @@ export default function UserProfileScreen() {
         </View>
 
         {/* Name + status inside gradient */}
-        <Text style={styles.heroName}>{displayName}</Text>
+        <View style={styles.heroNameRow}>
+          <Text style={styles.heroName}>{displayName}</Text>
+          {contactId && (
+            <Pressable onPress={handleOpenEditName} hitSlop={12} style={styles.heroNameEditBtn}>
+              <Ionicons name="pencil" size={15} color="rgba(255,255,255,0.75)" />
+            </Pressable>
+          )}
+        </View>
+        {contactNickname && profile?.name && (
+          <Text style={styles.heroRealName}>{profile.name}</Text>
+        )}
         {isBlocked ? (
           <View style={styles.blockedBadge}>
             <Ionicons name="ban" size={12} color="#fff" />
@@ -244,6 +265,63 @@ export default function UserProfileScreen() {
               </Pressable>
             )}
           </View>
+        </Pressable>
+      </Modal>
+
+      {/* Edit name bottom sheet */}
+      <Modal
+        visible={editNameVisible}
+        transparent
+        animationType="slide"
+        onRequestClose={handleCloseEditName}
+      >
+        <Pressable style={styles.editSheetOverlay} onPress={handleCloseEditName}>
+          <KeyboardAvoidingView
+            behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+            style={styles.editSheetKAV}
+          >
+            <Pressable style={[styles.editSheet, { paddingBottom: insets.bottom + 16 }]}>
+              <View style={styles.editSheetHandle} />
+              <Text style={styles.editSheetTitle}>Edit name</Text>
+              <TextInput
+                style={styles.editSheetInput}
+                value={editNameValue}
+                onChangeText={setEditNameValue}
+                placeholder="Enter a name"
+                placeholderTextColor={styles.editSheetInputPlaceholder?.color as string}
+                autoFocus
+                maxLength={100}
+                returnKeyType="done"
+                onSubmitEditing={() => { void handleSaveNickname(); }}
+              />
+              {editNameValue.trim() !== (profile?.name ?? '') && (
+                <Pressable
+                  onPress={() => setEditNameValue('')}
+                  style={({ pressed }) => [styles.editSheetClear, pressed && { opacity: 0.6 }]}
+                >
+                  <Text style={styles.editSheetClearText}>Clear custom name</Text>
+                </Pressable>
+              )}
+              <View style={styles.editSheetActions}>
+                <Pressable
+                  style={({ pressed }) => [styles.editSheetCancel, pressed && { opacity: 0.7 }]}
+                  onPress={handleCloseEditName}
+                >
+                  <Text style={styles.editSheetCancelText}>Cancel</Text>
+                </Pressable>
+                <Pressable
+                  style={({ pressed }) => [styles.editSheetSave, pressed && { opacity: 0.85 }, editNameLoading && { opacity: 0.6 }]}
+                  onPress={() => { void handleSaveNickname(); }}
+                  disabled={editNameLoading}
+                >
+                  {editNameLoading
+                    ? <ActivityIndicator size="small" color="#fff" />
+                    : <Text style={styles.editSheetSaveText}>Save</Text>
+                  }
+                </Pressable>
+              </View>
+            </Pressable>
+          </KeyboardAvoidingView>
         </Pressable>
       </Modal>
 

@@ -16,6 +16,9 @@ export const contactApi = {
       body: JSON.stringify({ phone, ...(nickname ? { nickname } : {}) }),
     }),
 
+  updateNickname: (id: string, nickname: string): Promise<{ contact: ContactItem }> =>
+    request(`/contacts/${id}`, { method: 'PATCH', body: JSON.stringify({ nickname }) }),
+
   deleteContact: (id: string): Promise<{ message: string }> =>
     request(`/contacts/${id}`, { method: 'DELETE' }),
 

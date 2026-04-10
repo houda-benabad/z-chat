@@ -72,6 +72,13 @@ export class UserRepository {
     });
   }
 
+  async isBlockedBy(blockerId: string, blockedUserId: string): Promise<boolean> {
+    const block = await this.prisma.blockedUser.findUnique({
+      where: { userId_blockedUserId: { userId: blockerId, blockedUserId } },
+    });
+    return !!block;
+  }
+
   async getPushTokensByUserIds(ids: string[]): Promise<Map<string, string>> {
     const users = await this.prisma.user.findMany({
       where: { id: { in: ids }, pushToken: { not: null } },

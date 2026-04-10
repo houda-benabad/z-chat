@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { View, Text, Image, Pressable, StyleSheet, Animated, Easing } from 'react-native';
+import { View, Text, Image, Pressable, StyleSheet, Animated, Easing, Platform, Linking } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { formatMessageTime } from '@/shared/utils';
 import { useAppSettings } from '@/shared/context/AppSettingsContext';
@@ -7,6 +7,8 @@ import { useThemedStyles } from '@/shared/hooks/useThemedStyles';
 import { DateSeparator } from './DateSeparator';
 import { SystemEventBar } from './SystemEventBar';
 import { ImageViewer } from './ImageViewer';
+import { VideoViewer } from './VideoViewer';
+import { DocumentViewer } from './DocumentViewer';
 import { VoiceNotePlayer } from './VoiceNotePlayer';
 import { isSameDay } from '../utils/messageUtils';
 import { Avatar } from '@/shared/components';
@@ -27,6 +29,7 @@ interface MessageBubbleProps {
   isHighlighted?: boolean;
   onLongPress?: (message: ChatMessage) => void;
   onRetryFailed?: (message: ChatMessage) => void;
+  onReplyPress?: (replyToId: string) => void;
   resolveName?: (userId: string) => string | null;
   resolveAvatar?: (userId: string) => string | null;
 }
@@ -45,6 +48,7 @@ export function MessageBubble({
   isHighlighted,
   onLongPress,
   onRetryFailed,
+  onReplyPress,
   resolveName,
   resolveAvatar,
 }: MessageBubbleProps) {
@@ -65,8 +69,23 @@ export function MessageBubble({
   const isDelivered = isRead || (deliveredUpToIndex >= 0 && index <= deliveredUpToIndex);
   const tickColor   = isRead ? accentColor : '#9E9E9E';
 
-  const [viewingImage, setViewingImage] = useState<string | null>(null);
-  const [imgError,     setImgError]     = useState(false);
+  const [viewingImage,    setViewingImage]    = useState<string | null>(null);
+  const [viewingVideo,    setViewingVideo]    = useState<string | null>(null);
+  const [viewingDocument, setViewingDocument] = useState<string | null>(null);
+  const [imgError,        setImgError]        = useState(false);
+
+  const handleDocumentTap = (url: string) => {
+    if (Platform.OS !== 'web') {
+      Linking.openURL(url);
+      return;
+    }
+    if (url.toLowerCase().endsWith('.pdf')) {
+      setViewingDocument(url);
+      return;
+    }
+    // Non-PDF on web (.doc, .docx, …) — browser download, no modal
+    window.open(url, '_blank', 'noopener,noreferrer');
+  };
 
   const highlightAnim = useRef(new Animated.Value(0)).current;
   useEffect(() => {
@@ -88,7 +107,9 @@ export function MessageBubble({
     );
   }
 
-  const timeLabel = message.failed
+  const timeLabel = message.blockedByRecipient
+    ? formatMessageTime(message.createdAt)
+    : message.failed
     ? 'Failed — tap to retry'
     : message.pending
     ? 'Sending…'
@@ -96,7 +117,9 @@ export function MessageBubble({
 
   // Ticks shown only for my messages in 1-on-1 chats
   const ticks = isMine && !isGroup ? (
-    message.failed ? (
+    message.blockedByRecipient ? (
+      <Ionicons name="checkmark" size={13} color="#9E9E9E" />
+    ) : message.failed ? (
       <Ionicons name="alert-circle" size={13} color={accentColor} />
     ) : message.pending ? (
       <Ionicons name="time-outline" size={12} color={accentColor} />
@@ -109,8 +132,10 @@ export function MessageBubble({
     )
   ) : null;
 
-  const isMedia = message.type === 'image'      && !!message.mediaUrl;
-  const isVoice = message.type === 'voice_note' && !!message.mediaUrl;
+  const isMedia    = message.type === 'image'      && !!message.mediaUrl;
+  const isVoice    = message.type === 'voice_note' && !!message.mediaUrl;
+  const isVideo    = message.type === 'video'      && !!message.mediaUrl;
+  const isDocument = message.type === 'document'   && !!message.mediaUrl;
 
   return (
     <>
@@ -128,7 +153,7 @@ export function MessageBubble({
         )}
         <Pressable
           style={{ maxWidth: showAvatarCol ? '72%' : '78%', minWidth: 72 }}
-          onPress={message.failed && onRetryFailed ? () => onRetryFailed(message) : undefined}
+          onPress={message.failed && !message.blockedByRecipient && onRetryFailed ? () => onRetryFailed(message) : undefined}
           onLongPress={onLongPress ? () => onLongPress(message) : undefined}
           delayLongPress={300}
         >
@@ -155,11 +180,14 @@ export function MessageBubble({
             )}
 
             {message.replyTo && (
-              <View style={[styles.replyBar, isMine && styles.replyBarMine]}>
+              <Pressable
+                onPress={() => onReplyPress?.(message.replyTo!.id)}
+                style={[styles.replyBar, isMine && styles.replyBarMine]}
+              >
                 <Text style={styles.replyText} numberOfLines={2}>
                   {message.replyTo.content ?? message.replyTo.type}
                 </Text>
-              </View>
+              </Pressable>
             )}
 
             {message.isForwarded && !message.isDeleted && (
@@ -189,6 +217,24 @@ export function MessageBubble({
             /* ── Voice note ───────────────────────────────────────────── */
             ) : isVoice ? (
               <VoiceNotePlayer uri={message.mediaUrl!} isMine={isMine} accentColor={accentColor} />
+
+            /* ── Video ────────────────────────────────────────────────── */
+            ) : isVideo ? (
+              <Pressable onPress={() => setViewingVideo(message.mediaUrl!)}>
+                <View style={[styles.mediaBubble, styles.videoBubble]}>
+                  <Ionicons name="play-circle-outline" size={48} color="#fff" />
+                  <Text style={styles.videoLabel}>Video</Text>
+                </View>
+              </Pressable>
+
+            /* ── Document ─────────────────────────────────────────────── */
+            ) : isDocument ? (
+              <Pressable onPress={() => handleDocumentTap(message.mediaUrl!)} style={styles.documentBubble}>
+                <Ionicons name="document-outline" size={28} color={accentColor} />
+                <Text style={styles.documentLabel} numberOfLines={1}>
+                  {message.content || 'Document'}
+                </Text>
+              </Pressable>
 
             /* ── Text ─────────────────────────────────────────────────── */
             ) : (
@@ -220,7 +266,7 @@ export function MessageBubble({
             )}
 
             {/* Time + ticks below content — media only */}
-            {(isMedia || isVoice) && (
+            {(isMedia || isVoice || isVideo || isDocument) && (
               <View style={styles.msgMeta}>
                 {isStarred && <Ionicons name="star" size={10} color="#F1A167" style={{ marginRight: 2 }} />}
                 <Text
@@ -237,6 +283,8 @@ export function MessageBubble({
       </View>
 
       <ImageViewer uri={viewingImage} onClose={() => setViewingImage(null)} />
+      <VideoViewer uri={viewingVideo} onClose={() => setViewingVideo(null)} />
+      <DocumentViewer uri={viewingDocument} onClose={() => setViewingDocument(null)} />
     </>
   );
 }

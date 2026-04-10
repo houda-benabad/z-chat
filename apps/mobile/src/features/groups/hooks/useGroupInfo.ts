@@ -1,10 +1,10 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { alert } from '@/shared/utils/alert';
-import * as ImagePicker from 'expo-image-picker';
 import { groupApi, contactApi, uploadMedia } from '@/shared/services/api';
 import { getSocket, connectSocket } from '@/shared/services/socket';
-import { useCurrentUser } from '@/shared/hooks';
+import { useCurrentUser, useImageCropper } from '@/shared/hooks';
+import type { UseImageCropperReturn } from '@/shared/hooks/useImageCropper';
 import type { GroupInfo } from '@/types';
 
 export interface UseGroupInfoReturn {
@@ -23,6 +23,7 @@ export interface UseGroupInfoReturn {
   handleSaveName: () => Promise<void>;
   handleCancelEditName: () => void;
   handlePickAvatar: () => Promise<void>;
+  cropper: UseImageCropperReturn;
   handleRemoveMember: (userId: string, userName: string) => void;
   handleToggleAdmin: (userId: string, currentRole: string) => Promise<void>;
   handleLeaveGroup: () => void;
@@ -135,33 +136,24 @@ export function useGroupInfo(): UseGroupInfoReturn {
     setEditingName(false);
   }, []);
 
-  const handlePickAvatar = useCallback(async () => {
-    if (!chatId) return;
-    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (status !== 'granted') {
-      alert('Permission denied', 'Allow photo access to set a group picture');
-      return;
-    }
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
-      allowsEditing: true,
-      aspect: [1, 1],
-      quality: 0.8,
-    });
-    if (result.canceled || !result.assets[0]) return;
-    const uri = result.assets[0].uri;
-    setUploadingAvatar(true);
-    try {
-      const url = await uploadMedia(uri, 'image/jpeg');
-      await groupApi.updateGroup(chatId, { avatar: url });
-      setGroup((prev) => prev ? { ...prev, avatar: url } : null);
-      if (groupRef.current) groupRef.current = { ...groupRef.current, avatar: url };
-    } catch {
-      alert('Upload failed', 'Could not upload group picture. Please try again.');
-    } finally {
-      setUploadingAvatar(false);
-    }
-  }, [chatId]);
+  const cropper = useImageCropper(
+    useCallback(async (croppedUri: string) => {
+      if (!chatId) return;
+      setUploadingAvatar(true);
+      try {
+        const url = await uploadMedia(croppedUri, 'image/jpeg');
+        await groupApi.updateGroup(chatId, { avatar: url });
+        setGroup((prev) => prev ? { ...prev, avatar: url } : null);
+        if (groupRef.current) groupRef.current = { ...groupRef.current, avatar: url };
+      } catch {
+        alert('Upload failed', 'Could not upload group picture. Please try again.');
+      } finally {
+        setUploadingAvatar(false);
+      }
+    }, [chatId]),
+  );
+
+  const handlePickAvatar = cropper.pickAndCrop;
 
   const handleRemoveMember = useCallback(
     (userId: string, userName: string) => {
@@ -263,6 +255,7 @@ export function useGroupInfo(): UseGroupInfoReturn {
     handleSaveName,
     handleCancelEditName,
     handlePickAvatar,
+    cropper,
     handleRemoveMember,
     handleToggleAdmin,
     handleLeaveGroup,

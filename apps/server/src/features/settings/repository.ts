@@ -19,6 +19,14 @@ export class SettingsRepository {
     });
   }
 
+  async getBlockedUserIds(userId: string): Promise<string[]> {
+    const rows = await this.prisma.blockedUser.findMany({
+      where: { userId },
+      select: { blockedUserId: true },
+    });
+    return rows.map((r) => r.blockedUserId);
+  }
+
   async findBlockedUsers(userId: string, skip = 0, limit = 20) {
     return this.prisma.blockedUser.findMany({
       where: { userId },

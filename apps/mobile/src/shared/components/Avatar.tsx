@@ -5,6 +5,8 @@ import { getAvatarColor } from '../utils';
 import { useThemedStyles } from '../hooks/useThemedStyles';
 import { createStyles } from './styles/Avatar.styles';
 
+const DEFAULT_AVATAR = require('../../../assets/default-avatar.png');
+
 interface AvatarProps {
   uri?: string | null;
   name: string;
@@ -33,10 +35,15 @@ export function Avatar({ uri, name, size = 48, isOnline = false, isGroup = false
             style={{ width: size, height: size, borderRadius: radius }}
             onError={() => setImgError(true)}
           />
-        ) : (
+        ) : isGroup ? (
           <Text style={[styles.initial, { fontSize, color: appColors.white }]}>
             {(name || '?')[0]?.toUpperCase()}
           </Text>
+        ) : (
+          <Image
+            source={DEFAULT_AVATAR}
+            style={{ width: size, height: size, borderRadius: radius }}
+          />
         )}
       </View>
 

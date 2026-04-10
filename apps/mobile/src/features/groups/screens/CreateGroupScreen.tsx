@@ -12,7 +12,7 @@ import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { spacing, typography, borderRadius } from '@/theme';
 import { useAppSettings } from '@/shared/context/AppSettingsContext';
-import { Avatar } from '@/shared/components';
+import { Avatar, ImageCropperModal } from '@/shared/components';
 import { useCreateGroup } from '../hooks/useCreateGroup';
 import type { ContactItem } from '@/types';
 import { createStyles } from './styles/CreateGroupScreen.styles';
@@ -42,6 +42,7 @@ export default function CreateGroupScreen() {
     handlePickAvatar,
     handleNext,
     handleCreate,
+    cropper,
   } = useCreateGroup();
 
   const renderContact = useCallback(
@@ -164,6 +165,16 @@ export default function CreateGroupScreen() {
             )}
           </Pressable>
         </View>
+
+        <ImageCropperModal
+          visible={cropper.visible}
+          sourceUri={cropper.sourceUri}
+          sourceWidth={cropper.sourceWidth}
+          sourceHeight={cropper.sourceHeight}
+          processing={cropper.processing}
+          onConfirm={cropper.confirmCrop}
+          onCancel={cropper.cancelCrop}
+        />
       </View>
     );
   }

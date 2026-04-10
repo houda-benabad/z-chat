@@ -21,6 +21,10 @@ const SIGNATURES: { bytes: number[]; offset?: number; mimePrefix: string }[] = [
   { bytes: [0xFF, 0xF1],                                     mimePrefix: "audio/" }, // AAC ADTS
   { bytes: [0x4F, 0x67, 0x67, 0x53],                        mimePrefix: "audio/" }, // OGG
   { bytes: [0x66, 0x4C, 0x61, 0x43],                        mimePrefix: "audio/" }, // FLAC
+  // Documents
+  { bytes: [0x25, 0x50, 0x44, 0x46],                        mimePrefix: "application/" }, // PDF (%PDF)
+  { bytes: [0xD0, 0xCF, 0x11, 0xE0],                        mimePrefix: "application/" }, // MS Office legacy (.doc, .xls)
+  { bytes: [0x50, 0x4B, 0x03, 0x04],                        mimePrefix: "application/" }, // ZIP-based (docx, xlsx, pptx)
 ];
 
 const READ_BYTES = 16;

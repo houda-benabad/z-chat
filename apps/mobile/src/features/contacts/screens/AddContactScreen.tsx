@@ -16,6 +16,8 @@ import { useThemedStyles } from '@/shared/hooks/useThemedStyles';
 import { useAddContact } from '../hooks/useAddContact';
 import { createStyles } from './styles/AddContactScreen.styles';
 
+const DEFAULT_AVATAR = require('../../../../assets/default-avatar.png');
+
 export default function AddContactScreen() {
   const styles = useThemedStyles(createStyles);
   const { appColors } = useAppSettings();
@@ -110,9 +112,7 @@ export default function AddContactScreen() {
                 {foundUser.avatar ? (
                   <Image source={{ uri: foundUser.avatar }} style={styles.avatarImage} />
                 ) : (
-                  <Text style={styles.avatarText}>
-                    {(foundUser.name ?? foundUser.phone)[0]?.toUpperCase() ?? '?'}
-                  </Text>
+                  <Image source={DEFAULT_AVATAR} style={styles.avatarImage} />
                 )}
               </View>
               <View style={styles.foundUserInfo}>

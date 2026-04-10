@@ -42,6 +42,14 @@ export class ContactService {
     await this.repo.deleteContact(contactId);
   }
 
+  async updateNickname(userId: string, contactId: string, nickname: string) {
+    const contact = await this.repo.findContactById(contactId);
+    if (!contact || contact.userId !== userId) {
+      throw new AppError(404, "Contact not found", "CONTACT_NOT_FOUND");
+    }
+    return { contact: await this.repo.updateContactNickname(contactId, nickname || undefined) };
+  }
+
   async syncContacts(userId: string, phones: string[]) {
     const registeredUsers = await this.repo.findRegisteredUsers(phones, userId);
     const existingIds = await this.repo.findExistingContactIds(userId);
