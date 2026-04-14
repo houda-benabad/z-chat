@@ -1,3 +1,4 @@
+import 'react-native-get-random-values'; // Must be first — polyfills crypto.getRandomValues for tweetnacl on native
 import { useEffect, useCallback } from 'react';
 import * as Sentry from '@sentry/react-native';
 import { Stack, useRouter } from 'expo-router';

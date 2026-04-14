@@ -72,11 +72,11 @@ export function useProfileSetup(): UseProfileSetupReturn {
       const publicKey = await getOrCreateKeyPair();
       await userApi.uploadPublicKey(publicKey);
     } catch (err) {
-      setError(
-        err instanceof ApiError
-          ? err.message
-          : 'Failed to initialize encryption. Please try again.',
-      );
+      console.error('[Encryption init error]', err);
+      const message = err instanceof ApiError
+        ? err.message
+        : (err instanceof Error ? err.message : 'Failed to initialize encryption. Please try again.');
+      setError(message);
       setIsLoading(false);
       return;
     }

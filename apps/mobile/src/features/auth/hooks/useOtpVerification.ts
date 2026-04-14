@@ -33,6 +33,10 @@ export function useOtpVerification(): UseOtpVerificationReturn {
   const [resendTimer, setResendTimer] = useState(RESEND_COOLDOWN);
   const [focusedIndex, setFocusedIndex] = useState(0);
   const inputRefs = useRef<(TextInput | null)[]>([]);
+  // Tracks boxes that just received focus via auto-advance.
+  // Native platforms fire a spurious onKeyPress("Backspace") on the newly focused box;
+  // this set lets handleKeyPress distinguish that from a real user backspace.
+  const justAutoAdvancedTo = useRef<Set<number>>(new Set());
 
   const fullCode = code.join('');
   const isCodeComplete = fullCode.length === OTP_LENGTH;
@@ -48,23 +52,45 @@ export function useOtpVerification(): UseOtpVerificationReturn {
   const handleCodeChange = useCallback(
     (text: string, index: number) => {
       const digit = text.replace(/\D/g, '').slice(-1);
-      const newCode = [...code];
-      newCode[index] = digit;
-      setCode(newCode);
+      if (!digit) return; // Ignore ghost empty events — backspace is handled in handleKeyPress
 
-      if (digit && index < OTP_LENGTH - 1) {
+      setCode((prev) => {
+        const newCode = [...prev];
+        newCode[index] = digit;
+        return newCode;
+      });
+
+      if (index < OTP_LENGTH - 1) {
+        justAutoAdvancedTo.current.add(index + 1);
         inputRefs.current[index + 1]?.focus();
       }
     },
-    [code],
+    [],
   );
 
   const handleKeyPress = useCallback(
     (key: string, index: number) => {
-      if (key === 'Backspace' && !code[index] && index > 0) {
-        const newCode = [...code];
-        newCode[index - 1] = '';
-        setCode(newCode);
+      if (key !== 'Backspace') return;
+
+      // Drop the spurious Backspace that native platforms fire on a box the moment
+      // it receives focus via auto-advance (before the user has pressed anything).
+      if (justAutoAdvancedTo.current.has(index)) {
+        justAutoAdvancedTo.current.delete(index);
+        return;
+      }
+
+      if (code[index]) {
+        setCode((prev) => {
+          const newCode = [...prev];
+          newCode[index] = '';
+          return newCode;
+        });
+      } else if (index > 0) {
+        setCode((prev) => {
+          const newCode = [...prev];
+          newCode[index - 1] = '';
+          return newCode;
+        });
         inputRefs.current[index - 1]?.focus();
       }
     },

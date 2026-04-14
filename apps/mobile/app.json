@@ -4,8 +4,12 @@
     "slug": "z-chat",
     "version": "0.0.1",
     "orientation": "portrait",
-    "platforms": ["ios", "android", "web"],
-    "newArchEnabled": false,
+    "platforms": [
+      "ios",
+      "android",
+      "web"
+    ],
+    "newArchEnabled": true,
     "icon": "./assets/default-avatar.png",
     "userInterfaceStyle": "light",
     "scheme": "zchat",
@@ -14,20 +18,32 @@
     },
     "ios": {
       "supportsTablet": false,
-      "bundleIdentifier": "com.zsystems.zchat"
+      "bundleIdentifier": "com.zsystems.zchat",
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false
+      }
     },
     "android": {
       "adaptiveIcon": {
         "backgroundColor": "#FFFFFF"
       },
-      "package": "com.zsystems.zchat"
+      "package": "com.zsystems.zchat",
+      "permissions": [
+        "android.permission.RECORD_AUDIO",
+        "android.permission.MODIFY_AUDIO_SETTINGS"
+      ]
     },
     "plugins": [
       "expo-router",
       "expo-font",
       "expo-secure-store",
       "expo-image-picker",
-      ["expo-av", { "microphonePermission": "Allow z.chat to record audio for voice messages." }],
+      [
+        "expo-av",
+        {
+          "microphonePermission": "Allow z.chat to record audio for voice messages."
+        }
+      ],
       "expo-asset",
       [
         "expo-notifications",
@@ -37,6 +53,13 @@
         }
       ],
       "@sentry/react-native/expo"
-    ]
+    ],
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "85c320c5-be7e-4642-b81b-25f24a2a46c2"
+      }
+    },
+    "owner": "hobenaba"
   }
 }

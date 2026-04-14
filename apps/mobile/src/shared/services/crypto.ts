@@ -9,13 +9,11 @@ const PUBLIC_KEY_KEY = 'z_chat_public_key_v1';
 // Base64 helpers — avoids tweetnacl-util Uint8Array generic compat issues
 // ---------------------------------------------------------------------------
 
-// Convert Uint8Array to Base64 (browser-safe)
+// Convert Uint8Array to Base64 (Hermes-safe — avoids spread on TypedArray)
 function toBase64(bytes: Uint8Array): string {
   let binary = '';
-  const chunkSize = 0x8000; // handle large arrays safely
-  for (let i = 0; i < bytes.length; i += chunkSize) {
-    const chunk = bytes.subarray(i, i + chunkSize);
-    binary += String.fromCharCode(...chunk);
+  for (let i = 0; i < bytes.length; i++) {
+    binary += String.fromCharCode(bytes[i]);
   }
   return btoa(binary);
 }
