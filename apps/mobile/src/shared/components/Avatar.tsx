@@ -1,11 +1,11 @@
 import { useState, useEffect } from 'react';
-import { View, Text, Image, ViewStyle, ActivityIndicator, StyleSheet } from 'react-native';
+import { View, Text, Image, ViewStyle } from 'react-native';
 import { useAppSettings } from '../context/AppSettingsContext';
-import { getAvatarColor } from '../utils';
 import { useThemedStyles } from '../hooks/useThemedStyles';
 import { createStyles } from './styles/Avatar.styles';
 
 const DEFAULT_AVATAR = require('../../../assets/default-avatar.png');
+const DEFAULT_GROUP_AVATAR = require('../../../assets/default-group.jpg');
 
 interface AvatarProps {
   uri?: string | null;
@@ -27,37 +27,35 @@ export function Avatar({ uri, name, size = 48, isOnline = false, isGroup = false
   const fontSize = size * 0.38;
   const dotSize = size * 0.28;
   const dotOffset = size * 0.02;
-  const bg = isGroup ? appColors.primary : getAvatarColor(name || '?');
+  const showNetworkImage = !!uri && !imgError;
+  const bg = isGroup ? appColors.primary : 'transparent';
 
   return (
     <View style={[{ width: size, height: size }, style]}>
       <View style={[styles.circle, { width: size, height: size, borderRadius: radius, backgroundColor: bg }]}>
-        {uri && !imgError ? (
+        {isGroup && !showNetworkImage ? (
+          <Image
+            source={DEFAULT_GROUP_AVATAR}
+            style={{ width: size * 1.15, height: size * 1.15 }}
+          />
+        ) : (
           <>
-            {/* explicit width/height required — absoluteFillObject gives 0×0 on Fabric (New Arch) */}
-            <Image
-              source={{ uri }}
-              style={{ width: size, height: size, borderRadius: radius, opacity: imgLoading ? 0 : 1 }}
-              onLoadEnd={() => setImgLoading(false)}
-              onError={() => { setImgLoading(false); setImgError(true); }}
-            />
-            {imgLoading && (
-              <ActivityIndicator
-                size="small"
-                color="#E46C53"
-                style={StyleSheet.absoluteFillObject}
+            {/* Default avatar always rendered as base layer for non-group avatars */}
+            {!isGroup && (
+              <Image
+                source={DEFAULT_AVATAR}
+                style={{ width: size * 1.05, height: size * 1.05, position: 'absolute' }}
+              />
+            )}
+            {showNetworkImage && (
+              <Image
+                source={{ uri }}
+                style={{ width: size, height: size, borderRadius: radius, opacity: imgLoading ? 0 : 1 }}
+                onLoadEnd={() => setImgLoading(false)}
+                onError={() => { console.warn('[Avatar] Failed to load image:', uri); setImgLoading(false); setImgError(true); }}
               />
             )}
           </>
-        ) : isGroup ? (
-          <Text style={[styles.initial, { fontSize, color: appColors.white }]}>
-            {(name || '?')[0]?.toUpperCase()}
-          </Text>
-        ) : (
-          <Image
-            source={DEFAULT_AVATAR}
-            style={{ width: size, height: size, borderRadius: radius }}
-          />
         )}
       </View>
 

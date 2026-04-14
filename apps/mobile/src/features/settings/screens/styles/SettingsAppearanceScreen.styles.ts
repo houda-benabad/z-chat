@@ -27,10 +27,6 @@ export const createStyles = (colors: AppColors) => StyleSheet.create({
     padding: spacing.sm,
     marginRight: spacing.sm,
   },
-  backArrow: {
-    fontSize: 24,
-    color: colors.primary,
-  },
   headerTitle: {
     fontSize: typography.sizes.xl,
     fontFamily: typography.fontFamily,
@@ -74,9 +70,7 @@ export const createStyles = (colors: AppColors) => StyleSheet.create({
     backgroundColor: 'rgba(228, 108, 83, 0.12)',
   },
   themeIcon: {
-    fontSize: 28,
     marginBottom: spacing.sm,
-    color: colors.text,
   },
   themeLabel: {
     fontSize: typography.sizes.sm,

@@ -11,7 +11,7 @@ export const userApi = {
     request(`/users/${userId}`),
 
   updateProfile: (
-    data: { name?: string; about?: string; avatar?: string },
+    data: { name?: string; about?: string; avatar?: string | null },
   ): Promise<{ user: UserProfile }> =>
     request('/users/me', {
       method: 'PATCH',
@@ -41,7 +41,7 @@ export async function uploadMedia(uri: string, mimeType = 'image/jpeg'): Promise
       'image/jpeg': 'jpg', 'image/png': 'png', 'image/gif': 'gif',
       'image/webp': 'webp', 'image/heic': 'heic',
       'video/mp4': 'mp4', 'video/quicktime': 'mov', 'video/webm': 'webm',
-      'audio/mpeg': 'mp3', 'audio/mp4': 'm4a', 'audio/webm': 'webm',
+      'audio/mpeg': 'mp3', 'audio/mp4': 'm4a', 'audio/m4a': 'm4a', 'audio/webm': 'webm',
       'application/pdf': 'pdf',
     };
     const ext = mimeExtMap[mimeType.toLowerCase()] ?? (uri.split('.').pop() ?? 'bin');

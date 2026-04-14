@@ -39,24 +39,24 @@ export const SETTINGS_SECTIONS: {
   {
     title: '',
     rows: [
-      { label: 'Account',       subtitle: 'Privacy, security, change number',  icon: '🔑', route: '/settings-account'       },
-      { label: 'Starred Messages', subtitle: 'Messages you have starred',   icon: '⭐', route: '/starred-messages'       },
+      { label: 'Account',       subtitle: 'Privacy, security, change number',  icon: 'key-outline', route: '/settings-account'       },
+      { label: 'Starred Messages', subtitle: 'Messages you have starred',   icon: 'star-outline', route: '/starred-messages'       },
     ],
   },
   {
     title: 'Preferences',
     rows: [
-      { label: 'Privacy',           subtitle: 'Last seen, read receipts, blocked', icon: '🔒', route: '/settings-privacy'        },
-      { label: 'Blocked Contacts', subtitle: 'Manage blocked users',             icon: '🚫', route: '/settings-blocked'        },
-      { label: 'Notifications',     subtitle: 'Message, group, call alerts',     icon: '🔔', route: '/settings-notifications'  },
-      { label: 'Storage & Data',subtitle: 'Auto-download, data usage',         icon: '💾', route: '/settings-storage'        },
-      { label: 'Appearance',    subtitle: 'Theme, accent color, font size',    icon: '🎨', route: '/settings-appearance'     },
+      { label: 'Privacy',           subtitle: 'Last seen, read receipts, blocked', icon: 'lock-closed-outline', route: '/settings-privacy'        },
+      { label: 'Blocked Contacts', subtitle: 'Manage blocked users',             icon: 'ban-outline', route: '/settings-blocked'        },
+      { label: 'Notifications',     subtitle: 'Message, group, call alerts',     icon: 'notifications-outline', route: '/settings-notifications'  },
+      { label: 'Storage & Data',subtitle: 'Auto-download, data usage',         icon: 'server-outline', route: '/settings-storage'        },
+      { label: 'Appearance',    subtitle: 'Theme, accent color, font size',    icon: 'color-palette-outline', route: '/settings-appearance'     },
     ],
   },
   {
     title: 'Support',
     rows: [
-      { label: 'Help',          subtitle: 'FAQ, contact us, terms & privacy',  icon: '❓', route: '/settings-help'           },
+      { label: 'Help',          subtitle: 'FAQ, contact us, terms & privacy',  icon: 'help-circle-outline', route: '/settings-help'           },
     ],
   },
 ];

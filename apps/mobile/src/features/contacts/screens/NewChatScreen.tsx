@@ -36,13 +36,11 @@ export default function NewChatScreen() {
     refreshing,
     loadingMore,
     hasMore,
-    syncing,
     openingId,
     searchRef,
     onRefresh,
     loadMore,
     handleSelectContact,
-    handleSyncContacts,
   } = useNewChat();
 
   const q = search.toLowerCase().trim();
@@ -156,19 +154,6 @@ export default function NewChatScreen() {
                 <Ionicons name="person-add" size={20} color="#fff" />
               </View>
               <Text style={styles.actionLabel}>Add Contact</Text>
-            </Pressable>
-            <Pressable
-              style={({ pressed }) => [styles.actionCard, pressed && { opacity: 0.85 }]}
-              onPress={handleSyncContacts}
-              disabled={syncing}
-            >
-              <View style={[styles.actionIcon, { backgroundColor: '#F1A167' }]}>
-                {syncing
-                  ? <ActivityIndicator size="small" color="#fff" />
-                  : <Ionicons name="sync" size={20} color="#fff" />
-                }
-              </View>
-              <Text style={styles.actionLabel}>Sync Contacts</Text>
             </Pressable>
           </View>
         }

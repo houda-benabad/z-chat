@@ -5,15 +5,16 @@ import {
   ScrollView,
   ActivityIndicator,
 } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useAppSettings } from '@/shared/context/AppSettingsContext';
 import { useAppearanceSettings } from '../hooks/useAppearanceSettings';
 import { createStyles } from './styles/SettingsAppearanceScreen.styles';
 import { useThemedStyles } from '@/shared/hooks/useThemedStyles';
 
-const THEME_OPTIONS: { label: string; value: 'light' | 'dark'; icon: string }[] = [
-  { label: 'Light', value: 'light', icon: '\u2600' },
-  { label: 'Dark', value: 'dark', icon: '\u{1F319}' },
+const THEME_OPTIONS: { label: string; value: 'light' | 'dark'; icon: 'sunny-outline' | 'moon-outline' }[] = [
+  { label: 'Light', value: 'light', icon: 'sunny-outline' },
+  { label: 'Dark', value: 'dark', icon: 'moon-outline' },
 ];
 
 const FONT_SIZE_OPTIONS: { label: string; value: 'small' | 'medium' | 'large'; sample: number }[] = [
@@ -40,7 +41,7 @@ export default function SettingsAppearanceScreen() {
     <View style={styles.container}>
       <View style={styles.header}>
         <Pressable onPress={() => router.back()} style={styles.backButton}>
-          <Text style={styles.backArrow}>{'\u2190'}</Text>
+          <Ionicons name="arrow-back" size={24} color={appColors.primary} />
         </Pressable>
         <Text style={styles.headerTitle}>Appearance</Text>
       </View>
@@ -59,7 +60,7 @@ export default function SettingsAppearanceScreen() {
                 ]}
                 onPress={() => updateAppearance({ theme: opt.value })}
               >
-                <Text style={styles.themeIcon}>{opt.icon}</Text>
+                <Ionicons name={opt.icon} size={28} color={appColors.secondary} style={styles.themeIcon} />
                 <Text
                   style={[
                     styles.themeLabel,

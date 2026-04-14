@@ -1,10 +1,9 @@
-import { View, Text, Image, Pressable } from 'react-native';
+import { View, Text, Pressable } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
+import { Avatar } from '@/shared/components';
 import { useThemedStyles } from '@/shared/hooks/useThemedStyles';
 import { createStyles } from './styles/ChatHeader.styles';
-
-const DEFAULT_AVATAR = require('../../../../assets/default-avatar.png');
 
 interface ChatHeaderProps {
   name: string;
@@ -59,11 +58,7 @@ export function ChatHeader({
 
       <Pressable style={styles.info} onPress={onHeaderPress}>
         <View style={styles.avatar}>
-          {recipientAvatar ? (
-            <Image source={{ uri: recipientAvatar }} style={styles.avatarImage} />
-          ) : (
-            <Image source={DEFAULT_AVATAR} style={styles.avatarImage} />
-          )}
+          <Avatar uri={recipientAvatar} name={name} size={38} isGroup={isGroup} />
         </View>
         <View style={styles.text}>
           <Text style={styles.name} numberOfLines={1}>{name}</Text>

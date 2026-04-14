@@ -1,15 +1,47 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
 import { Alert, Platform } from 'react-native';
 import { Audio } from 'expo-av';
+import * as Device from 'expo-device';
 
 export interface UseVoiceRecorderReturn {
   isRecording: boolean;
   durationMs: number;
+  metering: number; // normalized 0..1 (0 = silent, 1 = max)
   startRecording: () => Promise<boolean>;
   stopRecording: () => Promise<string | null>; // returns local file URI or null
   cancelRecording: () => Promise<void>;
   getMimeType: () => string;
 }
+
+// Custom options — explicitly produces .m4a on both platforms.
+// The HIGH_QUALITY preset uses .caf on iOS (Apple Lossless), causing a
+// mimeType mismatch and audio-session conflicts with VoiceNotePlayer.
+const NATIVE_RECORDING_OPTIONS: Audio.RecordingOptions = {
+  isMeteringEnabled: true,
+  android: {
+    extension: '.m4a',
+    outputFormat: Audio.AndroidOutputFormat.MPEG_4,
+    audioEncoder: Audio.AndroidAudioEncoder.AAC,
+    sampleRate: 44100,
+    numberOfChannels: 1,
+    bitRate: 128000,
+  },
+  ios: {
+    extension: '.m4a',
+    outputFormat: Audio.IOSOutputFormat.MPEG4AAC,
+    audioQuality: Audio.IOSAudioQuality.HIGH,
+    sampleRate: 44100,
+    numberOfChannels: 1,
+    bitRate: 128000,
+    linearPCMBitDepth: 16,
+    linearPCMIsBigEndian: false,
+    linearPCMIsFloat: false,
+  },
+  web: {
+    mimeType: 'audio/webm',
+    bitsPerSecond: 128000,
+  },
+};
 
 const WEB_MIME_CANDIDATES = [
   'audio/webm;codecs=opus',
@@ -37,9 +69,15 @@ function describeError(err: unknown): string {
   return String(err);
 }
 
+// Normalize dB metering (-60..0) to 0..1. Values below -60 are considered silent.
+function normalizeMeteringDb(db: number): number {
+  return Math.max(0, Math.min(1, (db + 60) / 60));
+}
+
 export function useVoiceRecorder(): UseVoiceRecorderReturn {
   const [isRecording, setIsRecording] = useState(false);
   const [durationMs, setDurationMs] = useState(0);
+  const [metering, setMetering] = useState(0);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   // Native refs (expo-av)
@@ -50,14 +88,12 @@ export function useVoiceRecorder(): UseVoiceRecorderReturn {
   const webChunksRef = useRef<Blob[]>([]);
   const webStreamRef = useRef<MediaStream | null>(null);
 
-  // Remembers the mime type the browser actually chose, so stopRecording can
-  // build a Blob of the correct type and ChatScreen can upload with the right
-  // Content-Type. Defaults to audio/webm (web) / audio/m4a (native).
+  // Remembers the mime type actually used so ChatScreen can upload with the
+  // right Content-Type. Always 'audio/m4a' on native (matches NATIVE_RECORDING_OPTIONS).
   const mimeTypeRef = useRef<string>(Platform.OS === 'web' ? 'audio/webm' : 'audio/m4a');
 
   // Generation counter — bumped by stop/cancel so an in-flight startRecording
-  // (e.g. waiting on the browser mic-permission prompt) can detect it was
-  // superseded before it finishes initializing the underlying recorder.
+  // can detect it was superseded before it finishes.
   const genRef = useRef(0);
 
   // Cleanup on unmount
@@ -77,7 +113,6 @@ export function useVoiceRecorder(): UseVoiceRecorderReturn {
 
     if (Platform.OS === 'web') {
       if (!navigator?.mediaDevices?.getUserMedia) {
-        console.error('[useVoiceRecorder] navigator.mediaDevices.getUserMedia is not available');
         Alert.alert(
           'Microphone unavailable',
           'navigator.mediaDevices is undefined. Voice recording requires a secure origin (localhost or HTTPS).',
@@ -85,7 +120,6 @@ export function useVoiceRecorder(): UseVoiceRecorderReturn {
         return false;
       }
       if (typeof MediaRecorder === 'undefined') {
-        console.error('[useVoiceRecorder] MediaRecorder API not available');
         Alert.alert('Unsupported browser', 'MediaRecorder is not available in this browser.');
         return false;
       }
@@ -94,7 +128,6 @@ export function useVoiceRecorder(): UseVoiceRecorderReturn {
       try {
         stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       } catch (err) {
-        console.error('[useVoiceRecorder] getUserMedia failed', err);
         setIsRecording(false);
         if (err instanceof Error && err.name === 'NotAllowedError') {
           Alert.alert(
@@ -115,9 +148,10 @@ export function useVoiceRecorder(): UseVoiceRecorderReturn {
       const chosenMime = pickWebMimeType();
       let mediaRecorder: MediaRecorder;
       try {
-        mediaRecorder = chosenMime ? new MediaRecorder(stream, { mimeType: chosenMime }) : new MediaRecorder(stream);
+        mediaRecorder = chosenMime
+          ? new MediaRecorder(stream, { mimeType: chosenMime })
+          : new MediaRecorder(stream);
       } catch (err) {
-        console.error('[useVoiceRecorder] MediaRecorder constructor failed', err, 'chosenMime:', chosenMime);
         stream.getTracks().forEach(t => t.stop());
         setIsRecording(false);
         Alert.alert('Recorder unavailable', `Could not create audio recorder: ${describeError(err)}`);
@@ -128,7 +162,6 @@ export function useVoiceRecorder(): UseVoiceRecorderReturn {
       webRecorderRef.current = mediaRecorder;
       webChunksRef.current = [];
       mimeTypeRef.current = mediaRecorder.mimeType || chosenMime || 'audio/webm';
-      console.log('[useVoiceRecorder] recording with mime type', mimeTypeRef.current);
 
       mediaRecorder.ondataavailable = (e) => {
         if (e.data.size > 0) webChunksRef.current.push(e.data);
@@ -137,7 +170,6 @@ export function useVoiceRecorder(): UseVoiceRecorderReturn {
       try {
         mediaRecorder.start();
       } catch (err) {
-        console.error('[useVoiceRecorder] mediaRecorder.start() failed', err);
         stream.getTracks().forEach(t => t.stop());
         webRecorderRef.current = null;
         webStreamRef.current = null;
@@ -147,15 +179,23 @@ export function useVoiceRecorder(): UseVoiceRecorderReturn {
       }
 
       setDurationMs(0);
+      setMetering(0);
       setIsRecording(true);
-      timerRef.current = setInterval(() => {
-        setDurationMs((d) => d + 100);
-      }, 100);
+      timerRef.current = setInterval(() => setDurationMs((d) => d + 100), 100);
       return true;
     }
 
-    // Native (expo-av)
+    // ── Native (expo-av) ────────────────────────────────────────────────────
     try {
+      // iOS simulator has no microphone hardware — AVAudioRecorder always fails there.
+      if (__DEV__ && Platform.OS === 'ios' && !Device.isDevice) {
+        Alert.alert(
+          'Simulator limitation',
+          'Audio recording is not supported on the iOS simulator. Please test on a real device.',
+        );
+        return false;
+      }
+
       const { granted } = await Audio.requestPermissionsAsync();
       if (!granted) {
         Alert.alert('Microphone Access Required', 'Please enable microphone access in Settings to send voice messages.');
@@ -163,30 +203,55 @@ export function useVoiceRecorder(): UseVoiceRecorderReturn {
       }
       if (gen !== genRef.current) return false;
 
+      // Force-stop any stale recording (e.g. from a previous session that
+      // didn't clean up properly) before touching the audio session.
+      if (recordingRef.current) {
+        try { await recordingRef.current.stopAndUnloadAsync(); } catch {}
+        recordingRef.current = null;
+      }
+
+      // Reset audio mode first so any active playback session (VoiceNotePlayer)
+      // releases its hold, then re-arm for recording. Without the reset, iOS
+      // AVAudioRecorder.prepareToRecord returns NO → "recorder not prepared".
+      await Audio.setAudioModeAsync({ allowsRecordingIOS: false });
       await Audio.setAudioModeAsync({
         allowsRecordingIOS: true,
         playsInSilentModeIOS: true,
+        staysActiveInBackground: false,
+        shouldDuckAndroid: true,
+        playThroughEarpieceAndroid: false,
       });
 
-      const { recording } = await Audio.Recording.createAsync(
-        Audio.RecordingOptionsPresets.HIGH_QUALITY,
-      );
+      if (gen !== genRef.current) return false;
+
+      const recording = new Audio.Recording();
+
+      // Subscribe to status updates for metering
+      recording.setOnRecordingStatusUpdate((status) => {
+        if (!status.isRecording) return;
+        if (status.metering !== undefined && status.metering !== null) {
+          setMetering(normalizeMeteringDb(status.metering));
+        }
+      });
+
+      await recording.prepareToRecordAsync(NATIVE_RECORDING_OPTIONS);
+
       if (gen !== genRef.current) {
         recording.stopAndUnloadAsync().catch(() => {});
         return false;
       }
 
+      await recording.startAsync();
+
       recordingRef.current = recording;
-      mimeTypeRef.current = Platform.OS === 'ios' ? 'audio/m4a' : 'audio/mp4';
+      mimeTypeRef.current = 'audio/m4a'; // matches the .m4a in NATIVE_RECORDING_OPTIONS
       setDurationMs(0);
+      setMetering(0);
       setIsRecording(true);
 
-      timerRef.current = setInterval(() => {
-        setDurationMs((d) => d + 100);
-      }, 100);
+      timerRef.current = setInterval(() => setDurationMs((d) => d + 100), 100);
       return true;
     } catch (err) {
-      console.error('[useVoiceRecorder] native startRecording failed', err);
       setIsRecording(false);
       Alert.alert('Recording failed', describeError(err));
       return false;
@@ -195,11 +260,9 @@ export function useVoiceRecorder(): UseVoiceRecorderReturn {
 
   const stopRecording = useCallback(async (): Promise<string | null> => {
     genRef.current++;
-    if (timerRef.current) {
-      clearInterval(timerRef.current);
-      timerRef.current = null;
-    }
+    if (timerRef.current) { clearInterval(timerRef.current); timerRef.current = null; }
     setIsRecording(false);
+    setMetering(0);
 
     if (Platform.OS === 'web') {
       const mediaRecorder = webRecorderRef.current;
@@ -233,12 +296,10 @@ export function useVoiceRecorder(): UseVoiceRecorderReturn {
 
   const cancelRecording = useCallback(async () => {
     genRef.current++;
-    if (timerRef.current) {
-      clearInterval(timerRef.current);
-      timerRef.current = null;
-    }
+    if (timerRef.current) { clearInterval(timerRef.current); timerRef.current = null; }
     setIsRecording(false);
     setDurationMs(0);
+    setMetering(0);
 
     if (Platform.OS === 'web') {
       const mediaRecorder = webRecorderRef.current;
@@ -256,11 +317,12 @@ export function useVoiceRecorder(): UseVoiceRecorderReturn {
       recordingRef.current = null;
       if (recording) {
         await recording.stopAndUnloadAsync().catch(() => {});
+        await Audio.setAudioModeAsync({ allowsRecordingIOS: false }).catch(() => {});
       }
     }
   }, []);
 
   const getMimeType = useCallback(() => mimeTypeRef.current, []);
 
-  return { isRecording, durationMs, startRecording, stopRecording, cancelRecording, getMimeType };
+  return { isRecording, durationMs, metering, startRecording, stopRecording, cancelRecording, getMimeType };
 }

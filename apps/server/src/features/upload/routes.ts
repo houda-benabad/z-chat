@@ -20,6 +20,7 @@ const MIME_EXT: Record<string, string> = {
   "video/x-matroska": ".mkv",
   "audio/mpeg": ".mp3",
   "audio/mp4":  ".m4a",
+  "audio/m4a":  ".m4a",
   "audio/aac":  ".aac",
   "audio/ogg":  ".ogg",
   "audio/webm": ".webm",

@@ -44,13 +44,14 @@ export async function showMessageNotification(
   senderName: string,
   body: string,
   chatId: string,
+  extra?: { recipientId?: string; chatType?: string; name?: string; recipientAvatar?: string },
 ): Promise<void> {
   if (Platform.OS === 'web') return;
   await Notifications.scheduleNotificationAsync({
     content: {
       title: senderName,
       body,
-      data: { chatId },
+      data: { chatId, ...extra },
       sound: true,
     },
     trigger: null, // fire immediately

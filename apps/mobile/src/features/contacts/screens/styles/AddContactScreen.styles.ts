@@ -115,12 +115,6 @@ export const createStyles = (colors: AppColors) => StyleSheet.create({
     alignItems: 'center',
   },
   avatar: {
-    width: 52,
-    height: 52,
-    borderRadius: 26,
-    backgroundColor: colors.secondary,
-    justifyContent: 'center',
-    alignItems: 'center',
     marginRight: spacing.md,
   },
   avatarImage: {

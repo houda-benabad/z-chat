@@ -7,16 +7,14 @@ import {
   KeyboardAvoidingView,
   Platform,
   ScrollView,
-  Image,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { spacing } from '@/theme';
 import { useAppSettings } from '@/shared/context/AppSettingsContext';
+import { Avatar } from '@/shared/components';
 import { useThemedStyles } from '@/shared/hooks/useThemedStyles';
 import { useAddContact } from '../hooks/useAddContact';
 import { createStyles } from './styles/AddContactScreen.styles';
-
-const DEFAULT_AVATAR = require('../../../../assets/default-avatar.png');
 
 export default function AddContactScreen() {
   const styles = useThemedStyles(createStyles);
@@ -109,11 +107,7 @@ export default function AddContactScreen() {
           <View style={styles.foundCard}>
             <View style={styles.foundUserRow}>
               <View style={styles.avatar}>
-                {foundUser.avatar ? (
-                  <Image source={{ uri: foundUser.avatar }} style={styles.avatarImage} />
-                ) : (
-                  <Image source={DEFAULT_AVATAR} style={styles.avatarImage} />
-                )}
+                <Avatar uri={foundUser.avatar} name={foundUser.name ?? ''} size={52} />
               </View>
               <View style={styles.foundUserInfo}>
                 <Text style={styles.foundUserName}>

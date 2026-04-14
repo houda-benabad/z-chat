@@ -64,9 +64,6 @@ export const createStyles = (colors: AppColors) => StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-  featureIcon: {
-    fontSize: 22,
-  },
   featureText: {
     flex: 1,
   },

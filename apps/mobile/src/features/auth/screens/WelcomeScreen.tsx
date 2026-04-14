@@ -1,4 +1,5 @@
 import { View, Text, Pressable, Dimensions } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import { useThemedStyles } from '@/shared/hooks/useThemedStyles';
@@ -7,20 +8,20 @@ import { useWelcome } from '../hooks/useWelcome';
 import { createStyles } from './styles/WelcomeScreen.styles';
 
 const { width } = Dimensions.get('window');
-// ! to modify
+
 const FEATURES = [
   {
-    icon: '🔒',
+    icon: 'lock-closed-outline' as const,
     title: 'End-to-End Encryption',
     description: 'Your messages are secured with the Signal Protocol',
   },
   {
-    icon: '👥',
+    icon: 'people-outline' as const,
     title: 'Group Chat',
     description: 'Stay connected with your friends in real-time',
   },
   {
-    icon: '📞',
+    icon: 'call-outline' as const,
     title: 'Voice & Video Calls',
     description: 'Crystal clear calls powered by WebRTC',
   },
@@ -56,7 +57,7 @@ export default function WelcomeScreen() {
         {FEATURES.map((feature) => (
           <View key={feature.title} style={styles.featureRow}>
             <View style={styles.featureIconContainer}>
-              <Text style={styles.featureIcon}>{feature.icon}</Text>
+              <Ionicons name={feature.icon} size={22} color={appColors.secondary} />
             </View>
             <View style={styles.featureText}>
               <Text style={styles.featureTitle}>{feature.title}</Text>

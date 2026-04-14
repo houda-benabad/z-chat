@@ -22,7 +22,7 @@ async function main() {
   await prisma.$connect();
 
   const httpServer = http.createServer(app);
-  createSocketServer(httpServer, prisma, env.JWT_SECRET, env.ALLOWED_ORIGIN);
+  const io = createSocketServer(httpServer, prisma, env.JWT_SECRET, env.ALLOWED_ORIGIN);
 
   httpServer.listen(env.PORT, () => {
     logger.info({ port: env.PORT }, "Server running");
@@ -33,7 +33,7 @@ async function main() {
   const chatRepo = new ChatRepository(prisma);
 
   // Every hour: delete expired/revoked refresh tokens
-  setInterval(async () => {
+  const tokenCleanup = setInterval(async () => {
     try {
       const { count } = await authRepo.deleteExpiredAndRevokedTokens();
       if (count > 0) logger.info({ count }, "Removed expired/revoked refresh tokens");
@@ -43,7 +43,7 @@ async function main() {
   }, 60 * 60 * 1000);
 
   // Every minute: delete messages past their disappear timer
-  setInterval(async () => {
+  const messageCleanup = setInterval(async () => {
     try {
       const { count } = await chatRepo.deleteExpiredMessages();
       if (count > 0) logger.info({ count }, "Deleted expired messages");
@@ -52,9 +52,18 @@ async function main() {
     }
   }, 60 * 1000);
 
+  let shuttingDown = false;
   const shutdown = async () => {
-    httpServer.close();
-    await prisma.$disconnect();
+    if (shuttingDown) return;
+    shuttingDown = true;
+    logger.info("Shutting down...");
+    clearInterval(tokenCleanup);
+    clearInterval(messageCleanup);
+    await new Promise<void>((resolve, reject) => io.close((err) => (err ? reject(err) : resolve()))).catch((err) =>
+      logger.error({ err }, "Socket.IO close failed"),
+    );
+    await redis.quit().catch((err) => logger.error({ err }, "Redis quit failed"));
+    await prisma.$disconnect().catch((err) => logger.error({ err }, "Prisma disconnect failed"));
     process.exit(0);
   };
 

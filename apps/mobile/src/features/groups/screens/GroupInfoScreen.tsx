@@ -4,7 +4,6 @@ import {
   Pressable,
   ActivityIndicator,
   ScrollView,
-  Image,
   TextInput,
 } from 'react-native';
 import { useRouter } from 'expo-router';
@@ -34,7 +33,7 @@ export default function GroupInfoScreen() {
     handleStartEditName,
     handleSaveName,
     handleCancelEditName,
-    handlePickAvatar,
+    handleAvatarEdit,
     cropper,
     handleRemoveMember,
     handleToggleAdmin,
@@ -72,31 +71,24 @@ export default function GroupInfoScreen() {
         {/* Group avatar & name */}
         <View style={styles.profileSection}>
           {/* Avatar */}
-          <Pressable
-            onPress={isAdmin ? handlePickAvatar : undefined}
-            style={styles.groupAvatarWrapper}
-            disabled={!isAdmin || uploadingAvatar}
-          >
-            {group.avatar ? (
-              <Image source={{ uri: group.avatar }} style={styles.groupAvatarImage} />
-            ) : (
-              <View style={styles.groupAvatarLarge}>
-                <Text style={styles.groupAvatarLargeText}>
-                  {group.name[0]?.toUpperCase() ?? 'G'}
-                </Text>
-              </View>
-            )}
+          <View style={styles.groupAvatarWrapper}>
+            <Avatar
+              uri={group.avatar}
+              name={group.name}
+              size={80}
+              isGroup
+            />
             {uploadingAvatar && (
               <View style={styles.groupAvatarUploadOverlay}>
                 <ActivityIndicator size="small" color="#fff" />
               </View>
             )}
-            {isAdmin && !uploadingAvatar && (
-              <View style={styles.groupAvatarEditOverlay}>
-                <Text style={styles.groupAvatarEditIcon}>✎</Text>
-              </View>
-            )}
-          </Pressable>
+          </View>
+          {isAdmin && !uploadingAvatar && (
+            <Pressable onPress={handleAvatarEdit}>
+              <Text style={styles.editAvatarText}>Edit</Text>
+            </Pressable>
+          )}
 
           {/* Name */}
           {editingName ? (

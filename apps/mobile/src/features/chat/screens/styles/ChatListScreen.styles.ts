@@ -131,7 +131,6 @@ export const createStyles = (colors: AppColors) => StyleSheet.create({
     width: 64,
     height: 64,
     borderRadius: 32,
-    backgroundColor: colors.secondary,
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 16,
@@ -174,11 +173,9 @@ export const createStyles = (colors: AppColors) => StyleSheet.create({
     paddingVertical: 14,
   },
   rowIcon: {
-    fontSize: 22,
     width: 36,
-    textAlign: 'center',
+    textAlign: 'center' as const,
     marginRight: 16,
-    color: colors.text,
   },
   rowContent: { flex: 1 },
   rowLabel: {

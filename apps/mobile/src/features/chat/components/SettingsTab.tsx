@@ -48,7 +48,7 @@ export function SettingsTab({
             {profile?.phone ?? profile?.about ?? 'Hey there! I am using z.chat'}
           </Text>
         </View>
-        <Ionicons name="chevron-forward" size={20} color={appColors.text} />
+        <Ionicons name="chevron-forward" size={20} color={appColors.textSecondary} />
       </Pressable>
 
       {/* Settings sections */}
@@ -63,14 +63,14 @@ export function SettingsTab({
               style={({ pressed }) => [styles.settingsRow, pressed && styles.pressed]}
               onPress={() => router.push(row.route as Parameters<typeof router.push>[0])}
             >
-              <Text style={styles.rowIcon}>{row.icon}</Text>
+              <Ionicons name={row.icon as any} size={22} color={appColors.secondary} style={styles.rowIcon} />
               <View style={styles.rowContent}>
                 <Text style={styles.rowLabel}>{row.label}</Text>
                 {row.subtitle && (
                   <Text style={styles.rowSubtitle}>{row.subtitle}</Text>
                 )}
               </View>
-              <Ionicons name="chevron-forward" size={16} color={appColors.text} />
+              <Ionicons name="chevron-forward" size={16} color={appColors.textSecondary} />
             </Pressable>
           ))}
         </View>
@@ -82,7 +82,7 @@ export function SettingsTab({
           style={({ pressed }) => [styles.settingsRow, pressed && styles.pressed]}
           onPress={onLogout}
         >
-          <Text style={[styles.rowIcon, { color: '#ED2F3C' }]}>↩</Text>
+          <Ionicons name="log-out-outline" size={22} color={appColors.crimson} style={styles.rowIcon} />
           <Text style={styles.logoutLabel}>Log Out</Text>
         </Pressable>
       </View>

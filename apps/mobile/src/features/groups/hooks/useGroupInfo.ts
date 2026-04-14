@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
+import { ActionSheetIOS, Alert, Platform } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { alert } from '@/shared/utils/alert';
 import { groupApi, contactApi, uploadMedia } from '@/shared/services/api';
@@ -22,7 +23,7 @@ export interface UseGroupInfoReturn {
   handleStartEditName: () => void;
   handleSaveName: () => Promise<void>;
   handleCancelEditName: () => void;
-  handlePickAvatar: () => Promise<void>;
+  handleAvatarEdit: () => void;
   cropper: UseImageCropperReturn;
   handleRemoveMember: (userId: string, userName: string) => void;
   handleToggleAdmin: (userId: string, currentRole: string) => Promise<void>;
@@ -153,7 +154,45 @@ export function useGroupInfo(): UseGroupInfoReturn {
     }, [chatId]),
   );
 
-  const handlePickAvatar = cropper.pickAndCrop;
+  const handleAvatarEdit = useCallback(() => {
+    const options = ['Take Photo', 'Choose Photo', 'Delete Photo', 'Cancel'];
+    const destructiveButtonIndex = 2;
+    const cancelButtonIndex = 3;
+
+    const onSelect = (index: number) => {
+      if (index === 0) cropper.takeAndCrop();
+      else if (index === 1) cropper.pickAndCrop();
+      else if (index === 2) {
+        if (!chatId) return;
+        setUploadingAvatar(true);
+        groupApi.updateGroup(chatId, { avatar: null })
+          .then(() => {
+            setGroup((prev) => prev ? { ...prev, avatar: null } : null);
+            if (groupRef.current) groupRef.current = { ...groupRef.current, avatar: null };
+          })
+          .catch(() => {
+            alert('Error', 'Failed to remove group photo');
+          })
+          .finally(() => {
+            setUploadingAvatar(false);
+          });
+      }
+    };
+
+    if (Platform.OS === 'ios') {
+      ActionSheetIOS.showActionSheetWithOptions(
+        { options, cancelButtonIndex, destructiveButtonIndex },
+        onSelect,
+      );
+    } else {
+      Alert.alert('Group Photo', undefined, [
+        { text: 'Take Photo', onPress: () => onSelect(0) },
+        { text: 'Choose Photo', onPress: () => onSelect(1) },
+        { text: 'Delete Photo', style: 'destructive', onPress: () => onSelect(2) },
+        { text: 'Cancel', style: 'cancel' },
+      ]);
+    }
+  }, [chatId, cropper]);
 
   const handleRemoveMember = useCallback(
     (userId: string, userName: string) => {
@@ -254,7 +293,7 @@ export function useGroupInfo(): UseGroupInfoReturn {
     handleStartEditName,
     handleSaveName,
     handleCancelEditName,
-    handlePickAvatar,
+    handleAvatarEdit,
     cropper,
     handleRemoveMember,
     handleToggleAdmin,

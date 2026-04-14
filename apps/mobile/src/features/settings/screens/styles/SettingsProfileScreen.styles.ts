@@ -70,20 +70,6 @@ export const createStyles = (colors: AppColors) => StyleSheet.create({
     height: 96,
     borderRadius: 48,
   },
-  avatar: {
-    width: 96,
-    height: 96,
-    borderRadius: 48,
-    backgroundColor: colors.secondary,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  avatarText: {
-    fontSize: 40,
-    fontFamily: typography.fontFamily,
-    fontWeight: typography.weights.bold,
-    color: colors.white,
-  },
   cameraOverlay: {
     position: 'absolute',
     bottom: 0,
@@ -107,6 +93,13 @@ export const createStyles = (colors: AppColors) => StyleSheet.create({
     backgroundColor: 'rgba(0,0,0,0.45)',
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  editAvatarText: {
+    fontSize: typography.sizes.sm,
+    fontFamily: typography.fontFamily,
+    fontWeight: typography.weights.semibold,
+    color: colors.primary,
+    marginBottom: spacing.sm,
   },
   phoneText: {
     fontSize: typography.sizes.sm,

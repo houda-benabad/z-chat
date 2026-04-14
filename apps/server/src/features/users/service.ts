@@ -24,9 +24,10 @@ export class UserService {
       return rest;
     }
 
-    // If the profile owner has blocked the requester, hide all live info
+    // Bidirectional: hide if either side has blocked the other (WhatsApp behavior)
     const isBlockedByTarget = await this.repo.isBlockedBy(id, requesterId);
-    if (isBlockedByTarget) {
+    const hasBlockedTarget = await this.repo.isBlockedBy(requesterId, id);
+    if (isBlockedByTarget || hasBlockedTarget) {
       const { settings: _s, isOnline: _o, lastSeen: _l, ...base } = user;
       return {
         ...base,
@@ -68,7 +69,7 @@ export class UserService {
     return this.getUserById(user.id, requesterId);
   }
 
-  async updateProfile(userId: string, data: { name?: string; about?: string; avatar?: string }) {
+  async updateProfile(userId: string, data: { name?: string; about?: string; avatar?: string | null }) {
     return this.repo.updateProfile(userId, data);
   }
 

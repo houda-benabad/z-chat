@@ -118,6 +118,22 @@ export class ChatRepository {
     return !!block;
   }
 
+  async getBlockedUserIds(userId: string): Promise<string[]> {
+    const rows = await this.prisma.blockedUser.findMany({
+      where: { userId },
+      select: { blockedUserId: true },
+    });
+    return rows.map((r) => r.blockedUserId);
+  }
+
+  async getBlockedByUserIds(userId: string): Promise<string[]> {
+    const rows = await this.prisma.blockedUser.findMany({
+      where: { blockedUserId: userId },
+      select: { userId: true },
+    });
+    return rows.map((r) => r.userId);
+  }
+
   async softDeleteChat(chatId: string, userId: string) {
     const now = new Date();
     return this.prisma.chatParticipant.update({

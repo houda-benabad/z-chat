@@ -27,6 +27,29 @@ export class SettingsRepository {
     return rows.map((r) => r.blockedUserId);
   }
 
+  async getBlockedByUserIds(userId: string): Promise<string[]> {
+    const rows = await this.prisma.blockedUser.findMany({
+      where: { blockedUserId: userId },
+      select: { userId: true },
+    });
+    return rows.map((r) => r.userId);
+  }
+
+  async isBlockedBy(blockerId: string, blockedUserId: string): Promise<boolean> {
+    const block = await this.prisma.blockedUser.findUnique({
+      where: { userId_blockedUserId: { userId: blockerId, blockedUserId } },
+    });
+    return !!block;
+  }
+
+  async isUserOnline(userId: string): Promise<boolean> {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { isOnline: true },
+    });
+    return user?.isOnline ?? false;
+  }
+
   async findBlockedUsers(userId: string, skip = 0, limit = 20) {
     return this.prisma.blockedUser.findMany({
       where: { userId },

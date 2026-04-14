@@ -18,7 +18,7 @@ export const refreshSchema = z.object({
 export const updateProfileSchema = z.object({
   name: z.string().min(1).max(100).optional(),
   about: z.string().max(500).optional(),
-  avatar: z.string().url().optional(),
+  avatar: z.string().url().nullable().optional(),
 });
 
 export const createChatSchema = z.object({

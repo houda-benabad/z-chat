@@ -34,6 +34,13 @@ export class ChatService {
   async listChats(userId: string, cursor?: string, limit = 25) {
     const rows = await this.repo.findAllChatsForUser(userId, cursor, limit);
 
+    // Batch-fetch block lists (both directions) for presence masking
+    const [blockedIds, blockedByIds] = await Promise.all([
+      this.repo.getBlockedUserIds(userId),
+      this.repo.getBlockedByUserIds(userId),
+    ]);
+    const hiddenUserIds = new Set([...blockedIds, ...blockedByIds]);
+
     const chatsWithMeta = await Promise.all(
       rows.map(async (chat: (typeof rows)[number]) => {
         const myParticipant = chat.participants.find((p: { userId: string }) => p.userId === userId);
@@ -66,6 +73,17 @@ export class ChatService {
             ? chat.messages[0]
             : null;
 
+        // Mask presence for blocked users (bidirectional)
+        const participants = chat.participants.map((p: any) => {
+          if (p.userId !== userId && hiddenUserIds.has(p.userId)) {
+            return {
+              ...p,
+              user: { ...p.user, isOnline: false, lastSeen: null, avatar: null },
+            };
+          }
+          return p;
+        });
+
         return {
           id: chat.id,
           type: chat.type,
@@ -73,7 +91,7 @@ export class ChatService {
           avatar: chat.avatar ?? null,
           description: chat.description ?? null,
           createdBy: chat.createdBy ?? null,
-          participants: chat.participants,
+          participants,
           lastMessage,
           unreadCount,
           isPinned: myParticipant?.isPinned ?? false,
@@ -163,6 +181,7 @@ export class ChatService {
         const offlineKey = `offline:${cp.userId}`;
         await redis.lpush(offlineKey, JSON.stringify(message));
         await redis.expire(offlineKey, 86400);
+        await redis.ltrim(offlineKey, 0, 499);
       }
     }
 
@@ -315,7 +334,8 @@ export class ChatService {
       let user = p.user;
       if (p.userId !== userId) {
         const hasBlockedRequester = await this.repo.isBlockedBy(p.userId, userId);
-        if (hasBlockedRequester) {
+        const requesterBlockedThem = await this.repo.isBlockedBy(userId, p.userId);
+        if (hasBlockedRequester || requesterBlockedThem) {
           user = { ...user, isOnline: false, lastSeen: null, avatar: null };
         }
       }

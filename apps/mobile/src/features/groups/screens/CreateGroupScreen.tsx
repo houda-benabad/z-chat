@@ -18,6 +18,8 @@ import type { ContactItem } from '@/types';
 import { createStyles } from './styles/CreateGroupScreen.styles';
 import { useThemedStyles } from '@/shared/hooks/useThemedStyles';
 
+const DEFAULT_GROUP_AVATAR = require('../../../../assets/default-group.jpg');
+
 export default function CreateGroupScreen() {
   const styles = useThemedStyles(createStyles);
   const { appColors } = useAppSettings();
@@ -103,7 +105,7 @@ export default function CreateGroupScreen() {
             ) : groupAvatar ? (
               <Image source={{ uri: groupAvatar }} style={styles.groupAvatarImage} />
             ) : (
-              <Ionicons name="people" size={40} color={appColors.white} />
+              <Image source={DEFAULT_GROUP_AVATAR} style={styles.groupAvatarImage} />
             )}
             <View style={styles.groupAvatarBadge}>
               <Ionicons name="camera" size={12} color={appColors.white} />

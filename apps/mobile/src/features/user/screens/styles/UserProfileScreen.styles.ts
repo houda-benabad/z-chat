@@ -47,8 +47,6 @@ export const createStyles = (colors: AppColors) => StyleSheet.create({
     height: AVATAR_SIZE,
     borderRadius: AVATAR_SIZE / 2,
     overflow: 'hidden',
-    borderWidth: 3,
-    borderColor: 'rgba(255,255,255,0.55)',
   },
   avatarImg: {
     width: AVATAR_SIZE,

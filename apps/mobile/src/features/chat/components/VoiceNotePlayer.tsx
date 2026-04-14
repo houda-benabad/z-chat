@@ -16,15 +16,34 @@ function formatDuration(ms: number): string {
   return `${mins}:${secs.toString().padStart(2, '0')}`;
 }
 
+// Static waveform pattern — a natural speech-like amplitude envelope.
+// Generated once so every voice note shows the same consistent waveform shape,
+// like WhatsApp's static waveform visualization.
+const BAR_COUNT = 30;
+const WAVEFORM_HEIGHTS = Array.from({ length: BAR_COUNT }, (_, i) => {
+  const t = i / (BAR_COUNT - 1);
+  const envelope = Math.sin(t * Math.PI);                                          // louder in middle
+  const detail = 0.5 + 0.5 * Math.abs(Math.sin(i * 2.1 + 0.5))
+               + 0.3 * Math.abs(Math.sin(i * 3.7 + 1.2));                         // irregular variation
+  return Math.max(0.15, Math.min(1.0, envelope * detail));
+});
+
+const SPEEDS = [1, 1.5, 2] as const;
+type Speed = typeof SPEEDS[number];
+
 export function VoiceNotePlayer({ uri, isMine, accentColor }: VoiceNotePlayerProps) {
   const [isPlaying, setIsPlaying] = useState(false);
   const [durationMs, setDurationMs] = useState(0);
   const [positionMs, setPositionMs] = useState(0);
+  const [speed, setSpeed] = useState<Speed>(1);
   const soundRef = useRef<Audio.Sound | null>(null);
 
   useEffect(() => {
     return () => {
       soundRef.current?.unloadAsync().catch(() => {});
+      // Release the audio session so the next recording attempt doesn't inherit
+      // a playback-locked session and hit "recorder not prepared".
+      Audio.setAudioModeAsync({ allowsRecordingIOS: false }).catch(() => {});
     };
   }, []);
 
@@ -41,9 +60,19 @@ export function VoiceNotePlayer({ uri, isMine, accentColor }: VoiceNotePlayerPro
   const togglePlay = useCallback(async () => {
     try {
       if (!soundRef.current) {
+        // Set the audio session to playback mode before loading the sound.
+        // allowsRecordingIOS: false ensures the session category is
+        // AVAudioSessionCategoryPlayback, not PlayAndRecord, so audio comes
+        // out of the speaker (not the earpiece) and recording can start cleanly later.
+        await Audio.setAudioModeAsync({
+          allowsRecordingIOS: false,
+          playsInSilentModeIOS: true,
+          shouldDuckAndroid: true,
+          playThroughEarpieceAndroid: false,
+        });
         const { sound } = await Audio.Sound.createAsync(
           { uri },
-          { shouldPlay: true },
+          { shouldPlay: true, rate: speed, shouldCorrectPitch: true },
           onPlaybackUpdate,
         );
         soundRef.current = sound;
@@ -67,31 +96,62 @@ export function VoiceNotePlayer({ uri, isMine, accentColor }: VoiceNotePlayerPro
     } catch {
       setIsPlaying(false);
     }
-  }, [uri, onPlaybackUpdate]);
+  }, [uri, onPlaybackUpdate, speed]);
+
+  const toggleSpeed = useCallback(async () => {
+    const next = SPEEDS[(SPEEDS.indexOf(speed) + 1) % SPEEDS.length] as Speed;
+    setSpeed(next);
+    if (soundRef.current) {
+      const status = await soundRef.current.getStatusAsync();
+      if (status.isLoaded) {
+        await soundRef.current.setRateAsync(next, true);
+      }
+    }
+  }, [speed]);
 
   const progress = durationMs > 0 ? positionMs / durationMs : 0;
-  const iconColor = isMine ? '#fff' : accentColor;
-  const trackColor = isMine ? 'rgba(255,255,255,0.4)' : 'rgba(0,0,0,0.15)';
-  const fillColor = isMine ? '#fff' : accentColor;
-  const timeColor = isMine ? 'rgba(255,255,255,0.8)' : '#666';
+  const filledBars = Math.round(progress * BAR_COUNT);
+
+  const iconColor  = isMine ? '#fff' : accentColor;
+  const fillColor  = isMine ? '#fff' : accentColor;
+  const trackColor = isMine ? 'rgba(255,255,255,0.3)' : 'rgba(0,0,0,0.13)';
+  const timeColor  = isMine ? 'rgba(255,255,255,0.8)' : '#666';
+  const speedColor = isMine ? 'rgba(255,255,255,0.65)' : '#888';
 
   return (
     <View style={styles.container}>
       <Pressable onPress={togglePlay} hitSlop={8} style={styles.playBtn}>
-        <Ionicons
-          name={isPlaying ? 'pause' : 'play'}
-          size={20}
-          color={iconColor}
-        />
+        <Ionicons name={isPlaying ? 'pause' : 'play'} size={20} color={iconColor} />
       </Pressable>
 
       <View style={styles.trackContainer}>
-        <View style={[styles.track, { backgroundColor: trackColor }]}>
-          <View style={[styles.fill, { width: `${progress * 100}%` as unknown as number, backgroundColor: fillColor }]} />
+        {/* Waveform bars */}
+        <View style={styles.waveformRow}>
+          {WAVEFORM_HEIGHTS.map((h, i) => (
+            <View
+              key={i}
+              style={[
+                styles.bar,
+                {
+                  height: Math.max(4, Math.round(h * 20)),
+                  backgroundColor: i < filledBars ? fillColor : trackColor,
+                },
+              ]}
+            />
+          ))}
         </View>
-        <Text style={[styles.time, { color: timeColor }]}>
-          {formatDuration(isPlaying || positionMs > 0 ? positionMs : durationMs)}
-        </Text>
+
+        {/* Time + speed */}
+        <View style={styles.metaRow}>
+          <Text style={[styles.time, { color: timeColor }]}>
+            {formatDuration(isPlaying || positionMs > 0 ? positionMs : durationMs)}
+          </Text>
+          <Pressable onPress={toggleSpeed} hitSlop={8}>
+            <Text style={[styles.speedText, { color: speedColor }]}>
+              {speed === 1 ? '1×' : speed === 1.5 ? '1.5×' : '2×'}
+            </Text>
+          </Pressable>
+        </View>
       </View>
     </View>
   );
@@ -102,7 +162,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 10,
-    minWidth: 160,
+    minWidth: 180,
     paddingVertical: 2,
   },
   playBtn: {
@@ -115,18 +175,28 @@ const styles = StyleSheet.create({
   },
   trackContainer: {
     flex: 1,
-    gap: 4,
+    gap: 5,
   },
-  track: {
-    height: 3,
-    borderRadius: 2,
-    overflow: 'hidden',
+  waveformRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    height: 20,
+    gap: 1,
   },
-  fill: {
-    height: '100%',
+  bar: {
+    flex: 1,         // fills available width evenly across all 30 bars
     borderRadius: 2,
+  },
+  metaRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
   },
   time: {
     fontSize: 11,
+  },
+  speedText: {
+    fontSize: 11,
+    fontWeight: '600',
   },
 });

@@ -198,7 +198,15 @@ export function useChatList(myUserId: string): UseChatListReturn {
             message.type !== 'text'
               ? ({ image: 'Photo', video: 'Video', audio: 'Audio', document: 'Document', voice_note: 'Voice note' }[message.type] ?? message.type)
               : isEncrypted(message.content) ? 'New message' : (message.content ?? 'New message');
-          showMessageNotification(senderName, body, message.chatId);
+
+          const isGroupChat = chat?.type === 'group';
+          const otherUser = isGroupChat ? null : chat?.participants.find((p) => p.userId !== myUserIdRef.current)?.user;
+          showMessageNotification(senderName, body, message.chatId, {
+            chatType: chat?.type ?? undefined,
+            recipientId: otherUser?.id ?? undefined,
+            name: isGroupChat ? (chat?.name ?? 'Group') : (otherUser?.name ?? otherUser?.phone ?? undefined),
+            recipientAvatar: (isGroupChat ? chat?.avatar : otherUser?.avatar) ?? undefined,
+          });
         }
 
         // Unknown chat — re-fetch so the new conversation appears

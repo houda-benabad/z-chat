@@ -8,7 +8,6 @@ import {
   Platform,
   ScrollView,
 } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useAppSettings } from '@/shared/context/AppSettingsContext';
 import { Avatar, ImageCropperModal } from '@/shared/components';
@@ -28,10 +27,11 @@ export default function SettingsProfileScreen() {
     name,
     about,
     avatarUri,
+    avatarRemoved,
     hasChanges,
     setName,
     setAbout,
-    handlePickAvatar,
+    handleAvatarEdit,
     handleSave,
     cropper,
   } = useSettingsProfile();
@@ -68,27 +68,24 @@ export default function SettingsProfileScreen() {
       <ScrollView contentContainerStyle={styles.content}>
         {/* Avatar */}
         <View style={styles.avatarSection}>
-          <Pressable
-            style={styles.avatarWrapper}
-            onPress={handlePickAvatar}
-            disabled={uploadingAvatar || saving}
-          >
+          <View style={styles.avatarWrapper}>
             <Avatar
-              uri={avatarUri ?? profile?.avatar}
+              uri={avatarRemoved ? null : (avatarUri ?? profile?.avatar)}
               name={profile?.name ?? ''}
               size={96}
             />
-            {uploadingAvatar ? (
+            {uploadingAvatar && (
               <View style={styles.avatarOverlay}>
                 <ActivityIndicator size="small" color={appColors.white} />
               </View>
-            ) : (
-              <View style={styles.cameraOverlay}>
-                <Ionicons name="camera" size={14} color={appColors.white} />
-              </View>
             )}
+          </View>
+          <Pressable
+            onPress={handleAvatarEdit}
+            disabled={uploadingAvatar || saving}
+          >
+            <Text style={styles.editAvatarText}>Edit</Text>
           </Pressable>
-          <Text style={styles.phoneText}>{profile?.phone}</Text>
         </View>
 
         {/* Name */}

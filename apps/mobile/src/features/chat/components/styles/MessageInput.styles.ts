@@ -128,6 +128,26 @@ export const createStyles = (colors: AppColors) => StyleSheet.create({
     borderRadius: 5,
     backgroundColor: '#E46C53',
   },
+  waveformContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 2,
+    height: 28,
+  },
+  waveBar: {
+    width: 3,
+    borderRadius: 2,
+    backgroundColor: '#E46C53',
+  },
+  lockedIcon: {
+    marginLeft: 2,
+  },
+  lockedTrashBtn: {
+    width: 36,
+    height: 36,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
   recordingTimer: {
     fontSize: 15,
     fontFamily: typography.fontFamily,
@@ -145,5 +165,12 @@ export const createStyles = (colors: AppColors) => StyleSheet.create({
   slideHintCancel: {
     color: '#ED2F3C',
     fontWeight: '600',
+  },
+  slideUpHint: {
+    flex: 1,
+    textAlign: 'right',
+    fontSize: 13,
+    fontFamily: typography.fontFamily,
+    color: colors.textSecondary,
   },
 });

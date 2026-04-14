@@ -21,10 +21,6 @@ export const createStyles = (colors: AppColors) => StyleSheet.create({
     padding: spacing.sm,
     marginRight: spacing.sm,
   },
-  backArrow: {
-    fontSize: 24,
-    color: colors.primary,
-  },
   headerTitle: {
     fontSize: typography.sizes.xl,
     fontFamily: typography.fontFamily,
@@ -58,9 +54,8 @@ export const createStyles = (colors: AppColors) => StyleSheet.create({
     backgroundColor: colors.surface,
   },
   rowIcon: {
-    fontSize: 22,
     width: 36,
-    textAlign: 'center',
+    textAlign: 'center' as const,
     marginRight: spacing.md,
   },
   rowContent: {
@@ -78,10 +73,6 @@ export const createStyles = (colors: AppColors) => StyleSheet.create({
     color: colors.textSecondary,
     marginTop: 1,
   },
-  chevron: {
-    fontSize: 24,
-    color: colors.textSecondary,
-  },
   infoCard: {
     marginHorizontal: spacing.lg,
     marginBottom: spacing.md,
@@ -90,7 +81,6 @@ export const createStyles = (colors: AppColors) => StyleSheet.create({
     borderRadius: borderRadius.lg,
   },
   infoIcon: {
-    fontSize: 24,
     marginBottom: spacing.sm,
   },
   infoTitle: {

@@ -104,6 +104,13 @@ export const createStyles = (colors: AppColors) => StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
+  editAvatarText: {
+    fontSize: typography.sizes.sm,
+    fontFamily: typography.fontFamily,
+    fontWeight: typography.weights.semibold,
+    color: colors.primary,
+    marginBottom: spacing.sm,
+  },
   // Group name row (text + pencil icon)
   groupNameRow: {
     flexDirection: 'row',

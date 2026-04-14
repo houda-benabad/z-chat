@@ -5,11 +5,13 @@ import { Stack, useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useFonts } from 'expo-font';
 import * as SplashScreen from 'expo-splash-screen';
+import * as Notifications from 'expo-notifications';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
 import { requestNotificationPermissions } from '../src/shared/services/notifications';
 import { AppSettingsProvider, useAppSettings } from '../src/shared/context/AppSettingsContext';
 import { UserProfileProvider } from '../src/shared/context/UserProfileContext';
+import { ErrorBoundary } from '../src/shared/components';
 import { setSessionExpiredHandler } from '../src/shared/services/api/client';
 
 if (process.env.EXPO_PUBLIC_SENTRY_DSN) {
@@ -79,11 +81,36 @@ export default Sentry.wrap(function RootLayout() {
     requestNotificationPermissions();
   }, [onLayoutReady]);
 
+  useEffect(() => {
+    const navigateToChat = (data: Record<string, unknown>) => {
+      const chatId = data?.chatId;
+      if (typeof chatId !== 'string') return;
+      const params: Record<string, string> = { chatId };
+      if (typeof data.recipientId === 'string') params.recipientId = data.recipientId;
+      if (typeof data.chatType === 'string') params.chatType = data.chatType;
+      if (typeof data.name === 'string') params.name = data.name;
+      if (typeof data.recipientAvatar === 'string') params.recipientAvatar = data.recipientAvatar;
+      setTimeout(() => router.push({ pathname: '/chat', params }), 100);
+    };
+
+    Notifications.getLastNotificationResponseAsync().then((response) => {
+      const data = response?.notification.request.content.data;
+      if (data) navigateToChat(data);
+    });
+
+    const sub = Notifications.addNotificationResponseReceivedListener((response) => {
+      navigateToChat(response.notification.request.content.data);
+    });
+
+    return () => sub.remove();
+  }, [router]);
+
   if (!fontsLoaded) {
     return null;
   }
 
   return (
+    <ErrorBoundary>
     <AppSettingsProvider>
     <UserProfileProvider>
     <GestureHandlerRootView style={{ flex: 1 }}>
@@ -92,5 +119,6 @@ export default Sentry.wrap(function RootLayout() {
     </GestureHandlerRootView>
     </UserProfileProvider>
     </AppSettingsProvider>
+    </ErrorBoundary>
   );
 });

@@ -51,7 +51,7 @@ import { resolveTypingLabel } from '@/shared/utils';
 export default function ChatScreen() {
   const styles = useThemedStyles(createStyles);
   const {
-    chatId: paramChatId, name, recipientId = '', chatType, recipientIsOnline, recipientAvatar, backTo, messageId: jumpToMessageId,
+    chatId: paramChatId, name: paramName, recipientId: paramRecipientId = '', chatType, recipientIsOnline, recipientAvatar, backTo, messageId: jumpToMessageId,
   } = useLocalSearchParams<{
     chatId: string; name: string; recipientId: string;
     chatType?: string; recipientIsOnline?: string;
@@ -59,7 +59,7 @@ export default function ChatScreen() {
     backTo?: string;
     messageId?: string;
   }>();
-  const isGroup = chatType === 'group';
+  const [isGroup, setIsGroup] = useState(chatType === 'group');
   // activeChatId starts empty for new chats and is set once the first message creates the chat
   const [activeChatId, setActiveChatId] = useState(paramChatId ?? '');
   const router  = useRouter();
@@ -70,7 +70,7 @@ export default function ChatScreen() {
   const CHAT_BG = '#ECE5DD';
 
   // Live group metadata (updated via socket when admin changes name/avatar)
-  const [liveGroupName, setLiveGroupName] = useState(name || '');
+  const [liveGroupName, setLiveGroupName] = useState(paramName || '');
   const [liveAvatar, setLiveAvatar]       = useState<string | undefined>(recipientAvatar || undefined);
 
   // ─── Socket ───────────────────────────────────────────────────────────────
@@ -113,8 +113,21 @@ export default function ChatScreen() {
     messages, loading, loadingMore, loadError, isForbidden,
     groupKey, recipientPublicKey, participants,
     addMessage, confirmMessage, markMessageFailed, markMessageBlocked, removeMessage, updateMessage, loadMessages, loadOlderMessages,
-    starredMessageIds, toggleStar,
-  } = useMessages({ chatId: activeChatId, isGroup, recipientId });
+    starredMessageIds, toggleStar, chatMetadata,
+  } = useMessages({ chatId: activeChatId, isGroup, recipientId: paramRecipientId, myUserId });
+
+  // Derive effective values from API response (handles notification navigation with missing params)
+  const recipientId = paramRecipientId || chatMetadata.derivedRecipientId;
+  const name = paramName || chatMetadata.otherUserName || '';
+
+  // Sync isGroup and display data after loadMessages detects the actual chat type
+  useEffect(() => {
+    if (chatMetadata.detectedIsGroup !== isGroup) setIsGroup(chatMetadata.detectedIsGroup);
+  }, [chatMetadata.detectedIsGroup]);
+  useEffect(() => {
+    if (!paramName && chatMetadata.otherUserName) setLiveGroupName(chatMetadata.otherUserName);
+    if (!recipientAvatar && chatMetadata.otherUserAvatar) setLiveAvatar(chatMetadata.otherUserAvatar);
+  }, [chatMetadata.otherUserName, chatMetadata.otherUserAvatar]);
 
   // ─── Session state ─────────────────────────────────────────────────────────
   const [isOnline, setIsOnline] = useState(false);
@@ -354,15 +367,27 @@ export default function ChatScreen() {
     }
   }, [isOnline, messages, myUserId]);
 
-  // Send read receipt when last message changes — only if scrolled to bottom
+  // Send read receipt when last message changes — only if scrolled to bottom.
+  // Scan backward to find the last message from someone else; handles the case
+  // where the receiver's own message is the most recent (e.g. notification reply).
   useEffect(() => {
     if (!socket || !activeChatId || !myUserId || messages.length === 0) return;
     if (!isAtBottomRef.current) return;
-    const last = messages[messages.length - 1];
-    if (last && last.senderId !== myUserId) {
-      socket.emit('message:read', { chatId: activeChatId, messageId: last.id });
+    for (let i = messages.length - 1; i >= 0; i--) {
+      if (messages[i]?.senderId !== myUserId) {
+        socket.emit('message:read', { chatId: activeChatId, messageId: messages[i]!.id });
+        break;
+      }
     }
   }, [socket, messages, activeChatId, myUserId]);
+
+  // Keep recipientLastReadAt in sync with recipientLastReadMsgId so the
+  // timestamp-based fallback in readUpToIndex stays accurate after socket updates.
+  useEffect(() => {
+    if (!recipientLastReadMsgId) return;
+    const msg = messages.find((m) => m.id === recipientLastReadMsgId);
+    if (msg?.createdAt) setRecipientLastReadAt(msg.createdAt);
+  }, [recipientLastReadMsgId, messages]);
 
   // Derived indexes for tick marks
   const readUpToIndex = useMemo(() => {
@@ -397,8 +422,10 @@ export default function ChatScreen() {
 
   const resolveAvatar = useCallback((userId: string): string | null => {
     const contact = contacts.find((c) => c.contactUserId === userId);
-    return contact?.contactUser.avatar ?? null;
-  }, [contacts]);
+    if (contact?.contactUser.avatar) return contact.contactUser.avatar;
+    const participant = participants.find((p) => p.userId === userId);
+    return participant?.user.avatar ?? null;
+  }, [contacts, participants]);
 
   // Update isAtBottomRef on scroll; emit read receipt when user scrolls back to bottom
   const handleScroll = useCallback((event: NativeSyntheticEvent<NativeScrollEvent>) => {

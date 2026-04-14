@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { Alert } from 'react-native';
+import { Alert, ActionSheetIOS, Platform } from 'react-native';
 import { uploadAvatar } from '@/shared/services/api';
 import { useUserProfile } from '@/shared/context/UserProfileContext';
 import { useImageCropper } from '@/shared/hooks';
@@ -11,6 +11,7 @@ export function useSettingsProfile() {
   const [name, setName] = useState('');
   const [about, setAbout] = useState('');
   const [avatarUri, setAvatarUri] = useState<string | null>(null);
+  const [avatarRemoved, setAvatarRemoved] = useState(false);
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
 
   useEffect(() => {
@@ -23,10 +24,38 @@ export function useSettingsProfile() {
   const cropper = useImageCropper(
     useCallback((croppedUri: string) => {
       setAvatarUri(croppedUri);
+      setAvatarRemoved(false);
     }, []),
   );
 
-  const handlePickAvatar = cropper.pickAndCrop;
+  const handleAvatarEdit = useCallback(() => {
+    const options = ['Take Photo', 'Choose Photo', 'Delete Photo', 'Cancel'];
+    const destructiveButtonIndex = 2;
+    const cancelButtonIndex = 3;
+
+    const onSelect = (index: number) => {
+      if (index === 0) cropper.takeAndCrop();
+      else if (index === 1) cropper.pickAndCrop();
+      else if (index === 2) {
+        setAvatarUri(null);
+        setAvatarRemoved(true);
+      }
+    };
+
+    if (Platform.OS === 'ios') {
+      ActionSheetIOS.showActionSheetWithOptions(
+        { options, cancelButtonIndex, destructiveButtonIndex },
+        onSelect,
+      );
+    } else {
+      Alert.alert('Profile Photo', undefined, [
+        { text: 'Take Photo', onPress: () => onSelect(0) },
+        { text: 'Choose Photo', onPress: () => onSelect(1) },
+        { text: 'Delete Photo', style: 'destructive', onPress: () => onSelect(2) },
+        { text: 'Cancel', style: 'cancel' },
+      ]);
+    }
+  }, [cropper]);
 
   const handleSave = useCallback(async () => {
     const trimmedName = name.trim();
@@ -36,18 +65,21 @@ export function useSettingsProfile() {
     }
     setSaving(true);
     try {
-      let avatarUrl: string | undefined;
-      if (avatarUri) {
+      let avatarValue: string | null | undefined;
+      if (avatarRemoved) {
+        avatarValue = null;
+      } else if (avatarUri) {
         setUploadingAvatar(true);
-        avatarUrl = await uploadAvatar(avatarUri);
+        avatarValue = await uploadAvatar(avatarUri);
         setUploadingAvatar(false);
         setAvatarUri(null);
       }
       await updateProfile({
         name: trimmedName,
         about: about.trim() || undefined,
-        ...(avatarUrl ? { avatar: avatarUrl } : {}),
+        ...(avatarValue !== undefined ? { avatar: avatarValue } : {}),
       });
+      setAvatarRemoved(false);
       Alert.alert('Saved', 'Profile updated successfully');
     } catch {
       setUploadingAvatar(false);
@@ -55,10 +87,11 @@ export function useSettingsProfile() {
     } finally {
       setSaving(false);
     }
-  }, [name, about, avatarUri, updateProfile]);
+  }, [name, about, avatarUri, avatarRemoved, updateProfile]);
 
   const hasChanges =
     !!avatarUri ||
+    avatarRemoved ||
     name.trim() !== (profile?.name ?? '') ||
     about.trim() !== (profile?.about ?? '');
 
@@ -70,10 +103,11 @@ export function useSettingsProfile() {
     name,
     about,
     avatarUri,
+    avatarRemoved,
     hasChanges,
     setName,
     setAbout,
-    handlePickAvatar,
+    handleAvatarEdit,
     handleSave,
     cropper,
   };

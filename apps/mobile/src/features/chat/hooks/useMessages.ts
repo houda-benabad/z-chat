@@ -11,13 +11,14 @@ export type ParticipantData = {
   lastReadMessageCreatedAt: string | null;
   encryptedGroupKey?: string | null;
   groupKeyVersion?: number;
-  user: { isOnline: boolean; publicKey?: string | null; phone: string; name: string | null };
+  user: { isOnline: boolean; publicKey?: string | null; phone: string; name: string | null; avatar: string | null };
 };
 
 interface UseMessagesParams {
   chatId: string;
   isGroup: boolean;
   recipientId: string;
+  myUserId: string;
 }
 
 export interface UseMessagesReturn {
@@ -45,12 +46,19 @@ export interface UseMessagesReturn {
   isForbidden: boolean;
   starredMessageIds: Set<string>;
   toggleStar: (messageId: string) => Promise<void>;
+  chatMetadata: {
+    detectedIsGroup: boolean;
+    derivedRecipientId: string;
+    otherUserName: string | null;
+    otherUserAvatar: string | null;
+  };
 }
 
 export function useMessages({
   chatId,
   isGroup,
   recipientId,
+  myUserId,
 }: UseMessagesParams): UseMessagesReturn {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [loading, setLoading] = useState(!!chatId);
@@ -62,6 +70,10 @@ export function useMessages({
   const [recipientPublicKey, setRecipientPublicKey] = useState<string | null>(null);
   const [participants, setParticipants] = useState<ParticipantData[]>([]);
   const [starredMessageIds, setStarredMessageIds] = useState<Set<string>>(new Set());
+  const [detectedIsGroup, setDetectedIsGroup] = useState(isGroup);
+  const [derivedRecipientId, setDerivedRecipientId] = useState(recipientId);
+  const [otherUserName, setOtherUserName] = useState<string | null>(null);
+  const [otherUserAvatar, setOtherUserAvatar] = useState<string | null>(null);
   const disappearTimers = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
 
   // Clear all timers on unmount to prevent memory leaks
@@ -160,7 +172,7 @@ export function useMessages({
   }, [chatId, starredMessageIds]);
 
   const loadMessages = useCallback(async () => {
-    if (!chatId) return;
+    if (!chatId || !myUserId) return;
     setLoadError(false);
     try {
       const [data, starredResult] = await Promise.all([
@@ -170,15 +182,26 @@ export function useMessages({
       setStarredMessageIds(new Set(starredResult.starredMessageIds));
       let msgs = data.messages.reverse();
 
-      if (!isGroup) {
-        const other = data.participants?.find((p) => p.userId === recipientId);
+      // Auto-detect group vs 1:1 from API response (handles notification navigation where chatType is unknown)
+      const myGroupKeyEntry = data.participants?.find((p) => p.userId === myUserId && p.encryptedGroupKey != null);
+      const effectiveIsGroup = !!myGroupKeyEntry?.encryptedGroupKey;
+      setDetectedIsGroup(effectiveIsGroup);
+
+      if (!effectiveIsGroup) {
+        const other = recipientId
+          ? data.participants?.find((p) => p.userId === recipientId)
+          : data.participants?.find((p) => p.userId !== myUserId);
         const pubKey = other?.user.publicKey ?? null;
         setRecipientPublicKey(pubKey);
+        if (other) {
+          setDerivedRecipientId(other.userId);
+          setOtherUserName(other.user.name ?? other.user.phone ?? null);
+          setOtherUserAvatar(other.user.avatar ?? null);
+        }
         msgs = await decryptBatch(msgs, { isGroup: false, recipientPublicKey: pubKey, groupKey: null });
       } else {
-        const myEntry = data.participants?.find((p) => p.encryptedGroupKey != null);
-        if (myEntry?.encryptedGroupKey) {
-          const gKey = await decryptGroupKey(myEntry.encryptedGroupKey);
+        if (myGroupKeyEntry?.encryptedGroupKey) {
+          const gKey = await decryptGroupKey(myGroupKeyEntry.encryptedGroupKey);
           if (gKey) {
             setGroupKey(gKey);
             msgs = await decryptBatch(msgs, { isGroup: true, recipientPublicKey: null, groupKey: gKey });
@@ -198,7 +221,7 @@ export function useMessages({
       }
     }
     finally { setLoading(false); }
-  }, [chatId, isGroup, recipientId, decryptBatch]);
+  }, [chatId, recipientId, myUserId, decryptBatch]);
 
   const loadOlderMessages = useCallback(async () => {
     if (!chatId || !nextCursor || loadingMore) return;
@@ -206,7 +229,7 @@ export function useMessages({
     try {
       const data = await chatApi.getMessages(chatId, nextCursor);
       const older = await decryptBatch(data.messages.reverse(), {
-        isGroup,
+        isGroup: detectedIsGroup,
         recipientPublicKey,
         groupKey,
       });
@@ -214,7 +237,7 @@ export function useMessages({
       setNextCursor(data.nextCursor);
     } catch { /* user can retry */ }
     finally { setLoadingMore(false); }
-  }, [chatId, nextCursor, loadingMore, isGroup, recipientPublicKey, groupKey, decryptBatch]);
+  }, [chatId, nextCursor, loadingMore, detectedIsGroup, recipientPublicKey, groupKey, decryptBatch]);
 
   return {
     messages,
@@ -235,5 +258,6 @@ export function useMessages({
     isForbidden,
     starredMessageIds,
     toggleStar,
+    chatMetadata: { detectedIsGroup, derivedRecipientId, otherUserName, otherUserAvatar },
   };
 }

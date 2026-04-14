@@ -121,13 +121,13 @@ export default function ChatListScreen() {
                 style={({ pressed }) => [styles.headerIconBtn, pressed && styles.headerIconBtnPressed]}
                 onPress={openSearch}
               >
-                <Ionicons name="search-outline" size={22} color={appColors.text} />
+                <Ionicons name="search-outline" size={22} color={appColors.secondary} />
               </Pressable>
               <Pressable
                 style={({ pressed }) => [styles.headerIconBtn, pressed && styles.headerIconBtnPressed]}
                 onPress={() => router.push('/new-chat')}
               >
-                <Ionicons name="create-outline" size={22} color={appColors.text} />
+                <Ionicons name="create-outline" size={22} color={appColors.secondary} />
               </Pressable>
             </View>
           </>

@@ -102,9 +102,12 @@ export function createSocketServer(httpServer: HttpServer, prisma: PrismaClient,
     }
 
     // Fetches a fresh block list each time — ensures unblock takes effect immediately
+    // Bidirectional: excludes both users this user blocked AND users who blocked this user
     const getBlockedSocketIds = async () => {
-      const ids = await settingsRepo.getBlockedUserIds(userId);
-      return ids.flatMap((id) => [...(userSockets.get(id) ?? [])]);
+      const blockedIds = await settingsRepo.getBlockedUserIds(userId);
+      const blockedByIds = await settingsRepo.getBlockedByUserIds(userId);
+      const allIds = [...new Set([...blockedIds, ...blockedByIds])];
+      return allIds.flatMap((id) => [...(userSockets.get(id) ?? [])]);
     };
 
     // Broadcast online status to all chats, excluding blocked users
@@ -213,26 +216,26 @@ export function createSocketServer(httpServer: HttpServer, prisma: PrismaClient,
     });
 
     // --- Event: typing:start ---
-    socket.on("typing:start", (data: { chatId: string }) => {
+    socket.on("typing:start", async (data: { chatId: string }) => {
       const now = Date.now();
       const last = typingThrottle.get(userId) ?? 0;
       if (now - last < 2000) return; // max one broadcast per 2 s per user
       typingThrottle.set(userId, now);
       if (data.chatId) {
-        socket.to(`chat:${data.chatId}`).emit("typing:start", {
-          chatId: data.chatId,
-          userId,
-        });
+        const blockedIds = await getBlockedSocketIds();
+        const room = socket.to(`chat:${data.chatId}`);
+        (blockedIds.length > 0 ? socket.except(blockedIds).to(`chat:${data.chatId}`) : room)
+          .emit("typing:start", { chatId: data.chatId, userId });
       }
     });
 
     // --- Event: typing:stop ---
-    socket.on("typing:stop", (data: { chatId: string }) => {
+    socket.on("typing:stop", async (data: { chatId: string }) => {
       if (data.chatId) {
-        socket.to(`chat:${data.chatId}`).emit("typing:stop", {
-          chatId: data.chatId,
-          userId,
-        });
+        const blockedIds = await getBlockedSocketIds();
+        const room = socket.to(`chat:${data.chatId}`);
+        (blockedIds.length > 0 ? socket.except(blockedIds).to(`chat:${data.chatId}`) : room)
+          .emit("typing:stop", { chatId: data.chatId, userId });
       }
     });
 

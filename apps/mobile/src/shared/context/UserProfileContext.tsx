@@ -7,7 +7,7 @@ interface UserProfileContextValue {
   profile: UserProfile | null;
   loading: boolean;
   refreshProfile: () => Promise<void>;
-  updateProfile: (data: { name?: string; about?: string; avatar?: string }) => Promise<void>;
+  updateProfile: (data: { name?: string; about?: string; avatar?: string | null }) => Promise<void>;
 }
 
 const DEFAULT: UserProfileContextValue = {
@@ -34,7 +34,7 @@ export function UserProfileProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
-  const updateProfile = useCallback(async (data: { name?: string; about?: string; avatar?: string }) => {
+  const updateProfile = useCallback(async (data: { name?: string; about?: string; avatar?: string | null }) => {
     const { user } = await userApi.updateProfile(data);
     setProfile(user);
   }, []);

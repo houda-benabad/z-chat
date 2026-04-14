@@ -41,7 +41,7 @@ export class UserRepository {
     });
   }
 
-  async updateProfile(id: string, data: { name?: string; about?: string; avatar?: string }) {
+  async updateProfile(id: string, data: { name?: string; about?: string; avatar?: string | null }) {
     return this.prisma.user.update({
       where: { id },
       data,

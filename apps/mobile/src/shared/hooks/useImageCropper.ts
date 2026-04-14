@@ -16,6 +16,7 @@ export interface UseImageCropperReturn {
   sourceHeight: number;
   processing: boolean;
   pickAndCrop: () => Promise<void>;
+  takeAndCrop: () => Promise<void>;
   confirmCrop: (cropRegion: CropRegion) => Promise<void>;
   cancelCrop: () => void;
 }
@@ -44,6 +45,31 @@ export function useImageCropper(
     }
 
     const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ['images'],
+      allowsEditing: false,
+      quality: 1,
+    });
+
+    if (result.canceled || !result.assets[0]) return;
+
+    const asset = result.assets[0];
+    setSourceUri(asset.uri);
+    setSourceWidth(asset.width);
+    setSourceHeight(asset.height);
+    setVisible(true);
+  }, []);
+
+  const takeAndCrop = useCallback(async () => {
+    const { granted } = await ImagePicker.requestCameraPermissionsAsync();
+    if (!granted) {
+      Alert.alert(
+        'Permission Required',
+        'Please allow access to your camera.',
+      );
+      return;
+    }
+
+    const result = await ImagePicker.launchCameraAsync({
       mediaTypes: ['images'],
       allowsEditing: false,
       quality: 1,
@@ -95,6 +121,7 @@ export function useImageCropper(
     sourceHeight,
     processing,
     pickAndCrop,
+    takeAndCrop,
     confirmCrop,
     cancelCrop,
   };

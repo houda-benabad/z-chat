@@ -21,11 +21,8 @@ export const createStyles = (_colors: AppColors) => StyleSheet.create({
     width: 38,
     height: 38,
     borderRadius: 19,
-    backgroundColor: 'rgba(255,255,255,0.25)',
     justifyContent: 'center',
     alignItems: 'center',
-    borderWidth: 1.5,
-    borderColor: 'rgba(255,255,255,0.35)',
   },
   avatarImage: { width: 38, height: 38, borderRadius: 19 },
   avatarText: {

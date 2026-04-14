@@ -4,7 +4,6 @@ import {
   Pressable,
   ScrollView,
   ActivityIndicator,
-  Image,
   Modal,
   Animated,
   TextInput,
@@ -15,12 +14,11 @@ import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
+import { Avatar } from '@/shared/components';
 import { useUserProfile, formatLastSeen } from '../hooks/useUserProfile';
 import { createStyles } from './styles/UserProfileScreen.styles';
 import { useThemedStyles } from '@/shared/hooks/useThemedStyles';
 import { useAppSettings } from '@/shared/context/AppSettingsContext';
-
-const DEFAULT_AVATAR = require('../../../../assets/default-avatar.png');
 
 const CORAL = '#E46C53';
 const TEAL = '#4D7E82';
@@ -91,11 +89,7 @@ export default function UserProfileScreen() {
         {/* Avatar */}
         <View style={styles.avatarArea}>
           <View style={styles.avatarRing}>
-            {profile?.avatar ? (
-              <Image source={{ uri: profile.avatar }} style={styles.avatarImg} />
-            ) : (
-              <Image source={DEFAULT_AVATAR} style={styles.avatarImg} />
-            )}
+            <Avatar uri={profile?.avatar} name={profile?.name ?? ''} size={110} />
           </View>
           {profile?.isOnline && !isBlocked && (
             <View style={styles.onlineDot} />
