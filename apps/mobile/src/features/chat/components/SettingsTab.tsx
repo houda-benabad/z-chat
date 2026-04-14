@@ -1,13 +1,12 @@
-import { ScrollView, View, Text, Pressable, ActivityIndicator, Image } from 'react-native';
+import { ScrollView, View, Text, Pressable, ActivityIndicator } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { SETTINGS_SECTIONS, APP_NAME, APP_VERSION, APP_COMPANY } from '@/constants';
 import { createStyles } from '../screens/styles/ChatListScreen.styles';
 import { useThemedStyles } from '@/shared/hooks/useThemedStyles';
 import { useAppSettings } from '@/shared/context/AppSettingsContext';
+import { Avatar } from '@/shared/components';
 import type { UserProfile } from '@/types';
-
-const DEFAULT_AVATAR = require('../../../../assets/default-avatar.png');
 
 interface SettingsTabProps {
   profile: UserProfile | null;
@@ -39,10 +38,8 @@ export function SettingsTab({
         <View style={styles.profileAvatar}>
           {profileLoading ? (
             <ActivityIndicator size="small" color={appColors.white} />
-          ) : profile?.avatar ? (
-            <Image source={{ uri: profile.avatar }} style={styles.profileAvatarImage} />
           ) : (
-            <Image source={DEFAULT_AVATAR} style={styles.profileAvatarImage} />
+            <Avatar uri={profile?.avatar} name={profile?.name ?? ''} size={64} />
           )}
         </View>
         <View style={styles.profileInfo}>

@@ -158,7 +158,7 @@ export function MessageInput({
                 value={value}
                 onChangeText={onChangeText}
                 maxLength={4096}
-                onSubmitEditing={onSend}
+                multiline
                 underlineColorAndroid="transparent"
                 selectionColor="#E46C53"
                 onFocus={() => setIsFocused(true)}

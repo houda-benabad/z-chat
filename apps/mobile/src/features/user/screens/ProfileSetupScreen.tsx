@@ -7,17 +7,14 @@ import {
   KeyboardAvoidingView,
   Platform,
   ScrollView,
-  Image,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { MAX_DISPLAY_NAME_LENGTH, MAX_ABOUT_LENGTH } from '@z-chat/shared';
 import { useAppSettings } from '@/shared/context/AppSettingsContext';
 import { useThemedStyles } from '@/shared/hooks/useThemedStyles';
-import { ImageCropperModal } from '@/shared/components';
+import { Avatar, ImageCropperModal } from '@/shared/components';
 import { useProfileSetup } from '../hooks/useProfileSetup';
 import { createStyles } from './styles/ProfileSetupScreen.styles';
-
-const DEFAULT_AVATAR = require('../../../../assets/default-avatar.png');
 
 export default function ProfileSetupScreen() {
   const styles = useThemedStyles(createStyles);
@@ -54,10 +51,7 @@ export default function ProfileSetupScreen() {
 
         <View style={styles.avatarSection}>
           <Pressable onPress={handlePickAvatar} style={styles.avatarContainer}>
-            <Image
-              source={avatarUri ? { uri: avatarUri } : DEFAULT_AVATAR}
-              style={styles.avatar}
-            />
+            <Avatar uri={avatarUri} name="" size={120} />
             <View style={styles.cameraOverlay}>
               <Text style={styles.cameraIcon}>📷</Text>
             </View>

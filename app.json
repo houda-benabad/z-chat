@@ -1,0 +1,8 @@
+{
+  "android": {
+    "package": "com.hobenaba.zchat"
+  },
+  "ios": {
+    "bundleIdentifier": "com.hobenaba.zchat"
+  }
+}

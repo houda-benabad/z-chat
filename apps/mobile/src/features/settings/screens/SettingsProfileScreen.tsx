@@ -7,17 +7,14 @@ import {
   KeyboardAvoidingView,
   Platform,
   ScrollView,
-  Image,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useAppSettings } from '@/shared/context/AppSettingsContext';
-import { ImageCropperModal } from '@/shared/components';
+import { Avatar, ImageCropperModal } from '@/shared/components';
 import { useSettingsProfile } from '../hooks/useSettingsProfile';
 import { createStyles } from './styles/SettingsProfileScreen.styles';
 import { useThemedStyles } from '@/shared/hooks/useThemedStyles';
-
-const DEFAULT_AVATAR = require('../../../../assets/default-avatar.png');
 
 export default function SettingsProfileScreen() {
   const styles = useThemedStyles(createStyles);
@@ -76,14 +73,11 @@ export default function SettingsProfileScreen() {
             onPress={handlePickAvatar}
             disabled={uploadingAvatar || saving}
           >
-            {avatarUri || profile?.avatar ? (
-              <Image
-                source={{ uri: avatarUri ?? profile!.avatar! }}
-                style={styles.avatarImage}
-              />
-            ) : (
-              <Image source={DEFAULT_AVATAR} style={styles.avatarImage} />
-            )}
+            <Avatar
+              uri={avatarUri ?? profile?.avatar}
+              name={profile?.name ?? ''}
+              size={96}
+            />
             {uploadingAvatar ? (
               <View style={styles.avatarOverlay}>
                 <ActivityIndicator size="small" color={appColors.white} />

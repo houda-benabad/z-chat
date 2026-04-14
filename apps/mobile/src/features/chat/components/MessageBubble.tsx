@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { View, Text, Image, Pressable, StyleSheet, Animated, Easing, Platform, Linking } from 'react-native';
+import { View, Text, Image, Pressable, StyleSheet, Animated, Easing, Platform, Linking, ActivityIndicator } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { formatMessageTime } from '@/shared/utils';
 import { useAppSettings } from '@/shared/context/AppSettingsContext';
@@ -73,6 +73,9 @@ export function MessageBubble({
   const [viewingVideo,    setViewingVideo]    = useState<string | null>(null);
   const [viewingDocument, setViewingDocument] = useState<string | null>(null);
   const [imgError,        setImgError]        = useState(false);
+  const [imgLoading,      setImgLoading]      = useState(true);
+
+  useEffect(() => { setImgLoading(true); setImgError(false); }, [message.mediaUrl]);
 
   const handleDocumentTap = (url: string) => {
     if (Platform.OS !== 'web') {
@@ -205,12 +208,21 @@ export function MessageBubble({
                     <Ionicons name="image-outline" size={32} color="#ccc" />
                   </View>
                 ) : (
-                  <Image
-                    source={{ uri: message.mediaUrl! }}
-                    style={styles.mediaBubble}
-                    resizeMode="cover"
-                    onError={() => setImgError(true)}
-                  />
+                  <View style={styles.mediaBubble}>
+                    <Image
+                      source={{ uri: message.mediaUrl! }}
+                      style={{ width: 200, height: 160, borderRadius: 10, opacity: imgLoading ? 0 : 1 }}
+                      resizeMode="cover"
+                      onLoadEnd={() => setImgLoading(false)}
+                      onError={() => { setImgLoading(false); setImgError(true); }}
+                    />
+                    {imgLoading && (
+                      <ActivityIndicator
+                        style={StyleSheet.absoluteFillObject}
+                        color="#E46C53"
+                      />
+                    )}
+                  </View>
                 )}
               </Pressable>
 

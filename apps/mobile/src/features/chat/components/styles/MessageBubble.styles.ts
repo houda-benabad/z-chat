@@ -100,6 +100,7 @@ export const createStyles = (_colors: AppColors) => StyleSheet.create({
     height: 160,
     borderRadius: 10,
     marginBottom: 2,
+    backgroundColor: '#f0f0f0',
   },
   videoBubble: {
     backgroundColor: '#1a1a1a',

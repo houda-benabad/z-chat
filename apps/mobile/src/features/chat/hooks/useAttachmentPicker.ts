@@ -30,7 +30,7 @@ export function useAttachmentPicker({ onMediaSelected, disabled }: UseAttachment
       return;
     }
     const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      mediaTypes: ['images'],
       quality: 0.8,
     });
     if (!result.canceled && result.assets[0]) {
@@ -47,7 +47,7 @@ export function useAttachmentPicker({ onMediaSelected, disabled }: UseAttachment
       return;
     }
     const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Videos,
+      mediaTypes: ['videos'],
     });
     if (!result.canceled && result.assets[0]) {
       const asset = result.assets[0];

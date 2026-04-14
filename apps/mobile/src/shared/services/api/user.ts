@@ -37,7 +37,14 @@ export async function uploadMedia(uri: string, mimeType = 'image/jpeg'): Promise
   try {
     const token = await tokenStorage.get();
     const formData = new FormData();
-    const ext = uri.split('.').pop() ?? 'jpg';
+    const mimeExtMap: Record<string, string> = {
+      'image/jpeg': 'jpg', 'image/png': 'png', 'image/gif': 'gif',
+      'image/webp': 'webp', 'image/heic': 'heic',
+      'video/mp4': 'mp4', 'video/quicktime': 'mov', 'video/webm': 'webm',
+      'audio/mpeg': 'mp3', 'audio/mp4': 'm4a', 'audio/webm': 'webm',
+      'application/pdf': 'pdf',
+    };
+    const ext = mimeExtMap[mimeType.toLowerCase()] ?? (uri.split('.').pop() ?? 'bin');
 
     if (Platform.OS === 'web') {
       const res = await fetch(uri);
