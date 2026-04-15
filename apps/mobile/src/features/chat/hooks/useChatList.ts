@@ -280,43 +280,40 @@ export function useChatList(myUserId: string): UseChatListReturn {
           return;
         }
 
-        // Decrypt only the affected chat; all others return immediately
-        const updatedChats = await Promise.all(
-          chatsRef.current.map(async (chat) => {
-            if (chat.id !== message.chatId) return chat;
-            const updated = {
-              ...chat,
-              lastMessage: message,
-              updatedAt: message.createdAt,
-              unreadCount: isFromMe ? chat.unreadCount : chat.unreadCount + 1,
-            };
-            return decryptLastMessage(updated, myUserIdRef.current);
-          }),
-        );
+        // Decrypt only the affected chat — skip all others entirely
+        const idx = chatsRef.current.findIndex((c) => c.id === message.chatId);
+        if (idx === -1) return;
+        const chat = chatsRef.current[idx];
+        const updated = {
+          ...chat,
+          lastMessage: message,
+          updatedAt: message.createdAt,
+          unreadCount: isFromMe ? chat.unreadCount : chat.unreadCount + 1,
+        };
+        const decrypted = await decryptLastMessage(updated, myUserIdRef.current);
+        const updatedChats = [...chatsRef.current];
+        updatedChats[idx] = decrypted;
         setAndMirror(updatedChats.sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()));
       };
 
-      const handleUserOnline = ({ userId }: { userId: string }) => {
-        setAndMirror(
-          chatsRef.current.map((chat) => ({
+      const updateOnlineStatus = (userId: string, isOnline: boolean) => {
+        let changed = false;
+        const updated = chatsRef.current.map((chat) => {
+          const hasUser = chat.participants.some((p) => p.userId === userId);
+          if (!hasUser) return chat;
+          changed = true;
+          return {
             ...chat,
             participants: chat.participants.map((p) =>
-              p.userId === userId ? { ...p, user: { ...p.user, isOnline: true } } : p,
+              p.userId === userId ? { ...p, user: { ...p.user, isOnline } } : p,
             ),
-          })),
-        );
+          };
+        });
+        if (changed) setAndMirror(updated);
       };
 
-      const handleUserOffline = ({ userId }: { userId: string }) => {
-        setAndMirror(
-          chatsRef.current.map((chat) => ({
-            ...chat,
-            participants: chat.participants.map((p) =>
-              p.userId === userId ? { ...p, user: { ...p.user, isOnline: false } } : p,
-            ),
-          })),
-        );
-      };
+      const handleUserOnline = ({ userId }: { userId: string }) => updateOnlineStatus(userId, true);
+      const handleUserOffline = ({ userId }: { userId: string }) => updateOnlineStatus(userId, false);
 
       const handleChatNew    = () => loadChats();
       const handleMessageRead = () => loadChats();

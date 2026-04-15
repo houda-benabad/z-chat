@@ -23,13 +23,14 @@ export default function OtpVerificationScreen() {
     code,
     isLoading,
     resendTimer,
-    focusedIndex,
-    setFocusedIndex,
-    inputRefs,
+    isFocused,
+    setIsFocused,
+    activeIndex,
+    inputRef,
     phoneNumber,
     isCodeComplete,
-    handleCodeChange,
-    handleKeyPress,
+    handleChangeText,
+    focusInput,
     handleVerify,
     handleResend,
     formatTimer,
@@ -59,28 +60,36 @@ export default function OtpVerificationScreen() {
 
         <View style={styles.codeSection}>
           <View style={styles.codeRow}>
+            <TextInput
+              ref={inputRef}
+              value={code}
+              onChangeText={handleChangeText}
+              onFocus={() => setIsFocused(true)}
+              onBlur={() => setIsFocused(false)}
+              maxLength={OTP_LENGTH}
+              keyboardType="number-pad"
+              autoFocus
+              caretHidden
+              contextMenuHidden
+              textContentType="oneTimeCode"
+              autoComplete="sms-otp"
+              accessibilityLabel="Enter verification code"
+              style={styles.hiddenInput}
+            />
             {Array.from({ length: OTP_LENGTH }).map((_, index) => (
-              <TextInput
+              <Pressable
                 key={index}
-                ref={(ref) => {
-                  inputRefs.current[index] = ref;
-                }}
                 style={[
                   styles.codeInput,
-                  focusedIndex === index && styles.codeInputFocused,
-                  code[index] !== '' && styles.codeInputFilled,
+                  isFocused && activeIndex === index && styles.codeInputFocused,
+                  code.length > index && styles.codeInputFilled,
                 ]}
-                value={code[index]}
-                onChangeText={(text) => handleCodeChange(text, index)}
-                onKeyPress={({ nativeEvent }) =>
-                  handleKeyPress(nativeEvent.key, index)
-                }
-                onFocus={() => setFocusedIndex(index)}
-                keyboardType="number-pad"
-                maxLength={1}
-                autoFocus={index === 0}
-                selectTextOnFocus
-              />
+                onPress={focusInput}
+              >
+                <Text style={styles.codeDigitText}>
+                  {code[index] ?? ''}
+                </Text>
+              </Pressable>
             ))}
           </View>
 

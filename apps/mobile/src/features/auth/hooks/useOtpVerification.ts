@@ -9,16 +9,17 @@ import { useUserProfile } from '@/shared/context/UserProfileContext';
 const RESEND_COOLDOWN = 60;
 
 export interface UseOtpVerificationReturn {
-  code: string[];
+  code: string;
   isLoading: boolean;
   resendTimer: number;
-  focusedIndex: number;
-  setFocusedIndex: (i: number) => void;
-  inputRefs: React.MutableRefObject<(TextInput | null)[]>;
+  isFocused: boolean;
+  setIsFocused: (focused: boolean) => void;
+  activeIndex: number;
+  inputRef: React.RefObject<TextInput | null>;
   phoneNumber: string;
   isCodeComplete: boolean;
-  handleCodeChange: (text: string, index: number) => void;
-  handleKeyPress: (key: string, index: number) => void;
+  handleChangeText: (text: string) => void;
+  focusInput: () => void;
   handleVerify: () => Promise<void>;
   handleResend: () => Promise<void>;
   formatTimer: (seconds: number) => string;
@@ -28,18 +29,14 @@ export function useOtpVerification(): UseOtpVerificationReturn {
   const router = useRouter();
   const { phoneNumber } = useLocalSearchParams<{ phoneNumber: string }>();
   const { refreshProfile } = useUserProfile();
-  const [code, setCode] = useState<string[]>(Array(OTP_LENGTH).fill(''));
+  const [code, setCode] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [resendTimer, setResendTimer] = useState(RESEND_COOLDOWN);
-  const [focusedIndex, setFocusedIndex] = useState(0);
-  const inputRefs = useRef<(TextInput | null)[]>([]);
-  // Tracks boxes that just received focus via auto-advance.
-  // Native platforms fire a spurious onKeyPress("Backspace") on the newly focused box;
-  // this set lets handleKeyPress distinguish that from a real user backspace.
-  const justAutoAdvancedTo = useRef<Set<number>>(new Set());
+  const [isFocused, setIsFocused] = useState(false);
+  const inputRef = useRef<TextInput>(null);
 
-  const fullCode = code.join('');
-  const isCodeComplete = fullCode.length === OTP_LENGTH;
+  const isCodeComplete = code.length === OTP_LENGTH;
+  const activeIndex = Math.min(code.length, OTP_LENGTH - 1);
 
   useEffect(() => {
     if (resendTimer <= 0) return;
@@ -49,70 +46,28 @@ export function useOtpVerification(): UseOtpVerificationReturn {
     return () => clearInterval(interval);
   }, [resendTimer]);
 
-  const handleCodeChange = useCallback(
-    (text: string, index: number) => {
-      const digit = text.replace(/\D/g, '').slice(-1);
-      if (!digit) return; // Ignore ghost empty events — backspace is handled in handleKeyPress
+  const handleChangeText = useCallback((text: string) => {
+    const digits = text.replace(/\D/g, '').slice(0, OTP_LENGTH);
+    setCode(digits);
+  }, []);
 
-      setCode((prev) => {
-        const newCode = [...prev];
-        newCode[index] = digit;
-        return newCode;
-      });
-
-      if (index < OTP_LENGTH - 1) {
-        justAutoAdvancedTo.current.add(index + 1);
-        inputRefs.current[index + 1]?.focus();
-      }
-    },
-    [],
-  );
-
-  const handleKeyPress = useCallback(
-    (key: string, index: number) => {
-      if (key !== 'Backspace') return;
-
-      // Drop the spurious Backspace that native platforms fire on a box the moment
-      // it receives focus via auto-advance (before the user has pressed anything).
-      if (justAutoAdvancedTo.current.has(index)) {
-        justAutoAdvancedTo.current.delete(index);
-        return;
-      }
-
-      if (code[index]) {
-        setCode((prev) => {
-          const newCode = [...prev];
-          newCode[index] = '';
-          return newCode;
-        });
-      } else if (index > 0) {
-        setCode((prev) => {
-          const newCode = [...prev];
-          newCode[index - 1] = '';
-          return newCode;
-        });
-        inputRefs.current[index - 1]?.focus();
-      }
-    },
-    [code],
-  );
+  const focusInput = useCallback(() => {
+    inputRef.current?.focus();
+  }, []);
 
   const handleVerify = useCallback(async () => {
     if (!isCodeComplete || !phoneNumber) return;
 
     setIsLoading(true);
     try {
-      const response = await authApi.verifyOtp(phoneNumber, fullCode);
+      const response = await authApi.verifyOtp(phoneNumber, code);
       await tokenStorage.save(response.accessToken);
 
-      // Best-effort encryption init so returning users with a failed prior setup
-      // get their keys initialized before landing on chat-list.
       try {
         const publicKey = await getOrCreateKeyPair();
         await userApi.uploadPublicKey(publicKey);
       } catch { /* profile-setup will retry if this fails */ }
 
-      // Seed the global profile context now that we have a valid token.
       await refreshProfile();
 
       if (!response.user.name) {
@@ -126,12 +81,12 @@ export function useOtpVerification(): UseOtpVerificationReturn {
           ? error.message
           : 'Invalid verification code. Please try again.';
       Alert.alert('Error', message);
-      setCode(Array(OTP_LENGTH).fill(''));
-      inputRefs.current[0]?.focus();
+      setCode('');
+      inputRef.current?.focus();
     } finally {
       setIsLoading(false);
     }
-  }, [isCodeComplete, phoneNumber, fullCode, router]);
+  }, [isCodeComplete, phoneNumber, code, router]);
 
   const handleResend = useCallback(async () => {
     if (resendTimer > 0 || !phoneNumber) return;
@@ -139,8 +94,8 @@ export function useOtpVerification(): UseOtpVerificationReturn {
     try {
       await authApi.sendOtp(phoneNumber);
       setResendTimer(RESEND_COOLDOWN);
-      setCode(Array(OTP_LENGTH).fill(''));
-      inputRefs.current[0]?.focus();
+      setCode('');
+      inputRef.current?.focus();
       Alert.alert('Code Sent', 'A new verification code has been sent.');
     } catch {
       Alert.alert('Error', 'Failed to resend code. Please try again.');
@@ -157,13 +112,14 @@ export function useOtpVerification(): UseOtpVerificationReturn {
     code,
     isLoading,
     resendTimer,
-    focusedIndex,
-    setFocusedIndex,
-    inputRefs,
+    isFocused,
+    setIsFocused,
+    activeIndex,
+    inputRef,
     phoneNumber: phoneNumber ?? '',
     isCodeComplete,
-    handleCodeChange,
-    handleKeyPress,
+    handleChangeText,
+    focusInput,
     handleVerify,
     handleResend,
     formatTimer,

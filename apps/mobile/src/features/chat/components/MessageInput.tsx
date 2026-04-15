@@ -1,6 +1,6 @@
 import { useRef, useState, useEffect } from 'react';
 import {
-  View, Text, TextInput, Pressable, ActivityIndicator, Modal,
+  View, Text, TextInput, Pressable, ActivityIndicator, Modal, StyleSheet,
   Animated as RNAnimated, type GestureResponderEvent,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
@@ -346,7 +346,8 @@ export function MessageInput({
       </View>
 
       <Modal transparent animationType="fade" visible={menuVisible} onRequestClose={closeMenu}>
-        <Pressable style={styles.menuOverlay} onPress={closeMenu}>
+        <View style={styles.menuOverlay}>
+          <Pressable style={StyleSheet.absoluteFill} onPress={closeMenu} />
           <View style={styles.attachMenu}>
             <Pressable style={styles.attachMenuItem} onPress={pickPhoto}>
               <Ionicons name="image-outline" size={22} color="#E46C53" />
@@ -361,7 +362,7 @@ export function MessageInput({
               <Text style={styles.attachMenuText}>File</Text>
             </Pressable>
           </View>
-        </Pressable>
+        </View>
       </Modal>
     </View>
   );

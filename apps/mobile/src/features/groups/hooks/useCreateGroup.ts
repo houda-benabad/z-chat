@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { Alert } from 'react-native';
 import { useRouter } from 'expo-router';
 import { contactApi, groupApi, uploadMedia } from '@/shared/services/api';
@@ -36,7 +36,6 @@ export function useCreateGroup(): UseCreateGroupReturn {
   const router = useRouter();
   const [step, setStep] = useState<Step>('select-members');
   const [contacts, setContacts] = useState<ContactItem[]>([]);
-  const [filtered, setFiltered] = useState<ContactItem[]>([]);
   const [search, setSearch] = useState('');
   const [loading, setLoading] = useState(true);
   const [creating, setCreating] = useState(false);
@@ -50,7 +49,6 @@ export function useCreateGroup(): UseCreateGroupReturn {
     try {
       const { contacts: data } = await contactApi.getContacts();
       setContacts(data);
-      setFiltered(data);
     } catch {
       // Will retry
     }
@@ -64,19 +62,14 @@ export function useCreateGroup(): UseCreateGroupReturn {
     init();
   }, [loadContacts]);
 
-  useEffect(() => {
-    if (!search.trim()) {
-      setFiltered(contacts);
-      return;
-    }
-    const q = search.toLowerCase();
-    setFiltered(
-      contacts.filter((c) => {
-        const name = c.nickname ?? c.contactUser.name ?? '';
-        const phone = c.contactUser.phone;
-        return name.toLowerCase().includes(q) || phone.includes(q);
-      }),
-    );
+  const filtered = useMemo(() => {
+    const q = search.toLowerCase().trim();
+    if (!q) return contacts;
+    return contacts.filter((c) => {
+      const name = c.nickname ?? c.contactUser.name ?? '';
+      const phone = c.contactUser.phone;
+      return name.toLowerCase().includes(q) || phone.includes(q);
+    });
   }, [search, contacts]);
 
   const toggleMember = useCallback((contactUserId: string) => {

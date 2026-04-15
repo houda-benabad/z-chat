@@ -55,6 +55,12 @@ export const createStyles = (colors: AppColors) => StyleSheet.create({
     justifyContent: 'center',
     gap: 10,
   },
+  hiddenInput: {
+    position: 'absolute',
+    width: 1,
+    height: 1,
+    opacity: 0,
+  },
   codeInput: {
     width: 48,
     height: 56,
@@ -62,11 +68,15 @@ export const createStyles = (colors: AppColors) => StyleSheet.create({
     borderWidth: 2,
     borderColor: colors.border,
     backgroundColor: colors.surface,
-    textAlign: 'center',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  codeDigitText: {
     fontSize: typography.sizes.xl,
     fontFamily: typography.fontFamily,
     fontWeight: typography.weights.bold,
     color: colors.text,
+    textAlign: 'center',
   },
   codeInputFocused: {
     borderColor: colors.primary,

@@ -42,7 +42,11 @@ export function createApp(
     next();
   });
 
-  app.use("/uploads", express.static(path.join(process.cwd(), "public/uploads")));
+  app.use("/uploads", express.static(path.join(process.cwd(), "public/uploads"), {
+    maxAge: "30d",
+    immutable: true,
+    etag: true,
+  }));
 
   app.get("/health", (_req, res) => {
     res.json({ status: "ok" });

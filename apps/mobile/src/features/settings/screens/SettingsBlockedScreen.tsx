@@ -64,6 +64,9 @@ export default function SettingsBlockedScreen() {
         data={blocked}
         keyExtractor={(item) => item.id}
         renderItem={renderItem}
+        removeClippedSubviews
+        maxToRenderPerBatch={10}
+        windowSize={9}
         contentContainerStyle={blocked.length === 0 ? styles.emptyContainer : undefined}
         ListEmptyComponent={
           <View style={styles.emptyState}>

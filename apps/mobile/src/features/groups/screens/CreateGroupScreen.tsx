@@ -220,6 +220,9 @@ export default function CreateGroupScreen() {
         data={filtered}
         keyExtractor={(item) => item.id}
         renderItem={renderContact}
+        removeClippedSubviews
+        maxToRenderPerBatch={12}
+        windowSize={9}
         contentContainerStyle={filtered.length === 0 ? styles.emptyContainer : undefined}
         ListEmptyComponent={
           <View style={styles.emptyState}>

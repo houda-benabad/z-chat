@@ -627,6 +627,9 @@ export default function ChatScreen() {
           )}
           style={styles.msgList}
           contentContainerStyle={styles.msgContent}
+          removeClippedSubviews
+          maxToRenderPerBatch={10}
+          windowSize={11}
           onScroll={handleScroll}
           scrollEventThrottle={16}
           onContentSizeChange={() => flatListRef.current?.scrollToEnd({ animated: false })}

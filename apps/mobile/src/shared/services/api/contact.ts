@@ -10,6 +10,9 @@ export const contactApi = {
     return request(`/contacts${qs ? `?${qs}` : ''}`);
   },
 
+  checkContact: (contactUserId: string): Promise<{ isContact: boolean; nickname: string | null }> =>
+    request(`/contacts/check/${contactUserId}`),
+
   addContact: (phone: string, nickname?: string): Promise<{ contact: ContactItem }> =>
     request('/contacts', {
       method: 'POST',

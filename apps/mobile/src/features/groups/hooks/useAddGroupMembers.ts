@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { Alert } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { contactApi, groupApi } from '@/shared/services/api';
@@ -22,7 +22,6 @@ export function useAddGroupMembers(): UseAddGroupMembersReturn {
   const { chatId } = useLocalSearchParams<{ chatId: string }>();
   const router = useRouter();
   const [contacts, setContacts] = useState<ContactItem[]>([]);
-  const [filtered, setFiltered] = useState<ContactItem[]>([]);
   const [search, setSearch] = useState('');
   const [loading, setLoading] = useState(true);
   const [adding, setAdding] = useState(false);
@@ -38,7 +37,6 @@ export function useAddGroupMembers(): UseAddGroupMembersReturn {
           chatId ? groupApi.getGroupInfo(chatId) : null,
         ]);
         setContacts(contactsRes.contacts);
-        setFiltered(contactsRes.contacts);
         if (groupRes) {
           setGroupInfo(groupRes.group);
           setExistingMemberIds(new Set(groupRes.group.participants.map((p) => p.userId)));
@@ -52,18 +50,13 @@ export function useAddGroupMembers(): UseAddGroupMembersReturn {
     init();
   }, [chatId]);
 
-  useEffect(() => {
-    if (!search.trim()) {
-      setFiltered(contacts);
-      return;
-    }
-    const q = search.toLowerCase();
-    setFiltered(
-      contacts.filter((c) => {
-        const name = c.nickname ?? c.contactUser.name ?? '';
-        return name.toLowerCase().includes(q) || c.contactUser.phone.includes(q);
-      }),
-    );
+  const filtered = useMemo(() => {
+    const q = search.toLowerCase().trim();
+    if (!q) return contacts;
+    return contacts.filter((c) => {
+      const name = c.nickname ?? c.contactUser.name ?? '';
+      return name.toLowerCase().includes(q) || c.contactUser.phone.includes(q);
+    });
   }, [search, contacts]);
 
   const toggleMember = useCallback((contactUserId: string) => {

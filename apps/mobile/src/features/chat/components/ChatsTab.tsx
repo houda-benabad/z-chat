@@ -114,6 +114,9 @@ export function ChatsTab({
           onSwipeableRef={(id, ref) => swipeableRefs.current.set(id, ref)}
         />
       )}
+      removeClippedSubviews
+      maxToRenderPerBatch={12}
+      windowSize={11}
       contentContainerStyle={[
         chats.length === 0 && styles.emptyContainer,
         { paddingBottom: navHeight + 72 },

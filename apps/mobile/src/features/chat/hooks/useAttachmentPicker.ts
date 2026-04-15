@@ -23,50 +23,58 @@ export function useAttachmentPicker({ onMediaSelected, disabled }: UseAttachment
   }, []);
 
   const pickPhoto = useCallback(async () => {
-    setMenuVisible(false);
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (status !== 'granted') {
+      setMenuVisible(false);
       Alert.alert('Photo Access Required', 'Please enable photo library access in Settings to send images.', [{ text: 'OK' }]);
       return;
     }
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ['images'],
+      allowsMultipleSelection: true,
       quality: 0.8,
     });
-    if (!result.canceled && result.assets[0]) {
-      const asset = result.assets[0];
-      await onMediaSelected(asset.uri, asset.mimeType ?? 'image/jpeg', 'image');
+    setMenuVisible(false);
+    if (!result.canceled && result.assets.length > 0) {
+      for (const asset of result.assets) {
+        await onMediaSelected(asset.uri, asset.mimeType ?? 'image/jpeg', 'image');
+      }
     }
   }, [onMediaSelected]);
 
   const pickVideo = useCallback(async () => {
-    setMenuVisible(false);
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (status !== 'granted') {
+      setMenuVisible(false);
       Alert.alert('Media Access Required', 'Please enable media library access in Settings to send videos.', [{ text: 'OK' }]);
       return;
     }
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ['videos'],
+      allowsMultipleSelection: true,
     });
-    if (!result.canceled && result.assets[0]) {
-      const asset = result.assets[0];
-      await onMediaSelected(asset.uri, asset.mimeType ?? 'video/mp4', 'video');
+    setMenuVisible(false);
+    if (!result.canceled && result.assets.length > 0) {
+      for (const asset of result.assets) {
+        await onMediaSelected(asset.uri, asset.mimeType ?? 'video/mp4', 'video');
+      }
     }
   }, [onMediaSelected]);
 
   const pickDocument = useCallback(async () => {
-    setMenuVisible(false);
     const result = await DocumentPicker.getDocumentAsync({
       type: [
         'application/pdf',
         'application/msword',
         'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
       ],
+      multiple: true,
     });
-    if (!result.canceled && result.assets[0]) {
-      const asset = result.assets[0];
-      await onMediaSelected(asset.uri, asset.mimeType ?? 'application/pdf', 'document');
+    setMenuVisible(false);
+    if (!result.canceled && result.assets.length > 0) {
+      for (const asset of result.assets) {
+        await onMediaSelected(asset.uri, asset.mimeType ?? 'application/pdf', 'document');
+      }
     }
   }, [onMediaSelected]);
 

@@ -88,6 +88,9 @@ export default function StarredMessagesScreen() {
         data={starred}
         keyExtractor={(item) => item.id}
         renderItem={renderItem}
+        removeClippedSubviews
+        maxToRenderPerBatch={10}
+        windowSize={9}
         contentContainerStyle={starred.length === 0 ? styles.emptyContainer : undefined}
         ListEmptyComponent={
           <View style={styles.emptyState}>

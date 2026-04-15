@@ -1,6 +1,7 @@
 import { SettingsRepository } from "./repository";
 import { AppError } from "../../shared/utils/errors";
 import { getIO } from "../../socket";
+import { getRedis } from "../../shared/database/redis";
 
 export class SettingsService {
   constructor(private repo: SettingsRepository) {}
@@ -44,6 +45,10 @@ export class SettingsService {
 
     await this.repo.blockUser(userId, targetId);
 
+    // Invalidate cached block lists for both users
+    const redis = getRedis();
+    await Promise.all([redis.del(`blocked:${userId}`), redis.del(`blocked:${targetId}`)]);
+
     // Immediately hide presence for both parties (bidirectional, like WhatsApp)
     const io = getIO();
     if (io) {
@@ -54,6 +59,11 @@ export class SettingsService {
 
   async unblockUser(userId: string, blockedUserId: string) {
     await this.repo.unblockUser(userId, blockedUserId);
+
+    // Invalidate cached block lists for both users
+    const redis = getRedis();
+    await Promise.all([redis.del(`blocked:${userId}`), redis.del(`blocked:${blockedUserId}`)]);
+
 
     // Restore presence if no reverse block exists
     const reverseBlocked = await this.repo.isBlockedBy(blockedUserId, userId);

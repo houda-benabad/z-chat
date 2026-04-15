@@ -113,6 +113,9 @@ export default function AddGroupMembersScreen() {
         data={filtered}
         keyExtractor={(item) => item.id}
         renderItem={renderContact}
+        removeClippedSubviews
+        maxToRenderPerBatch={12}
+        windowSize={9}
       />
     </View>
   );

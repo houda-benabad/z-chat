@@ -32,6 +32,9 @@ export function SearchResultList({ results, query, onResultPress }: SearchResult
           <FlatList
             data={results}
             keyExtractor={(m) => m.id}
+            removeClippedSubviews
+            maxToRenderPerBatch={10}
+            windowSize={9}
             renderItem={({ item }) => (
               <SearchResultItem
                 message={item}

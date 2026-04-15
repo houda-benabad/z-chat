@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useMemo } from 'react';
 import { chatApi } from '@/shared/services/api';
 import {
   encryptMessage,
@@ -152,19 +152,21 @@ export function useForwardModal({ socket, myUserId, onSent }: UseForwardModalPar
     close();
   }, [message, socket, selectedIds, chats, myUserId, onSent, close]);
 
-  const q = search.toLowerCase().trim();
-  const filteredChats: ForwardRecipient[] = chats
-    .map((c) => {
-      const isGroup = c.type === 'group';
-      const name = isGroup
-        ? (c.name ?? 'Group')
-        : (c.participants.find((p) => p.userId !== myUserId)?.user.name ?? 'Unknown');
-      const avatar = isGroup
-        ? c.avatar
-        : (c.participants.find((p) => p.userId !== myUserId)?.user.avatar ?? null);
-      return { id: c.id, name, avatar, isGroup };
-    })
-    .filter((r) => !q || r.name.toLowerCase().includes(q));
+  const filteredChats = useMemo<ForwardRecipient[]>(() => {
+    const q = search.toLowerCase().trim();
+    return chats
+      .map((c) => {
+        const isGroup = c.type === 'group';
+        const name = isGroup
+          ? (c.name ?? 'Group')
+          : (c.participants.find((p) => p.userId !== myUserId)?.user.name ?? 'Unknown');
+        const avatar = isGroup
+          ? c.avatar
+          : (c.participants.find((p) => p.userId !== myUserId)?.user.avatar ?? null);
+        return { id: c.id, name, avatar, isGroup };
+      })
+      .filter((r) => !q || r.name.toLowerCase().includes(q));
+  }, [search, chats, myUserId]);
 
   return {
     visible,

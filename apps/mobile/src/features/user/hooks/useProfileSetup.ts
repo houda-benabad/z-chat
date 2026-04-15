@@ -23,7 +23,7 @@ export interface UseProfileSetupReturn {
 
 export function useProfileSetup(): UseProfileSetupReturn {
   const router = useRouter();
-  const { refreshProfile } = useUserProfile();
+  const { updateProfile } = useUserProfile();
   const [displayName, setDisplayName] = useState('');
   const [about, setAbout] = useState('');
   const [avatarUri, setAvatarUri] = useState<string | null>(null);
@@ -46,44 +46,39 @@ export function useProfileSetup(): UseProfileSetupReturn {
     setIsLoading(true);
     setError(null);
 
-    // Step 1: avatar upload + profile update
     try {
-      let avatarUrl: string | undefined;
-      if (avatarUri) {
-        avatarUrl = await uploadAvatar(avatarUri);
-      }
-      await userApi.updateProfile({
-        name: displayName.trim(),
-        about: about.trim() || undefined,
-        avatar: avatarUrl,
-      });
-    } catch (err) {
-      setError(
-        err instanceof ApiError
-          ? err.message
-          : 'Failed to update profile. Please try again.',
-      );
-      setIsLoading(false);
-      return;
-    }
+      // Run profile setup and key generation in parallel — they are independent
+      const profileTask = async () => {
+        let avatarUrl: string | undefined;
+        if (avatarUri) {
+          avatarUrl = await uploadAvatar(avatarUri);
+        }
+        // Uses context's updateProfile which calls the API AND sets profile state
+        await updateProfile({
+          name: displayName.trim(),
+          about: about.trim() || undefined,
+          avatar: avatarUrl,
+        });
+      };
 
-    // Step 2: E2E key generation + publishing
-    try {
-      const publicKey = await getOrCreateKeyPair();
-      await userApi.uploadPublicKey(publicKey);
+      const keyTask = async () => {
+        const publicKey = await getOrCreateKeyPair();
+        await userApi.uploadPublicKey(publicKey);
+      };
+
+      await Promise.all([profileTask(), keyTask()]);
     } catch (err) {
       const message = err instanceof ApiError
         ? err.message
-        : (err instanceof Error ? err.message : 'Failed to initialize encryption. Please try again.');
+        : (err instanceof Error ? err.message : 'Failed to set up profile. Please try again.');
       setError(message);
       setIsLoading(false);
       return;
     }
 
-    await refreshProfile();
     setIsLoading(false);
     router.replace('/chat-list');
-  }, [isValid, displayName, about, avatarUri, router, refreshProfile]);
+  }, [isValid, displayName, about, avatarUri, router, updateProfile]);
 
   return {
     displayName,

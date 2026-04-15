@@ -72,14 +72,17 @@ export function useStarredMessages() {
   }, [loadStarred]);
 
   const handleUnstar = useCallback(async (item: StarredMessageItem) => {
-    const prev = starred;
-    setStarred((s) => s.filter((i) => i.id !== item.id));
+    let previous: StarredMessageItem[] = [];
+    setStarred((prev) => {
+      previous = prev;
+      return prev.filter((i) => i.id !== item.id);
+    });
     try {
       await chatApi.unstarMessage(item.message.chatId, item.messageId);
     } catch {
-      setStarred(prev);
+      setStarred(previous);
     }
-  }, [starred]);
+  }, []);
 
   return {
     starred,

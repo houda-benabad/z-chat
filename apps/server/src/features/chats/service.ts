@@ -41,64 +41,84 @@ export class ChatService {
     ]);
     const hiddenUserIds = new Set([...blockedIds, ...blockedByIds]);
 
-    const chatsWithMeta = await Promise.all(
-      rows.map(async (chat: (typeof rows)[number]) => {
-        const myParticipant = chat.participants.find((p: { userId: string }) => p.userId === userId);
-        const deletedAt = myParticipant?.deletedAt ?? null;
-        const visibleAfter = (myParticipant as any)?.visibleAfter ?? null;
+    // ── Batch-fetch lastRead message dates to avoid N+1 queries ──────────
+    const lastReadIds = rows
+      .map((chat: (typeof rows)[number]) => {
+        const myP = chat.participants.find((p: { userId: string }) => p.userId === userId);
+        return myP?.lastReadMessageId ?? null;
+      })
+      .filter((id: string | null): id is string => id != null);
+    const lastReadCreatedAtMap = await this.repo.getMessageCreatedAtByIds(lastReadIds);
 
-        // Hide chat if user deleted it and no new messages have arrived since
-        if (deletedAt && chat.updatedAt <= deletedAt) return null;
+    // Build per-chat cutoff dates for unread counts
+    type ChatRow = (typeof rows)[number];
+    const unreadItems: { chatId: string; afterDate: Date }[] = [];
+    const chatMeta = new Map<string, {
+      myParticipant: any; deletedAt: Date | null;
+      visibleAfter: Date | null; cutoff: Date;
+    }>();
 
-        const lastReadId = myParticipant?.lastReadMessageId;
-        const visibleSince = visibleAfter ?? new Date(0);
+    for (const chat of rows) {
+      const myParticipant = chat.participants.find((p: { userId: string }) => p.userId === userId);
+      const deletedAt = myParticipant?.deletedAt ?? null;
+      const visibleAfter = (myParticipant as any)?.visibleAfter ?? null;
 
-        let unreadCount = 0;
-        if (lastReadId) {
-          const lastReadMsg = await this.repo.findMessageById(lastReadId);
-          if (lastReadMsg) {
-            // Use the later of lastRead or visibleAfter so deleted chats don't
-            // re-surface old unread counts when new messages arrive
-            const cutoff =
-              lastReadMsg.createdAt > visibleSince ? lastReadMsg.createdAt : visibleSince;
-            unreadCount = await this.repo.countUnreadMessages(chat.id, userId, cutoff);
-          }
-        } else {
-          unreadCount = await this.repo.countUnreadMessages(chat.id, userId, visibleSince);
+      if (deletedAt && chat.updatedAt <= deletedAt) {
+        chatMeta.set(chat.id, { myParticipant, deletedAt, visibleAfter, cutoff: new Date(0) });
+        continue; // will be filtered out
+      }
+
+      const lastReadId = myParticipant?.lastReadMessageId;
+      const visibleSince = visibleAfter ?? new Date(0);
+      let cutoff = visibleSince;
+
+      if (lastReadId) {
+        const lastReadDate = lastReadCreatedAtMap.get(lastReadId);
+        if (lastReadDate) {
+          cutoff = lastReadDate > visibleSince ? lastReadDate : visibleSince;
         }
+      }
 
-        // Only show the last message if it arrived after the deletion
-        const lastMessage =
-          chat.messages[0] && (!visibleAfter || new Date(chat.messages[0].createdAt) > visibleAfter)
-            ? chat.messages[0]
-            : null;
+      chatMeta.set(chat.id, { myParticipant, deletedAt, visibleAfter, cutoff });
+      unreadItems.push({ chatId: chat.id, afterDate: cutoff });
+    }
 
-        // Mask presence for blocked users (bidirectional)
-        const participants = chat.participants.map((p: any) => {
-          if (p.userId !== userId && hiddenUserIds.has(p.userId)) {
-            return {
-              ...p,
-              user: { ...p.user, isOnline: false, lastSeen: null, avatar: null },
-            };
-          }
-          return p;
-        });
+    // ── Single batch for all unread counts ─────────────────────────────
+    const unreadMap = await this.repo.batchCountUnreadMessages(unreadItems, userId);
 
-        return {
-          id: chat.id,
-          type: chat.type,
-          name: chat.name ?? null,
-          avatar: chat.avatar ?? null,
-          description: chat.description ?? null,
-          createdBy: chat.createdBy ?? null,
-          participants,
-          lastMessage,
-          unreadCount,
-          isPinned: myParticipant?.isPinned ?? false,
-          updatedAt: chat.updatedAt,
-        };
-      }),
-    );
+    const chatsWithMeta = rows.map((chat: ChatRow) => {
+      const meta = chatMeta.get(chat.id)!;
+      if (meta.deletedAt && chat.updatedAt <= meta.deletedAt) return null;
+
+      const lastMessage =
+        chat.messages[0] && (!meta.visibleAfter || new Date(chat.messages[0].createdAt) > meta.visibleAfter)
+          ? chat.messages[0]
+          : null;
+
+      const participants = chat.participants.map((p: any) => {
+        if (p.userId !== userId && hiddenUserIds.has(p.userId)) {
+          return {
+            ...p,
+            user: { ...p.user, isOnline: false, lastSeen: null, avatar: null },
+          };
+        }
+        return p;
+      });
+
+      return {
+        id: chat.id,
+        type: chat.type,
+        name: chat.name ?? null,
+        avatar: chat.avatar ?? null,
+        description: chat.description ?? null,
+        createdBy: chat.createdBy ?? null,
+        participants,
+        lastMessage,
+        unreadCount: unreadMap.get(chat.id) ?? 0,
+        isPinned: meta.myParticipant?.isPinned ?? false,
+        updatedAt: chat.updatedAt,
+      };
+    });
 
     const filtered = chatsWithMeta.filter(Boolean) as NonNullable<
       (typeof chatsWithMeta)[number]

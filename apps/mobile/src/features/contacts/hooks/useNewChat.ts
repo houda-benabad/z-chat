@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { TextInput } from 'react-native';
 import { contactApi } from '@/shared/services/api';
@@ -100,15 +100,17 @@ export function useNewChat(): UseNewChatReturn {
     });
   }, [router, openingId]);
 
-  const q = search.toLowerCase().trim();
-  const filtered = q
-    ? contacts.filter((c) => {
-        const name = getContactDisplayName(c).toLowerCase();
-        return name.includes(q) || c.contactUser.phone.includes(q);
-      })
-    : contacts;
+  const filtered = useMemo(() => {
+    const q = search.toLowerCase().trim();
+    return q
+      ? contacts.filter((c) => {
+          const name = getContactDisplayName(c).toLowerCase();
+          return name.includes(q) || c.contactUser.phone.includes(q);
+        })
+      : contacts;
+  }, [search, contacts]);
 
-  const sections = groupContactsByLetter(filtered);
+  const sections = useMemo(() => groupContactsByLetter(filtered), [filtered]);
 
   return {
     contacts,

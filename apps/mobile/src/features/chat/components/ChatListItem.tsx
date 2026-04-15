@@ -1,3 +1,4 @@
+import { memo } from 'react';
 import { View, Text, Pressable } from 'react-native';
 import { Swipeable, TouchableOpacity } from 'react-native-gesture-handler';
 import { Ionicons } from '@expo/vector-icons';
@@ -21,7 +22,7 @@ interface Props {
   onSwipeableRef: (chatId: string, ref: Swipeable | null) => void;
 }
 
-export function ChatListItem({
+export const ChatListItem = memo(function ChatListItem({
   item,
   nicknames,
   myUserId,
@@ -118,4 +119,4 @@ export function ChatListItem({
       </Pressable>
     </Swipeable>
   );
-}
+});

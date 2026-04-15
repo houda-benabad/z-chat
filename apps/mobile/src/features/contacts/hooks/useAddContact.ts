@@ -51,7 +51,9 @@ export function useAddContact(): UseAddContactReturn {
 
   // Load existing contact names for duplicate checking
   useEffect(() => {
+    let cancelled = false;
     contactApi.getContacts(0, 500).then(({ contacts }) => {
+      if (cancelled) return;
       const names = new Set(
         contacts.map((c) => {
           const display = c.nickname ?? c.contactUser.name ?? c.contactUser.phone;
@@ -60,6 +62,7 @@ export function useAddContact(): UseAddContactReturn {
       );
       existingNamesRef.current = names;
     }).catch(() => {});
+    return () => { cancelled = true; };
   }, []);
 
   // Clear nameError when contactName changes

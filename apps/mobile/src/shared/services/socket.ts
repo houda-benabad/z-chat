@@ -15,6 +15,7 @@ export async function connectSocket(): Promise<Socket> {
     reconnection: true,
     reconnectionAttempts: 10,
     reconnectionDelay: 1000,
+    reconnectionDelayMax: 30000,
   });
 
   return new Promise((resolve, reject) => {

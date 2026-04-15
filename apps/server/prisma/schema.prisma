@@ -79,6 +79,7 @@ model ChatParticipant {
 
   @@unique([chatId, userId])
   @@index([userId])
+  @@index([chatId])
   @@map("chat_participants")
 }
 
@@ -176,5 +177,6 @@ model StarredMessage {
 
   @@unique([userId, messageId])
   @@index([userId])
+  @@index([userId, createdAt])
   @@map("starred_messages")
 }

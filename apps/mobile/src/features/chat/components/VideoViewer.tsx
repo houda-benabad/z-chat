@@ -1,16 +1,16 @@
 import { Modal, View, Pressable, StatusBar, Dimensions } from 'react-native';
-import { Image } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { Video, ResizeMode } from 'expo-av';
 
-interface ImageViewerProps {
+interface VideoViewerProps {
   uri: string | null;
   onClose: () => void;
 }
 
 const { width, height } = Dimensions.get('window');
 
-export function ImageViewer({ uri, onClose }: ImageViewerProps) {
+export function VideoViewer({ uri, onClose }: VideoViewerProps) {
   const insets = useSafeAreaInsets();
 
   return (
@@ -24,12 +24,12 @@ export function ImageViewer({ uri, onClose }: ImageViewerProps) {
       <StatusBar barStyle="light-content" backgroundColor="#000" />
       <View style={{ flex: 1, backgroundColor: '#000', justifyContent: 'center', alignItems: 'center' }}>
         {uri && (
-          <Image
-            source={uri}
+          <Video
+            source={{ uri }}
             style={{ width, height: height * 0.85 }}
-            contentFit="contain"
-            cachePolicy="memory-disk"
-            transition={200}
+            resizeMode={ResizeMode.CONTAIN}
+            useNativeControls
+            shouldPlay
           />
         )}
         <Pressable

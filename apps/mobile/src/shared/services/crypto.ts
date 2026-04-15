@@ -117,13 +117,18 @@ export async function getOrCreateKeyPair(): Promise<string> {
 
   await storeItem(PRIVATE_KEY_KEY, privateKeyB64);
   await storeItem(PUBLIC_KEY_KEY, publicKeyB64);
+  _cachedPrivateKey = keyPair.secretKey;
 
   return publicKeyB64;
 }
 
+let _cachedPrivateKey: Uint8Array | null | undefined;
+
 async function getPrivateKeyBytes(): Promise<Uint8Array | null> {
+  if (_cachedPrivateKey !== undefined) return _cachedPrivateKey;
   const stored = await loadItem(PRIVATE_KEY_KEY);
-  return stored ? fromBase64(stored) : null;
+  _cachedPrivateKey = stored ? fromBase64(stored) : null;
+  return _cachedPrivateKey;
 }
 
 // ---------------------------------------------------------------------------

@@ -103,12 +103,23 @@ export function createSocketServer(httpServer: HttpServer, prisma: PrismaClient,
       socket.join(`chat:${p.chatId}`);
     }
 
-    // Fetches a fresh block list each time — ensures unblock takes effect immediately
-    // Bidirectional: excludes both users this user blocked AND users who blocked this user
-    const getBlockedSocketIds = async () => {
+    // Cached block list — avoids DB hits on every typing event
+    // Invalidated by settings service on block/unblock via Redis DEL
+    const BLOCK_CACHE_TTL = 300; // 5 minutes
+    const getBlockedUserIdsCached = async (): Promise<string[]> => {
+      const redis = getRedis();
+      const cacheKey = `blocked:${userId}`;
+      const cached = await redis.get(cacheKey);
+      if (cached) return JSON.parse(cached);
       const blockedIds = await settingsRepo.getBlockedUserIds(userId);
       const blockedByIds = await settingsRepo.getBlockedByUserIds(userId);
       const allIds = [...new Set([...blockedIds, ...blockedByIds])];
+      await redis.set(cacheKey, JSON.stringify(allIds), "EX", BLOCK_CACHE_TTL);
+      return allIds;
+    };
+
+    const getBlockedSocketIds = async () => {
+      const allIds = await getBlockedUserIdsCached();
       return allIds.flatMap((id) => [...(userSockets.get(id) ?? [])]);
     };
 
@@ -232,31 +243,38 @@ export function createSocketServer(httpServer: HttpServer, prisma: PrismaClient,
       }
     });
 
-    // --- Event: message:read ---
-    socket.on("message:read", async (data) => {
+    // --- Event: message:read (debounced per chat) ---
+    const readDebounce = new Map<string, ReturnType<typeof setTimeout>>();
+    socket.on("message:read", (data) => {
       if (isRateLimited(readThrottle, userId, 30, 60_000)) return;
       try {
         const parsed = markReadSchema.parse(data);
+        // Debounce: coalesce rapid reads for the same chat (e.g. fast scrolling)
+        const key = parsed.chatId;
+        const existing = readDebounce.get(key);
+        if (existing) clearTimeout(existing);
+        readDebounce.set(key, setTimeout(async () => {
+          readDebounce.delete(key);
+          try {
+            const participant = await chatRepo.findParticipant(parsed.chatId, userId);
+            if (!participant) return;
 
-        // Validate the user is actually a participant in this chat
-        const participant = await chatRepo.findParticipant(parsed.chatId, userId);
-        if (!participant) return;
+            await chatRepo.markMessageRead(parsed.chatId, userId, parsed.messageId);
 
-        await chatRepo.markMessageRead(parsed.chatId, userId, parsed.messageId);
-
-        // Only broadcast the read receipt if the user has readReceipts enabled.
-        // Matching WhatsApp behaviour: disabling readReceipts means neither
-        // party can see read status.
-        const userSettings = await settingsRepo.getOrCreateSettings(userId);
-        if (userSettings.readReceipts !== false) {
-          socket.to(`chat:${parsed.chatId}`).emit("message:read", {
-            chatId: parsed.chatId,
-            userId,
-            messageId: parsed.messageId,
-          });
-        }
+            const userSettings = await settingsRepo.getOrCreateSettings(userId);
+            if (userSettings.readReceipts !== false) {
+              socket.to(`chat:${parsed.chatId}`).emit("message:read", {
+                chatId: parsed.chatId,
+                userId,
+                messageId: parsed.messageId,
+              });
+            }
+          } catch {
+            // Silently ignore invalid read receipts
+          }
+        }, 500));
       } catch {
-        // Silently ignore invalid read receipts
+        // Invalid schema
       }
     });
 

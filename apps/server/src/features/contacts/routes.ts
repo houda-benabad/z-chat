@@ -17,6 +17,7 @@ export function createContactRouter(prisma: PrismaClient, jwtSecret: string): Ro
 
   router.post("/", validate(addContactSchema), controller.addContact);
   router.get("/", controller.listContacts);
+  router.get("/check/:userId", controller.checkContact);
   router.patch("/:id", validate(updateContactNicknameSchema), controller.updateNickname);
   router.delete("/:id", controller.removeContact);
   router.post("/sync", validate(syncContactsSchema), controller.syncContacts);

@@ -54,11 +54,15 @@ export async function uploadMedia(uri: string, mimeType = 'image/jpeg'): Promise
       formData.append('media', { uri, name: `media.${ext}`, type: mimeType } as unknown as Blob);
     }
 
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 60_000);
     const response = await fetch(`${API_BASE_URL}/upload/media`, {
       method: 'POST',
       headers: token ? { Authorization: `Bearer ${token}` } : {},
       body: formData,
+      signal: controller.signal,
     });
+    clearTimeout(timeout);
 
     if (!response.ok) {
       const body = await response.json().catch(() => ({}));
@@ -105,11 +109,15 @@ export async function uploadAvatar(uri: string): Promise<string> {
       formData.append('avatar', { uri: uploadUri, name: `avatar.${ext}`, type: `image/${ext}` } as unknown as Blob);
     }
 
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 30_000);
     const response = await fetch(`${API_BASE_URL}/upload/avatar`, {
       method: 'POST',
       headers: token ? { Authorization: `Bearer ${token}` } : {},
       body: formData,
+      signal: controller.signal,
     });
+    clearTimeout(timeout);
 
     if (!response.ok) {
       const body = await response.json().catch(() => ({}));

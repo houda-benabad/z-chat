@@ -62,6 +62,9 @@ export function ForwardModal({
             data={chats}
             keyExtractor={(item) => item.id}
             keyboardShouldPersistTaps="handled"
+            removeClippedSubviews
+            maxToRenderPerBatch={12}
+            windowSize={9}
             ListEmptyComponent={
               <Text style={styles.emptyText}>No chats found</Text>
             }

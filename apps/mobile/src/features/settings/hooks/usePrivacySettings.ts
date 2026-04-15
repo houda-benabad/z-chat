@@ -31,17 +31,21 @@ export function usePrivacySettings() {
 
   const updatePrivacy = useCallback(
     async (update: Partial<UserSettings>) => {
-      if (!settings) return;
-      const optimistic = { ...settings, ...update };
-      setSettings(optimistic);
+      let previous: UserSettings | null = null;
+      setSettings((prev) => {
+        if (!prev) return prev;
+        previous = prev;
+        return { ...prev, ...update };
+      });
+      if (!previous) return;
       try {
         const { settings: updated } = await settingsApi.updatePrivacy(update);
         setSettings(updated);
       } catch {
-        setSettings(settings); // revert
+        setSettings(previous);
       }
     },
-    [settings],
+    [],
   );
 
   const updateLastSeenVisibility = useCallback(

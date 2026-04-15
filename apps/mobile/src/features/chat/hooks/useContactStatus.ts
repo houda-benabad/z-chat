@@ -29,10 +29,9 @@ export function useContactStatus({
   useFocusEffect(
     useCallback(() => {
       if (isGroup || !recipientId) return;
-      contactApi.getContacts(0, 500).then(({ contacts }) => {
-        const match = contacts.find((c) => c.contactUserId === recipientId);
-        setIsContact(!!match);
-        setContactNickname(match?.nickname ?? null);
+      contactApi.checkContact(recipientId).then(({ isContact: found, nickname }) => {
+        setIsContact(found);
+        setContactNickname(nickname);
       }).catch(() => {});
     }, [isGroup, recipientId]),
   );

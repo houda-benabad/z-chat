@@ -6,6 +6,11 @@ import { AuthRequest } from "../../shared/middleware/auth";
 export class ContactController {
   constructor(private service: ContactService) {}
 
+  checkContact = asyncHandler(async (req: AuthRequest, res: Response) => {
+    const result = await this.service.checkContact(req.userId!, String(req.params.userId));
+    res.json(result);
+  });
+
   addContact = asyncHandler(async (req: AuthRequest, res: Response) => {
     const { phone, nickname } = req.body;
     const { contact, created } = await this.service.addContact(req.userId!, phone, nickname);

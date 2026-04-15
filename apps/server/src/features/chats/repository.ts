@@ -97,6 +97,28 @@ export class ChatRepository {
     });
   }
 
+  async batchCountUnreadMessages(
+    items: { chatId: string; afterDate: Date }[],
+    userId: string,
+  ): Promise<Map<string, number>> {
+    if (items.length === 0) return new Map();
+    const counts = await Promise.all(
+      items.map(({ chatId, afterDate }) =>
+        this.prisma.message.count({
+          where: {
+            chatId,
+            senderId: { not: userId },
+            createdAt: { gt: afterDate },
+            isDeleted: false,
+          },
+        }).then((count: number) => ({ chatId, count })),
+      ),
+    );
+    const map = new Map<string, number>();
+    for (const { chatId, count } of counts) map.set(chatId, count);
+    return map;
+  }
+
   async findParticipant(chatId: string, userId: string) {
     return this.prisma.chatParticipant.findUnique({
       where: { chatId_userId: { chatId, userId } },

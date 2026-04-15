@@ -1,5 +1,5 @@
 import { Router, Request, Response, NextFunction } from "express";
-import multer from "multer";
+import multer, { MulterError } from "multer";
 import path from "path";
 import { promises as fs } from "fs";
 import { randomUUID } from "crypto";
@@ -52,7 +52,7 @@ const upload = multer({
 
 const mediaUpload = multer({
   storage,
-  limits: { fileSize: 20 * 1024 * 1024 }, // 20MB
+  limits: { fileSize: 100 * 1024 * 1024 }, // 100MB — mobile videos can be large
   fileFilter: (_req, file, cb) => {
     if (
       file.mimetype.startsWith("image/") ||
@@ -96,16 +96,34 @@ export function createUploadRouter(jwtSecret: string, uploadBaseUrl: string): Ro
 
   router.post(
     "/avatar",
-    upload.single("avatar"),
+    handleMulterErrors(upload.single("avatar")),
     validateMagicBytes(["image/"]),
     controller.uploadAvatar,
   );
   router.post(
     "/media",
-    mediaUpload.single("media"),
+    handleMulterErrors(mediaUpload.single("media")),
     validateMagicBytes(["image/", "video/", "audio/", "application/"]),
     controller.uploadMedia,
   );
 
   return router;
+}
+
+/** Wrap multer middleware to return clear error responses instead of generic 500s */
+function handleMulterErrors(multerMiddleware: ReturnType<typeof multer.prototype.single>) {
+  return (req: Request, res: Response, next: NextFunction) => {
+    multerMiddleware(req, res, (err: unknown) => {
+      if (!err) return next();
+      if (err instanceof MulterError && err.code === "LIMIT_FILE_SIZE") {
+        res.status(413).json({ error: "File too large" });
+        return;
+      }
+      if (err instanceof Error) {
+        res.status(400).json({ error: err.message });
+        return;
+      }
+      next(err);
+    });
+  };
 }

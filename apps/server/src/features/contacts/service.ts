@@ -4,6 +4,12 @@ import { AppError } from "../../shared/utils/errors";
 export class ContactService {
   constructor(private repo: ContactRepository) {}
 
+  async checkContact(userId: string, contactUserId: string) {
+    const contact = await this.repo.findContact(userId, contactUserId);
+    if (!contact) return { isContact: false, nickname: null };
+    return { isContact: true, nickname: contact.nickname ?? null };
+  }
+
   async addContact(userId: string, phone: string, nickname?: string) {
     const contactUser = await this.repo.findUserByPhone(phone);
     if (!contactUser) {

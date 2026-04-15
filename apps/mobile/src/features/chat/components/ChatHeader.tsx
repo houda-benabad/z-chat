@@ -1,3 +1,4 @@
+import { memo } from 'react';
 import { View, Text, Pressable } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -20,7 +21,7 @@ interface ChatHeaderProps {
   onSearchPress?: () => void;
 }
 
-export function ChatHeader({
+export const ChatHeader = memo(function ChatHeader({
   name,
   recipientAvatar,
   isOnline,
@@ -81,4 +82,4 @@ export function ChatHeader({
       </View>
     </LinearGradient>
   );
-}
+});
