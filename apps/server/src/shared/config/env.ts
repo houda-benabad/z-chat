@@ -9,6 +9,9 @@ const envSchema = z.object({
   ALLOWED_ORIGIN: z.string().default("http://localhost:8081"),
   UPLOAD_BASE_URL: z.string().url().default("http://localhost:3000"),
   SENTRY_DSN: z.string().url().optional(),
+  TWILIO_ACCOUNT_SID: z.string().optional(),
+  TWILIO_AUTH_TOKEN: z.string().optional(),
+  TWILIO_PHONE_NUMBER: z.string().optional(),
 });
 
 export type Env = z.infer<typeof envSchema>;

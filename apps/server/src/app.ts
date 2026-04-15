@@ -7,6 +7,7 @@ import { randomUUID } from "crypto";
 import { PrismaClient } from "@prisma/client";
 import Redis from "ioredis";
 import { createAuthRouter } from "./features/auth/routes";
+import { TwilioConfig } from "./features/auth/service";
 import { createUserRouter } from "./features/users/routes";
 import { createChatRouter } from "./features/chats/routes";
 import { createGroupRouter } from "./features/groups/routes";
@@ -23,6 +24,7 @@ export function createApp(
   jwtRefreshSecret: string,
   allowedOrigin: string,
   uploadBaseUrl: string,
+  twilioConfig?: TwilioConfig,
 ) {
   const app = express();
 
@@ -58,7 +60,7 @@ export function createApp(
 
   app.use(globalRateLimit);
 
-  app.use("/auth", createAuthRouter(prisma, redis, jwtSecret, jwtRefreshSecret));
+  app.use("/auth", createAuthRouter(prisma, redis, jwtSecret, jwtRefreshSecret, twilioConfig));
   app.use("/users", createUserRouter(prisma, jwtSecret));
   app.use("/chats", createChatRouter(prisma, jwtSecret));
   app.use("/groups", createGroupRouter(prisma, jwtSecret));

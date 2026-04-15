@@ -1,4 +1,5 @@
 import Redis from "ioredis";
+import Twilio from "twilio";
 import { AuthRepository } from "./repository";
 import { generateOtp, signAccessToken, signRefreshToken, verifyRefreshToken } from "../../shared/utils/tokens";
 import { AppError } from "../../shared/utils/errors";
@@ -7,19 +8,46 @@ import { logger } from "../../shared/utils/logger";
 const OTP_TTL = 5 * 60; // 5 minutes
 const DEV_OTP_BYPASS = "000000"; // accepted in non-production only
 
+export interface TwilioConfig {
+  accountSid?: string;
+  authToken?: string;
+  phoneNumber?: string;
+}
+
 export class AuthService {
+  private twilioClient: ReturnType<typeof Twilio> | null = null;
+  private twilioPhone: string | null = null;
+
   constructor(
     private repo: AuthRepository,
     private redis: Redis,
     private jwtSecret: string,
     private jwtRefreshSecret: string,
-  ) {}
+    twilioConfig?: TwilioConfig,
+  ) {
+    if (twilioConfig?.accountSid && twilioConfig?.authToken && twilioConfig?.phoneNumber) {
+      this.twilioClient = Twilio(twilioConfig.accountSid, twilioConfig.authToken);
+      this.twilioPhone = twilioConfig.phoneNumber;
+      logger.info("Twilio SMS enabled");
+    } else if (process.env.NODE_ENV === "production") {
+      logger.warn("Twilio credentials missing in production — OTP SMS will not be sent");
+    }
+  }
 
   async sendOtp(phone: string): Promise<void> {
     const otp = generateOtp();
     await this.redis.set(`otp:${phone}`, otp, "EX", OTP_TTL);
-    // Mock Twilio — log OTP instead of sending SMS
-    logger.info({ phone }, `[Mock Twilio] OTP: ${otp}`);
+
+    if (this.twilioClient && this.twilioPhone) {
+      await this.twilioClient.messages.create({
+        body: `Your z.chat verification code is: ${otp}`,
+        from: this.twilioPhone,
+        to: phone,
+      });
+      logger.info({ phone }, "OTP sent via Twilio");
+    } else {
+      logger.info({ phone }, `[Dev] OTP: ${otp}`);
+    }
   }
 
   async verifyOtp(

@@ -16,7 +16,12 @@ async function main() {
     Sentry.init({ dsn: env.SENTRY_DSN, environment: process.env.NODE_ENV ?? "production" });
   }
   const redis = getRedis();
-  const app = createApp(prisma, redis, env.JWT_SECRET, env.JWT_REFRESH_SECRET, env.ALLOWED_ORIGIN, env.UPLOAD_BASE_URL);
+  const twilioConfig = {
+    accountSid: env.TWILIO_ACCOUNT_SID,
+    authToken: env.TWILIO_AUTH_TOKEN,
+    phoneNumber: env.TWILIO_PHONE_NUMBER,
+  };
+  const app = createApp(prisma, redis, env.JWT_SECRET, env.JWT_REFRESH_SECRET, env.ALLOWED_ORIGIN, env.UPLOAD_BASE_URL, twilioConfig);
 
   // Verify connections
   await prisma.$connect();

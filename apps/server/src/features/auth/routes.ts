@@ -2,7 +2,7 @@ import { Router } from "express";
 import { PrismaClient } from "@prisma/client";
 import Redis from "ioredis";
 import { AuthRepository } from "./repository";
-import { AuthService } from "./service";
+import { AuthService, TwilioConfig } from "./service";
 import { AuthController } from "./controller";
 import { validate } from "../../shared/middleware/validate";
 import { otpRateLimit, verifyOtpRateLimit } from "../../shared/middleware/rateLimit";
@@ -13,9 +13,10 @@ export function createAuthRouter(
   redis: Redis,
   jwtSecret: string,
   jwtRefreshSecret: string,
+  twilioConfig?: TwilioConfig,
 ): Router {
   const repo = new AuthRepository(prisma);
-  const service = new AuthService(repo, redis, jwtSecret, jwtRefreshSecret);
+  const service = new AuthService(repo, redis, jwtSecret, jwtRefreshSecret, twilioConfig);
   const controller = new AuthController(service);
   const router = Router();
 
