@@ -2,6 +2,9 @@
 FROM node:22-alpine AS builder
 WORKDIR /app
 
+# Match the npm version used to generate the lock file
+RUN npm install -g npm@11.11.1
+
 # Copy workspace manifests so npm ci can resolve all workspace deps
 COPY package*.json turbo.json tsconfig.base.json ./
 COPY apps/server/package.json ./apps/server/
