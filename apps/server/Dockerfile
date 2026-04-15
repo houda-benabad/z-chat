@@ -10,7 +10,7 @@ COPY package*.json turbo.json tsconfig.base.json ./
 COPY apps/server/package.json ./apps/server/
 COPY packages/ ./packages/
 
-RUN npm ci
+RUN npm install
 
 # Copy source and build
 COPY apps/server/ ./apps/server/
