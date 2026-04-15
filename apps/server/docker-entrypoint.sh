@@ -3,16 +3,17 @@ set -e
 
 SCHEMA="./prisma/schema.prisma"
 
-# If _prisma_migrations has failed entries, drop it so migrate deploy starts fresh.
-# Safe because: if tables were deleted too, everything gets recreated cleanly.
-# Once DB is stable, remove this block.
-echo "[entrypoint] Clearing failed migration history (one-time fix)..."
+# ONE-TIME FIX: Nuke the entire public schema and recreate it so
+# migrate deploy can run all migrations on a truly empty database.
+# Remove this block after the first successful deploy.
+echo "[entrypoint] Resetting database schema (one-time fix)..."
 node -e "
   const { PrismaClient } = require('@prisma/client');
   const p = new PrismaClient();
-  p.\$executeRawUnsafe('DROP TABLE IF EXISTS _prisma_migrations')
-    .then(() => { console.log('  Migration history cleared'); p.\$disconnect(); })
-    .catch(() => p.\$disconnect());
+  p.\$executeRawUnsafe('DROP SCHEMA public CASCADE')
+    .then(() => p.\$executeRawUnsafe('CREATE SCHEMA public'))
+    .then(() => { console.log('  Schema reset complete'); return p.\$disconnect(); })
+    .catch((e) => { console.error('  Reset error:', e.message); return p.\$disconnect(); });
 " 2>/dev/null || true
 
 echo "[entrypoint] Running database migrations..."
