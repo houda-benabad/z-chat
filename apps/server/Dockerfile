@@ -1,5 +1,5 @@
 # ─── Stage 1: Build ───────────────────────────────────────────────────────────
-FROM node:20-alpine AS builder
+FROM node:22-alpine AS builder
 WORKDIR /app
 
 # Copy workspace manifests so npm ci can resolve all workspace deps
@@ -18,7 +18,7 @@ WORKDIR /app/apps/server
 RUN npx prisma generate
 
 # ─── Stage 2: Production image ────────────────────────────────────────────────
-FROM node:20-alpine
+FROM node:22-alpine
 WORKDIR /app
 ENV NODE_ENV=production
 
