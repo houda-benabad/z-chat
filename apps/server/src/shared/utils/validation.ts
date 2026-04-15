@@ -2,12 +2,31 @@ import { z } from "zod";
 
 const phoneRegex = /^\+[1-9]\d{6,14}$/;
 
+const COUNTRY_CODES_LONGEST_FIRST = [
+  '+971', '+212', '+86', '+91', '+81', '+61', '+55', '+49', '+44', '+33', '+1',
+] as const;
+
+/** Strip trunk prefix (leading zeros) from the subscriber portion of an E.164 phone number */
+export function normalizePhone(phone: string): string {
+  for (const cc of COUNTRY_CODES_LONGEST_FIRST) {
+    if (phone.startsWith(cc)) {
+      const subscriber = phone.slice(cc.length).replace(/^0+/, '');
+      return subscriber.length > 0 ? `${cc}${subscriber}` : phone;
+    }
+  }
+  return phone;
+}
+
+const normalizedPhone = z.string()
+  .transform(normalizePhone)
+  .pipe(z.string().regex(phoneRegex, "Invalid phone number format. Use E.164 format (e.g. +1234567890)"));
+
 export const sendOtpSchema = z.object({
-  phone: z.string().regex(phoneRegex, "Invalid phone number format. Use E.164 format (e.g. +1234567890)"),
+  phone: normalizedPhone,
 });
 
 export const verifyOtpSchema = z.object({
-  phone: z.string().regex(phoneRegex, "Invalid phone number format"),
+  phone: normalizedPhone,
   otp: z.string().length(6, "OTP must be 6 digits").regex(/^\d{6}$/, "OTP must be numeric"),
 });
 
@@ -41,7 +60,7 @@ export const uploadPublicKeySchema = z.object({
 });
 
 export const searchByPhoneSchema = z.object({
-  phone: z.string().regex(phoneRegex, "Invalid phone number format. Use E.164 format"),
+  phone: normalizedPhone,
 });
 
 export const pushTokenSchema = z.object({
@@ -62,7 +81,7 @@ export const markReadSchema = z.object({
 });
 
 export const addContactSchema = z.object({
-  phone: z.string().regex(phoneRegex, "Invalid phone number format. Use E.164 format"),
+  phone: normalizedPhone,
   nickname: z.string().max(100).optional(),
 });
 
@@ -71,7 +90,7 @@ export const updateContactNicknameSchema = z.object({
 });
 
 export const syncContactsSchema = z.object({
-  phones: z.array(z.string().regex(phoneRegex)).min(1).max(500),
+  phones: z.array(normalizedPhone).min(1).max(500),
 });
 
 export const createGroupSchema = z.object({

@@ -2,6 +2,7 @@ import { useState, useCallback } from 'react';
 import { useRouter } from 'expo-router';
 import { authApi, ApiError } from '@/shared/services/api';
 import { COUNTRY_CODES, type CountryCode } from '@/constants';
+import { stripTrunkPrefix } from '@/shared/utils';
 
 export { COUNTRY_CODES, type CountryCode };
 
@@ -27,8 +28,10 @@ export function usePhoneAuth(): UsePhoneAuthReturn {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const fullPhoneNumber = `${countryCode.code}${phoneNumber.replace(/\D/g, '')}`;
-  const isValidPhone = phoneNumber.replace(/\D/g, '').length >= 7;
+  const digitsOnly = phoneNumber.replace(/\D/g, '');
+  const stripped = stripTrunkPrefix(digitsOnly);
+  const fullPhoneNumber = `${countryCode.code}${stripped}`;
+  const isValidPhone = stripped.length >= 7;
 
   const handleSendCode = useCallback(async () => {
     if (!isValidPhone) return;

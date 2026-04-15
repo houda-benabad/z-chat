@@ -6,11 +6,13 @@ import { UserService } from "./service";
 import { UserController } from "./controller";
 import { authMiddleware } from "../../shared/middleware/auth";
 import { validate } from "../../shared/middleware/validate";
-import { updateProfileSchema, uploadPublicKeySchema, pushTokenSchema } from "../../shared/utils/validation";
+import { updateProfileSchema, uploadPublicKeySchema, pushTokenSchema, normalizePhone } from "../../shared/utils/validation";
 import { AppError } from "../../shared/utils/errors";
 
 const searchByPhoneQuerySchema = z.object({
-  phone: z.string().regex(/^\+[1-9]\d{1,14}$/, "Invalid phone number format (E.164 required)"),
+  phone: z.string()
+    .transform(normalizePhone)
+    .pipe(z.string().regex(/^\+[1-9]\d{1,14}$/, "Invalid phone number format (E.164 required)")),
 });
 
 function validateSearchByPhone(req: Request, _res: Response, next: NextFunction) {
@@ -18,6 +20,7 @@ function validateSearchByPhone(req: Request, _res: Response, next: NextFunction)
   if (!result.success) {
     return next(new AppError(400, result.error.errors[0].message, "VALIDATION_ERROR"));
   }
+  req.query.phone = result.data.phone;
   next();
 }
 

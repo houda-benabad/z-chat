@@ -194,3 +194,8 @@ export function parseJwtUserId(token: string): string | null {
     return null;
   }
 }
+
+/** Strip leading zeros (trunk prefix) from a local phone number before combining with country code */
+export function stripTrunkPrefix(localNumber: string): string {
+  return localNumber.replace(/^0+/, '');
+}

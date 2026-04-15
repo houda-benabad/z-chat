@@ -14,7 +14,9 @@
     "userInterfaceStyle": "light",
     "scheme": "zchat",
     "splash": {
-      "backgroundColor": "#FFFFFF"
+      "image": "./assets/splash.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#E46C53"
     },
     "ios": {
       "supportsTablet": false,
