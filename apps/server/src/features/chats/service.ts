@@ -356,7 +356,7 @@ export class ChatService {
         const hasBlockedRequester = await this.repo.isBlockedBy(p.userId, userId);
         const requesterBlockedThem = await this.repo.isBlockedBy(userId, p.userId);
         if (hasBlockedRequester || requesterBlockedThem) {
-          user = { ...user, isOnline: false, lastSeen: null, avatar: null };
+          user = { ...user, isOnline: false, lastSeen: new Date(0), avatar: null };
         }
       }
 
