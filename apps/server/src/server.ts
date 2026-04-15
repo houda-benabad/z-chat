@@ -64,11 +64,11 @@ async function main() {
     logger.info("Shutting down...");
     clearInterval(tokenCleanup);
     clearInterval(messageCleanup);
-    await new Promise<void>((resolve, reject) => io.close((err) => (err ? reject(err) : resolve()))).catch((err) =>
+    await new Promise<void>((resolve, reject) => io.close((err: unknown) => (err ? reject(err) : resolve()))).catch((err: unknown) =>
       logger.error({ err }, "Socket.IO close failed"),
     );
-    await redis.quit().catch((err) => logger.error({ err }, "Redis quit failed"));
-    await prisma.$disconnect().catch((err) => logger.error({ err }, "Prisma disconnect failed"));
+    await redis.quit().catch((err: unknown) => logger.error({ err }, "Redis quit failed"));
+    await prisma.$disconnect().catch((err: unknown) => logger.error({ err }, "Prisma disconnect failed"));
     process.exit(0);
   };
 

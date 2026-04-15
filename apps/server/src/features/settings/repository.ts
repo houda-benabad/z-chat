@@ -24,7 +24,7 @@ export class SettingsRepository {
       where: { userId },
       select: { blockedUserId: true },
     });
-    return rows.map((r) => r.blockedUserId);
+    return rows.map((r: { blockedUserId: string }) => r.blockedUserId);
   }
 
   async getBlockedByUserIds(userId: string): Promise<string[]> {
@@ -32,7 +32,7 @@ export class SettingsRepository {
       where: { blockedUserId: userId },
       select: { userId: true },
     });
-    return rows.map((r) => r.userId);
+    return rows.map((r: { userId: string }) => r.userId);
   }
 
   async isBlockedBy(blockerId: string, blockedUserId: string): Promise<boolean> {

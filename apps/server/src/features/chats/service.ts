@@ -320,7 +320,7 @@ export class ChatService {
     // Bug 3: batch-fetch createdAt for lastReadMessage IDs (message may be deleted/absent from query)
     const lastReadIds = participants
       .map((p: (typeof participants)[number]) => p.lastReadMessageId)
-      .filter((id): id is string => id != null);
+      .filter((id: string | null | undefined): id is string => id != null);
     const lastReadCreatedAtMap = await this.repo.getMessageCreatedAtByIds(lastReadIds);
 
     // Only expose each participant's own encrypted group key — never expose others'.

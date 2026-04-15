@@ -207,7 +207,7 @@ export class GroupService {
       const actor = await this.repo.findUserById(userId);
       const members = await this.repo.findUsersWithNames(newIds);
       const memberNames = newIds.map((id) => {
-        const m = members.find((u) => u.id === id);
+        const m = members.find((u: { id: string; name: string | null; phone: string }) => u.id === id);
         return m?.name ?? m?.phone ?? null;
       });
       await this.createSystemMessage(chatId, userId, {
