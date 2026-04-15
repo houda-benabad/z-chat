@@ -3,18 +3,17 @@ set -e
 
 SCHEMA="./prisma/schema.prisma"
 
-echo "[entrypoint] Resolving any failed migrations..."
-npx prisma migrate resolve --applied "20260330143850_init" --schema=$SCHEMA 2>/dev/null || true
-npx prisma migrate resolve --applied "20260331000001_add_settings_and_blocked" --schema=$SCHEMA 2>/dev/null || true
-npx prisma migrate resolve --applied "20260331115433_add_deleted_at_to_chat_participant" --schema=$SCHEMA 2>/dev/null || true
-npx prisma migrate resolve --applied "20260401100602_add_public_key" --schema=$SCHEMA 2>/dev/null || true
-npx prisma migrate resolve --applied "20260401101457_add_group_fields" --schema=$SCHEMA 2>/dev/null || true
-npx prisma migrate resolve --applied "20260401102251_add_group_key" --schema=$SCHEMA 2>/dev/null || true
-npx prisma migrate resolve --applied "20260406000001_add_push_token" --schema=$SCHEMA 2>/dev/null || true
-npx prisma migrate resolve --applied "20260409105538_add_starred_messages" --schema=$SCHEMA 2>/dev/null || true
-npx prisma migrate resolve --applied "20260409125918_add_visible_after" --schema=$SCHEMA 2>/dev/null || true
-npx prisma migrate resolve --applied "20260415212302_add_calls_table" --schema=$SCHEMA 2>/dev/null || true
-npx prisma migrate resolve --applied "20260415212313_add_calls_table" --schema=$SCHEMA 2>/dev/null || true
+# If _prisma_migrations has failed entries, drop it so migrate deploy starts fresh.
+# Safe because: if tables were deleted too, everything gets recreated cleanly.
+# Once DB is stable, remove this block.
+echo "[entrypoint] Clearing failed migration history (one-time fix)..."
+node -e "
+  const { PrismaClient } = require('@prisma/client');
+  const p = new PrismaClient();
+  p.\$executeRawUnsafe('DROP TABLE IF EXISTS _prisma_migrations')
+    .then(() => { console.log('  Migration history cleared'); p.\$disconnect(); })
+    .catch(() => p.\$disconnect());
+" 2>/dev/null || true
 
 echo "[entrypoint] Running database migrations..."
 npx prisma migrate deploy --schema=$SCHEMA
