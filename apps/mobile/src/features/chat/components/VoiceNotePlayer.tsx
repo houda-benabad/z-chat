@@ -7,6 +7,7 @@ interface VoiceNotePlayerProps {
   uri: string;
   isMine: boolean;
   accentColor: string;
+  initialDurationMs?: number;
 }
 
 function formatDuration(ms: number): string {
@@ -31,7 +32,7 @@ const WAVEFORM_HEIGHTS = Array.from({ length: BAR_COUNT }, (_, i) => {
 const SPEEDS = [1, 1.5, 2] as const;
 type Speed = typeof SPEEDS[number];
 
-export function VoiceNotePlayer({ uri, isMine, accentColor }: VoiceNotePlayerProps) {
+export function VoiceNotePlayer({ uri, isMine, accentColor, initialDurationMs }: VoiceNotePlayerProps) {
   const [isPlaying, setIsPlaying] = useState(false);
   const [durationMs, setDurationMs] = useState(0);
   const [positionMs, setPositionMs] = useState(0);
@@ -144,7 +145,7 @@ export function VoiceNotePlayer({ uri, isMine, accentColor }: VoiceNotePlayerPro
         {/* Time + speed */}
         <View style={styles.metaRow}>
           <Text style={[styles.time, { color: timeColor }]}>
-            {formatDuration(isPlaying || positionMs > 0 ? positionMs : durationMs)}
+            {formatDuration(isPlaying || positionMs > 0 ? positionMs : (durationMs || initialDurationMs || 0))}
           </Text>
           <Pressable onPress={toggleSpeed} hitSlop={8}>
             <Text style={[styles.speedText, { color: speedColor }]}>
