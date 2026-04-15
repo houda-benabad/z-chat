@@ -123,7 +123,7 @@ export class ChatRepository {
       where: { userId },
       select: { blockedUserId: true },
     });
-    return rows.map((r) => r.blockedUserId);
+    return rows.map((r: { blockedUserId: string }) => r.blockedUserId);
   }
 
   async getBlockedByUserIds(userId: string): Promise<string[]> {
@@ -131,7 +131,7 @@ export class ChatRepository {
       where: { blockedUserId: userId },
       select: { userId: true },
     });
-    return rows.map((r) => r.userId);
+    return rows.map((r: { userId: string }) => r.userId);
   }
 
   async softDeleteChat(chatId: string, userId: string) {
