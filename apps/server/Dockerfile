@@ -14,11 +14,13 @@ RUN npm install
 
 # Copy source and build
 COPY apps/server/ ./apps/server/
-RUN npm run build --workspace=@z-chat/server
 
-# Generate Prisma client in the context where schema lives
+# Generate Prisma client BEFORE tsc so enums/types are available
 WORKDIR /app/apps/server
 RUN npx prisma generate
+
+WORKDIR /app
+RUN npm run build --workspace=@z-chat/server
 
 # ─── Stage 2: Production image ────────────────────────────────────────────────
 FROM node:22-alpine
