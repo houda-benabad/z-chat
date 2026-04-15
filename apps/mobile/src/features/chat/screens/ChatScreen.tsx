@@ -427,6 +427,11 @@ export default function ChatScreen() {
     return participant?.user.avatar ?? null;
   }, [contacts, participants]);
 
+  const handleAvatarPress = useCallback((userId: string) => {
+    const resolvedName = resolveName(userId) ?? '';
+    router.push({ pathname: '/user-profile', params: { userId, name: resolvedName } });
+  }, [resolveName, router]);
+
   // Update isAtBottomRef on scroll; emit read receipt when user scrolls back to bottom
   const handleScroll = useCallback((event: NativeSyntheticEvent<NativeScrollEvent>) => {
     const { contentOffset, contentSize, layoutMeasurement } = event.nativeEvent;
@@ -609,6 +614,7 @@ export default function ChatScreen() {
               onReplyPress={handleReplyPress}
               resolveName={resolveName}
               resolveAvatar={resolveAvatar}
+              onAvatarPress={isGroup ? handleAvatarPress : undefined}
               onRetryFailed={(msg) => {
                 if (msg.localUri) {
                   handleRetryMedia(msg);

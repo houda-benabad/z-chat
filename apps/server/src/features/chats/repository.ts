@@ -226,7 +226,7 @@ export class ChatRepository {
         isForwarded: data.isForwarded ?? false,
       },
       include: {
-        sender: { select: { id: true, name: true, avatar: true } },
+        sender: { select: { id: true, phone: true, name: true, avatar: true, publicKey: true } },
         replyTo: {
           select: { id: true, content: true, senderId: true, type: true, isDeleted: true },
         },

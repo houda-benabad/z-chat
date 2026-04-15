@@ -8,7 +8,7 @@ import * as SplashScreen from 'expo-splash-screen';
 import * as Notifications from 'expo-notifications';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
-import { requestNotificationPermissions } from '../src/shared/services/notifications';
+import { requestNotificationPermissions, registerBackgroundNotificationTask } from '../src/shared/services/notifications';
 import { AppSettingsProvider, useAppSettings } from '../src/shared/context/AppSettingsContext';
 import { UserProfileProvider } from '../src/shared/context/UserProfileContext';
 import { ErrorBoundary } from '../src/shared/components';
@@ -79,6 +79,7 @@ export default Sentry.wrap(function RootLayout() {
   useEffect(() => {
     onLayoutReady();
     requestNotificationPermissions();
+    registerBackgroundNotificationTask();
   }, [onLayoutReady]);
 
   useEffect(() => {

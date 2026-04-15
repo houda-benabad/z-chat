@@ -32,6 +32,7 @@ interface MessageBubbleProps {
   onReplyPress?: (replyToId: string) => void;
   resolveName?: (userId: string) => string | null;
   resolveAvatar?: (userId: string) => string | null;
+  onAvatarPress?: (userId: string) => void;
 }
 
 export function MessageBubble({
@@ -51,6 +52,7 @@ export function MessageBubble({
   onReplyPress,
   resolveName,
   resolveAvatar,
+  onAvatarPress,
 }: MessageBubbleProps) {
   const styles      = useThemedStyles(createStyles);
   const { accentColor, fontSizePt } = useAppSettings();
@@ -148,7 +150,9 @@ export function MessageBubble({
         {showAvatarCol && (
           <View style={styles.avatarColumn}>
             {isTail ? (
-              <Avatar uri={avatarUri} name={avatarName} size={28} />
+              <Pressable onPress={() => onAvatarPress?.(message.senderId)} disabled={!onAvatarPress}>
+                <Avatar uri={avatarUri} name={avatarName} size={28} />
+              </Pressable>
             ) : (
               <View style={styles.avatarSpacer} />
             )}

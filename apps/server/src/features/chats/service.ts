@@ -185,7 +185,7 @@ export class ChatService {
       }
     }
 
-    return { message, chatParticipants };
+    return { message, chatParticipants, chatType };
   }
 
   async searchMessages(userId: string, chatId: string, query: string) {

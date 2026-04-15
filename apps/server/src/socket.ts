@@ -8,6 +8,7 @@ import { ChatRepository } from "./features/chats/repository";
 import { ChatService } from "./features/chats/service";
 import { UserRepository } from "./features/users/repository";
 import { SettingsRepository } from "./features/settings/repository";
+import { ContactRepository } from "./features/contacts/repository";
 import { sendPushNotification, messagePreviewText } from "./shared/utils/pushNotifications";
 import { logger } from "./shared/utils/logger";
 import { AppError } from "./shared/utils/errors";
@@ -59,6 +60,7 @@ export function createSocketServer(httpServer: HttpServer, prisma: PrismaClient,
   const chatService = new ChatService(chatRepo);
   const userRepo = new UserRepository(prisma);
   const settingsRepo = new SettingsRepository(prisma);
+  const contactRepo = new ContactRepository(prisma);
 
   // Auth middleware — verify JWT on connection
   io.use((socket, next) => {
@@ -129,7 +131,7 @@ export function createSocketServer(httpServer: HttpServer, prisma: PrismaClient,
         const parsed = sendMessageSchema.parse(data);
         const redis = getRedis();
 
-        const { message, chatParticipants } = await chatService.sendMessage(
+        const { message, chatParticipants, chatType } = await chatService.sendMessage(
           {
             chatId: parsed.chatId,
             senderId: userId,
@@ -165,16 +167,59 @@ export function createSocketServer(httpServer: HttpServer, prisma: PrismaClient,
         io.to(`chat:${parsed.chatId}`).emit("message:new", message);
 
         // Send push notifications to offline participants
-        const offlineIds = (chatParticipants as Array<{ userId: string }>)
+        type ParticipantWithKeys = {
+          userId: string;
+          encryptedGroupKey: string | null;
+          user: { publicKey: string | null } | null;
+        };
+        const typedParticipants = chatParticipants as ParticipantWithKeys[];
+
+        const offlineIds = typedParticipants
           .filter((cp) => cp.userId !== userId && !userSockets.has(cp.userId))
           .map((cp) => cp.userId);
 
         if (offlineIds.length > 0) {
-          const pushTokens = await userRepo.getPushTokensByUserIds(offlineIds);
-          const senderName = (message as { sender?: { name?: string | null } }).sender?.name ?? "New message";
-          const body = messagePreviewText(parsed.type ?? "text");
-          for (const [, token] of pushTokens) {
-            sendPushNotification(token, senderName, body, { chatId: parsed.chatId });
+          const pushTokens   = await userRepo.getPushTokensByUserIds(offlineIds);
+          const senderPhone  = socket.userPhone;
+          const fallbackBody = messagePreviewText(parsed.type ?? "text");
+          const notifsMap   = await settingsRepo.getNotificationSettings(offlineIds);
+          const isGroup      = chatType === "group";
+          const senderPublicKey = typedParticipants.find((cp) => cp.userId === userId)?.user?.publicKey ?? null;
+
+          for (const [recipientId, token] of pushTokens) {
+            const notifSettings = notifsMap.get(recipientId);
+            const notifEnabled  = isGroup
+              ? (notifSettings?.groupNotifications ?? true)
+              : (notifSettings?.messageNotifications ?? true);
+            if (!notifEnabled) continue;
+
+            const contact    = await contactRepo.findContact(recipientId, userId);
+            const senderName = contact?.nickname ?? senderPhone;
+            const previewOn  = notifSettings?.notificationPreview ?? true;
+
+            const pushData: Record<string, string> = {
+              chatId:       parsed.chatId,
+              senderName,
+              fallbackBody,
+              messageType:  parsed.type ?? "text",
+            };
+
+            if (previewOn && parsed.type === "text" && message.content) {
+              if (isGroup) {
+                const encGroupKey = typedParticipants.find((cp) => cp.userId === recipientId)?.encryptedGroupKey ?? null;
+                if (encGroupKey) {
+                  pushData.encryptedContent  = message.content;
+                  pushData.encryptedGroupKey = encGroupKey;
+                  pushData.chatType          = "group";
+                }
+              } else if (senderPublicKey) {
+                pushData.encryptedContent = message.content;
+                pushData.senderPublicKey  = senderPublicKey;
+                pushData.chatType         = "direct";
+              }
+            }
+
+            sendPushNotification(token, pushData);
           }
         }
 

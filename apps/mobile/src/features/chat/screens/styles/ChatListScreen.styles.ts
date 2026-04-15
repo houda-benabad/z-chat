@@ -61,6 +61,69 @@ export const createStyles = (colors: AppColors) => StyleSheet.create({
 
   emptyContainer: { flex: 1 },
 
+  // ── Filter chips ─────────────────────────────────────────────────────────────
+  filterBar: {
+    flexDirection: 'row',
+    paddingHorizontal: 16,
+    paddingVertical: 6,
+    gap: 8,
+    backgroundColor: colors.background,
+  },
+  filterChip: {
+    paddingHorizontal: 12,
+    paddingVertical: 4,
+    borderRadius: 20,
+    borderWidth: 1.5,
+    borderColor: colors.textSecondary,
+  },
+  filterChipActive: {
+    backgroundColor: colors.primary,
+    borderColor: colors.primary,
+  },
+  filterChipPressed: {
+    opacity: 0.7,
+  },
+  filterChipText: {
+    fontSize: 13,
+    fontFamily: typography.fontFamily,
+    fontWeight: typography.weights.medium,
+    color: colors.textSecondary,
+  },
+  filterChipTextActive: {
+    color: '#FFFFFF',
+  },
+  filterEmptyContainer: {
+    flex: 1,
+    alignItems: 'center' as const,
+    justifyContent: 'center' as const,
+  },
+  filterEmptyText: {
+    fontSize: 15,
+    fontFamily: typography.fontFamily,
+    color: colors.textSecondary,
+  },
+
+  // ── Search results sections ──────────────────────────────────────────────────
+  searchNoResults: {
+    textAlign: 'center' as const,
+    fontSize: 15,
+    fontFamily: typography.fontFamily,
+    color: colors.textSecondary,
+    marginTop: 48,
+  },
+
+  searchSectionHeader: {
+    fontSize: 13,
+    fontFamily: typography.fontFamily,
+    fontWeight: typography.weights.semibold,
+    color: colors.textSecondary,
+    textTransform: 'uppercase' as const,
+    paddingHorizontal: 16,
+    paddingTop: 16,
+    paddingBottom: 6,
+    backgroundColor: colors.background,
+  },
+
   // ── FAB ─────────────────────────────────────────────────────────────────────
   fab: {
     position: 'absolute',

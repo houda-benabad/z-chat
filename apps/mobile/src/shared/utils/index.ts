@@ -114,7 +114,10 @@ export function getChatPreview(
       : (MESSAGE_TYPE_LABELS[lastMessage.type] ?? lastMessage.type);
 
   if (isGroup && lastMessage.sender) {
-    const who = lastMessage.senderId === myUserId ? 'You' : (lastMessage.sender.name ?? 'Unknown');
+    const who =
+      lastMessage.senderId === myUserId
+        ? 'You'
+        : (resolveName?.(lastMessage.senderId) ?? lastMessage.sender.name ?? 'Unknown');
     return `${who}: ${rawContent}`;
   }
 

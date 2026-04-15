@@ -64,6 +64,22 @@ export class SettingsRepository {
     });
   }
 
+  async getNotificationSettings(userIds: string[]): Promise<Map<string, { messageNotifications: boolean; groupNotifications: boolean; notificationPreview: boolean }>> {
+    const rows = await this.prisma.userSettings.findMany({
+      where: { userId: { in: userIds } },
+      select: { userId: true, messageNotifications: true, groupNotifications: true, notificationPreview: true },
+    });
+    const map = new Map<string, { messageNotifications: boolean; groupNotifications: boolean; notificationPreview: boolean }>();
+    for (const r of rows) {
+      map.set(r.userId, {
+        messageNotifications: r.messageNotifications,
+        groupNotifications:   r.groupNotifications,
+        notificationPreview:  r.notificationPreview,
+      });
+    }
+    return map;
+  }
+
   async findUserById(id: string) {
     return this.prisma.user.findUnique({ where: { id } });
   }
