@@ -113,15 +113,15 @@ export function VoiceNotePlayer({ uri, isMine, accentColor, initialDurationMs }:
   const progress = durationMs > 0 ? positionMs / durationMs : 0;
   const filledBars = Math.round(progress * BAR_COUNT);
 
-  const iconColor  = isMine ? '#fff' : accentColor;
-  const fillColor  = isMine ? '#fff' : accentColor;
-  const trackColor = isMine ? 'rgba(255,255,255,0.3)' : 'rgba(0,0,0,0.13)';
-  const timeColor  = isMine ? 'rgba(255,255,255,0.8)' : '#666';
-  const speedColor = isMine ? 'rgba(255,255,255,0.65)' : '#888';
+  const iconColor  = isMine ? '#E46C53' : accentColor;
+  const fillColor  = isMine ? '#E46C53' : accentColor;
+  const trackColor = isMine ? 'rgba(228,108,83,0.25)' : 'rgba(0,0,0,0.13)';
+  const timeColor  = isMine ? 'rgba(228,108,83,0.7)' : '#666';
+  const speedColor = isMine ? 'rgba(228,108,83,0.55)' : '#888';
 
   return (
     <View style={styles.container}>
-      <Pressable onPress={togglePlay} hitSlop={8} style={styles.playBtn}>
+      <Pressable onPress={togglePlay} hitSlop={8} style={[styles.playBtn, isMine && styles.playBtnMine]}>
         <Ionicons name={isPlaying ? 'pause' : 'play'} size={20} color={iconColor} />
       </Pressable>
 
@@ -173,6 +173,9 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     backgroundColor: 'rgba(0,0,0,0.08)',
+  },
+  playBtnMine: {
+    backgroundColor: 'rgba(228,108,83,0.15)',
   },
   trackContainer: {
     flex: 1,

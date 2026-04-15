@@ -45,8 +45,9 @@ import { useForwardModal } from '../hooks/useForwardModal';
 import { useThemedStyles } from '@/shared/hooks/useThemedStyles';
 import { createStyles } from './styles/ChatScreen.styles';
 import type { Socket } from 'socket.io-client';
-import type { ChatMessage, ContactItem } from '@/types';
+import type { ChatMessage, ContactItem, CallType } from '@/types';
 import { resolveTypingLabel } from '@/shared/utils';
+import { useCallSocket } from '@/features/calls/hooks';
 
 export default function ChatScreen() {
   const styles = useThemedStyles(createStyles);
@@ -230,7 +231,7 @@ export default function ChatScreen() {
   // ─── Voice notes ───────────────────────────────────────────────────────────
   const { isRecording, durationMs, startRecording, stopRecording, cancelRecording, getMimeType } = useVoiceRecorder();
 
-  const sendMedia = useCallback(async (uri: string, mimeType: string, type: 'voice_note' | 'image' | 'video' | 'document') => {
+  const sendMedia = useCallback(async (uri: string, mimeType: string, type: 'voice_note' | 'image' | 'video' | 'document', durationMs?: number, caption?: string) => {
     if (!socket) return;
     setUploadingMedia(true);
 
@@ -251,7 +252,7 @@ export default function ChatScreen() {
     const pendingId = `pending-media-${Date.now()}`;
     addMessage({
       id: pendingId, chatId: chatIdToUse, senderId: myUserId, type,
-      content: null, mediaUrl: uri, replyToId: null,
+      content: type === 'voice_note' && durationMs ? String(durationMs) : (caption ?? null), mediaUrl: uri, replyToId: null,
       isForwarded: false, isDeleted: false, disappearsAt: null,
       createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(),
       sender: { id: myUserId, name: null },
@@ -259,12 +260,15 @@ export default function ChatScreen() {
     });
     try {
       const mediaUrl = await uploadMedia(uri, mimeType);
+      const content = type === 'voice_note' && durationMs
+        ? String(durationMs)
+        : (caption ?? undefined);
       socket.emit(
         'message:send',
-        { chatId: chatIdToUse, type, mediaUrl },
+        { chatId: chatIdToUse, type, mediaUrl, ...(content !== undefined ? { content } : {}) },
         (res: { message?: ChatMessage; error?: string; code?: string }) => {
           if (res?.message) {
-            confirmMessage(pendingId, { ...res.message, mediaUrl }, '');
+            confirmMessage(pendingId, { ...res.message, mediaUrl }, res.message.content ?? '');
           } else if (res?.code === 'BLOCKED') {
             markMessageBlocked(pendingId);
           } else {
@@ -280,14 +284,15 @@ export default function ChatScreen() {
   }, [socket, activeChatId, recipientId, myUserId, addMessage, confirmMessage, markMessageFailed, markMessageBlocked]);
 
   const handleVoiceStop = useCallback(async () => {
-    const uri = await stopRecording();
-    if (!uri) return;
+    const result = await stopRecording();
+    if (!result) return;
+    const { uri, durationMs: recDuration } = result;
     const mimeType = getMimeType() || (Platform.OS === 'web' ? 'audio/webm' : 'audio/m4a');
-    await sendMedia(uri, mimeType, 'voice_note');
+    await sendMedia(uri, mimeType, 'voice_note', recDuration);
   }, [stopRecording, sendMedia, getMimeType]);
 
-  const handleMediaSelected = useCallback(async (uri: string, mimeType: string, mediaType: 'image' | 'video' | 'document') => {
-    await sendMedia(uri, mimeType, mediaType);
+  const handleMediaSelected = useCallback(async (uri: string, mimeType: string, mediaType: 'image' | 'video' | 'document', caption: string) => {
+    await sendMedia(uri, mimeType, mediaType, undefined, caption || undefined);
   }, [sendMedia]);
 
   const handleRetryMedia = useCallback(async (msg: ChatMessage) => {
@@ -304,6 +309,53 @@ export default function ChatScreen() {
 
   const [highlightedMessageId, setHighlightedMessageId] = useState<string | null>(null);
   const [snackbarMsg, setSnackbarMsg] = useState<string | null>(null);
+
+  // ─── Call initiation ──────────────────────────────────────────────────────
+  const { initiateCall } = useCallSocket({});
+
+  const startCall = useCallback(async (callType: CallType) => {
+    if (!activeChatId) {
+      setSnackbarMsg('Cannot start call — no active chat');
+      return;
+    }
+
+    const data: { calleeId?: string; chatId?: string; type: CallType; isGroup?: boolean } = {
+      type: callType,
+      chatId: activeChatId,
+    };
+    if (isGroup) {
+      data.isGroup = true;
+    } else if (recipientId) {
+      data.calleeId = recipientId;
+    } else {
+      setSnackbarMsg('Cannot start call — no recipient');
+      return;
+    }
+
+    const result = await initiateCall(data);
+    if ('error' in result) {
+      const msg = result.error === 'User is busy'
+        ? 'User is busy on another call'
+        : result.error === 'Not connected'
+          ? 'Not connected to server'
+          : `Call failed: ${result.error}`;
+      setSnackbarMsg(msg);
+      return;
+    }
+
+    router.push({
+      pathname: '/call',
+      params: {
+        callId: result.call.id,
+        channelName: result.channelName,
+        token: result.token,
+        uid: '0',
+        isVideo: callType === 'VIDEO' ? 'true' : 'false',
+        callerName: isGroup ? (liveGroupName || name) : (displayName || name),
+        isIncoming: 'false',
+      },
+    });
+  }, [activeChatId, isGroup, recipientId, initiateCall, router, liveGroupName, name, displayName]);
 
   const handleResultPress = useCallback((messageId: string) => {
     const index = messages.findIndex((m) => m.id === messageId);
@@ -555,6 +607,8 @@ export default function ChatScreen() {
         }
         isSearchOpen={searchOpen}
         onSearchPress={isRemovedFromGroup ? undefined : (searchOpen ? closeSearch : openSearch)}
+        onVideoCall={() => startCall('VIDEO')}
+        onVoiceCall={() => startCall('VOICE')}
       />
 
       {!isConnected && (

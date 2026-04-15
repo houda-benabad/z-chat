@@ -8,6 +8,7 @@ export { groupApi } from './group';
 export { contactApi } from './contact';
 export { settingsApi } from './settings';
 export { userApi, uploadAvatar, uploadMedia } from './user';
+export { callsApi } from './calls';
 
 // Re-export all types for convenience
 export type {
@@ -27,4 +28,7 @@ export type {
   BlockedUserItem,
   UserProfile,
   PublicUserProfile,
+  CallRecord,
+  CallUser,
+  IncomingCallData,
 } from '../../../types';

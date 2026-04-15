@@ -2,81 +2,97 @@ import { useState, useCallback } from 'react';
 import { Alert } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import * as DocumentPicker from 'expo-document-picker';
+import type { PendingMedia } from '../components/MediaPreviewModal';
 
-type MediaType = 'image' | 'video' | 'document';
+type MediaSelectedCallback = (
+  uri: string,
+  mimeType: string,
+  mediaType: 'image' | 'video' | 'document',
+  caption: string,
+) => Promise<void>;
 
 interface UseAttachmentPickerParams {
-  onMediaSelected: (uri: string, mimeType: string, mediaType: MediaType) => Promise<void>;
+  onMediaSelected: MediaSelectedCallback;
   disabled?: boolean;
 }
 
 export function useAttachmentPicker({ onMediaSelected, disabled }: UseAttachmentPickerParams) {
-  const [menuVisible, setMenuVisible] = useState(false);
+  const [pendingMedia, setPendingMedia] = useState<PendingMedia | null>(null);
 
-  const openMenu = useCallback(() => {
+  const openCamera = useCallback(async () => {
     if (disabled) return;
-    setMenuVisible(true);
-  }, [disabled]);
-
-  const closeMenu = useCallback(() => {
-    setMenuVisible(false);
-  }, []);
-
-  const pickPhoto = useCallback(async () => {
-    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    const { status } = await ImagePicker.requestCameraPermissionsAsync();
     if (status !== 'granted') {
-      setMenuVisible(false);
-      Alert.alert('Photo Access Required', 'Please enable photo library access in Settings to send images.', [{ text: 'OK' }]);
+      Alert.alert('Camera Access Required', 'Please enable camera access in Settings.', [{ text: 'OK' }]);
       return;
     }
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ['images'],
-      allowsMultipleSelection: true,
+    const result = await ImagePicker.launchCameraAsync({
+      mediaTypes: ['images', 'videos'],
       quality: 0.8,
     });
-    setMenuVisible(false);
     if (!result.canceled && result.assets.length > 0) {
-      for (const asset of result.assets) {
-        await onMediaSelected(asset.uri, asset.mimeType ?? 'image/jpeg', 'image');
-      }
+      const asset = result.assets[0]!;
+      const mediaType: 'image' | 'video' = asset.type === 'video' ? 'video' : 'image';
+      setPendingMedia({
+        uri: asset.uri,
+        mimeType: asset.mimeType ?? (mediaType === 'video' ? 'video/mp4' : 'image/jpeg'),
+        mediaType,
+      });
     }
-  }, [onMediaSelected]);
+  }, [disabled]);
 
-  const pickVideo = useCallback(async () => {
+  const openGallery = useCallback(async () => {
+    if (disabled) return;
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (status !== 'granted') {
-      setMenuVisible(false);
-      Alert.alert('Media Access Required', 'Please enable media library access in Settings to send videos.', [{ text: 'OK' }]);
+      Alert.alert('Media Access Required', 'Please enable media library access in Settings.', [{ text: 'OK' }]);
       return;
     }
     const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ['videos'],
-      allowsMultipleSelection: true,
+      mediaTypes: ['images', 'videos'],
+      quality: 0.8,
     });
-    setMenuVisible(false);
     if (!result.canceled && result.assets.length > 0) {
-      for (const asset of result.assets) {
-        await onMediaSelected(asset.uri, asset.mimeType ?? 'video/mp4', 'video');
-      }
+      const asset = result.assets[0]!;
+      const mediaType: 'image' | 'video' = asset.type === 'video' ? 'video' : 'image';
+      setPendingMedia({
+        uri: asset.uri,
+        mimeType: asset.mimeType ?? (mediaType === 'video' ? 'video/mp4' : 'image/jpeg'),
+        mediaType,
+      });
     }
-  }, [onMediaSelected]);
+  }, [disabled]);
 
-  const pickDocument = useCallback(async () => {
+  const openDocument = useCallback(async () => {
+    if (disabled) return;
     const result = await DocumentPicker.getDocumentAsync({
       type: [
         'application/pdf',
         'application/msword',
         'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
       ],
-      multiple: true,
     });
-    setMenuVisible(false);
     if (!result.canceled && result.assets.length > 0) {
-      for (const asset of result.assets) {
-        await onMediaSelected(asset.uri, asset.mimeType ?? 'application/pdf', 'document');
-      }
+      const asset = result.assets[0]!;
+      setPendingMedia({
+        uri: asset.uri,
+        mimeType: asset.mimeType ?? 'application/pdf',
+        mediaType: 'document',
+        filename: asset.name,
+      });
     }
-  }, [onMediaSelected]);
+  }, [disabled]);
 
-  return { menuVisible, openMenu, closeMenu, pickPhoto, pickVideo, pickDocument };
+  const confirmSend = useCallback(async (caption: string) => {
+    if (!pendingMedia) return;
+    const { uri, mimeType, mediaType } = pendingMedia;
+    setPendingMedia(null);
+    await onMediaSelected(uri, mimeType, mediaType, caption);
+  }, [pendingMedia, onMediaSelected]);
+
+  const cancelPending = useCallback(() => {
+    setPendingMedia(null);
+  }, []);
+
+  return { openCamera, openGallery, openDocument, pendingMedia, confirmSend, cancelPending };
 }

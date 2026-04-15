@@ -8,7 +8,7 @@ export interface UseVoiceRecorderReturn {
   durationMs: number;
   metering: number; // normalized 0..1 (0 = silent, 1 = max)
   startRecording: () => Promise<boolean>;
-  stopRecording: () => Promise<string | null>; // returns local file URI or null
+  stopRecording: () => Promise<{ uri: string; durationMs: number } | null>; // returns local file URI + duration or null
   cancelRecording: () => Promise<void>;
   getMimeType: () => string;
 }
@@ -79,6 +79,7 @@ export function useVoiceRecorder(): UseVoiceRecorderReturn {
   const [durationMs, setDurationMs] = useState(0);
   const [metering, setMetering] = useState(0);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const durationMsRef = useRef(0);
 
   // Native refs (expo-av)
   const recordingRef = useRef<Audio.Recording | null>(null);
@@ -95,6 +96,8 @@ export function useVoiceRecorder(): UseVoiceRecorderReturn {
   // Generation counter — bumped by stop/cancel so an in-flight startRecording
   // can detect it was superseded before it finishes.
   const genRef = useRef(0);
+
+  useEffect(() => { durationMsRef.current = durationMs; }, [durationMs]);
 
   // Cleanup on unmount
   useEffect(() => {
@@ -258,7 +261,8 @@ export function useVoiceRecorder(): UseVoiceRecorderReturn {
     }
   }, []);
 
-  const stopRecording = useCallback(async (): Promise<string | null> => {
+  const stopRecording = useCallback(async (): Promise<{ uri: string; durationMs: number } | null> => {
+    const capturedDuration = durationMsRef.current;
     genRef.current++;
     if (timerRef.current) { clearInterval(timerRef.current); timerRef.current = null; }
     setIsRecording(false);
@@ -275,7 +279,7 @@ export function useVoiceRecorder(): UseVoiceRecorderReturn {
           webChunksRef.current = [];
           webStreamRef.current?.getTracks().forEach(t => t.stop());
           webStreamRef.current = null;
-          resolve(URL.createObjectURL(blob));
+          resolve({ uri: URL.createObjectURL(blob), durationMs: capturedDuration });
         };
         mediaRecorder.stop();
       });
@@ -287,7 +291,9 @@ export function useVoiceRecorder(): UseVoiceRecorderReturn {
       try {
         await recording.stopAndUnloadAsync();
         await Audio.setAudioModeAsync({ allowsRecordingIOS: false });
-        return recording.getURI() ?? null;
+        const uri = recording.getURI();
+        if (!uri) return null;
+        return { uri, durationMs: capturedDuration };
       } catch {
         return null;
       }

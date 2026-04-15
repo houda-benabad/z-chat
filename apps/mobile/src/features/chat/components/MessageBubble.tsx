@@ -190,7 +190,9 @@ export const MessageBubble = memo(function MessageBubble({
                 style={[styles.replyBar, isMine && styles.replyBarMine]}
               >
                 <Text style={styles.replyText} numberOfLines={2}>
-                  {message.replyTo.content ?? message.replyTo.type}
+                  {message.replyTo.type === 'voice_note'
+                    ? 'Voice note'
+                    : (message.replyTo.content ?? message.replyTo.type)}
                 </Text>
               </Pressable>
             )}
@@ -204,38 +206,53 @@ export const MessageBubble = memo(function MessageBubble({
 
             {/* ── Image ─────────────────────────────────────────────────── */}
             {isMedia ? (
-              <Pressable onPress={() => !imgError && setViewingImage(message.mediaUrl)}>
-                {imgError ? (
-                  <View style={[styles.mediaBubble, mediaBrokenStyle.wrap]}>
-                    <Ionicons name="image-outline" size={32} color="#ccc" />
-                  </View>
-                ) : (
-                  <View style={styles.mediaBubble}>
-                    <Image
-                      source={message.mediaUrl!}
-                      style={{ width: 200, height: 160, borderRadius: 10 }}
-                      contentFit="cover"
-                      transition={200}
-                      cachePolicy="memory-disk"
-                      recyclingKey={message.mediaUrl!}
-                      onError={() => setImgError(true)}
-                    />
-                  </View>
+              <>
+                <Pressable onPress={() => !imgError && setViewingImage(message.mediaUrl)}>
+                  {imgError ? (
+                    <View style={[styles.mediaBubble, mediaBrokenStyle.wrap]}>
+                      <Ionicons name="image-outline" size={32} color="#ccc" />
+                    </View>
+                  ) : (
+                    <View style={styles.mediaBubble}>
+                      <Image
+                        source={message.mediaUrl!}
+                        style={{ width: 200, height: 160, borderRadius: 10 }}
+                        contentFit="cover"
+                        transition={200}
+                        cachePolicy="memory-disk"
+                        recyclingKey={message.mediaUrl!}
+                        onError={() => setImgError(true)}
+                      />
+                    </View>
+                  )}
+                </Pressable>
+                {!!message.content && (
+                  <Text style={styles.captionText}>{message.content}</Text>
                 )}
-              </Pressable>
+              </>
 
             /* ── Voice note ───────────────────────────────────────────── */
             ) : isVoice ? (
-              <VoiceNotePlayer uri={message.mediaUrl!} isMine={isMine} accentColor={accentColor} />
+              <VoiceNotePlayer
+                uri={message.mediaUrl!}
+                isMine={isMine}
+                accentColor={accentColor}
+                initialDurationMs={message.type === 'voice_note' && message.content ? Number(message.content) || undefined : undefined}
+              />
 
             /* ── Video ────────────────────────────────────────────────── */
             ) : isVideo ? (
-              <Pressable onPress={() => setViewingVideo(message.mediaUrl!)}>
-                <View style={[styles.mediaBubble, styles.videoBubble]}>
-                  <Ionicons name="play-circle-outline" size={48} color="#fff" />
-                  <Text style={styles.videoLabel}>Video</Text>
-                </View>
-              </Pressable>
+              <>
+                <Pressable onPress={() => setViewingVideo(message.mediaUrl!)}>
+                  <View style={[styles.mediaBubble, styles.videoBubble]}>
+                    <Ionicons name="play-circle-outline" size={48} color="#fff" />
+                    <Text style={styles.videoLabel}>Video</Text>
+                  </View>
+                </Pressable>
+                {!!message.content && (
+                  <Text style={styles.captionText}>{message.content}</Text>
+                )}
+              </>
 
             /* ── Document ─────────────────────────────────────────────── */
             ) : isDocument ? (

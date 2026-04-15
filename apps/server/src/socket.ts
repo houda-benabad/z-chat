@@ -9,9 +9,12 @@ import { ChatService } from "./features/chats/service";
 import { UserRepository } from "./features/users/repository";
 import { SettingsRepository } from "./features/settings/repository";
 import { ContactRepository } from "./features/contacts/repository";
+import { CallRepository } from "./features/calls/repository";
+import { CallService } from "./features/calls/service";
 import { sendPushNotification, messagePreviewText } from "./shared/utils/pushNotifications";
 import { logger } from "./shared/utils/logger";
 import { AppError } from "./shared/utils/errors";
+import { CallType, EndReason } from "@prisma/client";
 
 interface AuthenticatedSocket extends Socket {
   userId: string;
@@ -61,6 +64,8 @@ export function createSocketServer(httpServer: HttpServer, prisma: PrismaClient,
   const userRepo = new UserRepository(prisma);
   const settingsRepo = new SettingsRepository(prisma);
   const contactRepo = new ContactRepository(prisma);
+  const callRepo = new CallRepository(prisma);
+  const callService = new CallService(callRepo);
 
   // Auth middleware — verify JWT on connection
   io.use((socket, next) => {
@@ -302,6 +307,191 @@ export function createSocketServer(httpServer: HttpServer, prisma: PrismaClient,
       }
     });
 
+    // --- Event: call:initiate ---
+    socket.on("call:initiate", async (data: {
+      calleeId?: string;
+      chatId?: string;
+      type: string;
+      isGroup?: boolean;
+    }, ack) => {
+      try {
+        const redis = getRedis();
+        const callType = data.type === "VIDEO" ? CallType.VIDEO : CallType.VOICE;
+
+        if (data.isGroup && data.chatId) {
+          // Group call
+          const call = await callService.initiateGroupCall(userId, data.chatId, callType);
+          const token = callService.generateAgoraToken(call.channelName, 0);
+
+          // Notify all group members
+          socket.to(`chat:${data.chatId}`).emit("call:incoming", {
+            callId: call.id,
+            channelName: call.channelName,
+            callerId: userId,
+            caller: call.caller,
+            chatId: data.chatId,
+            type: callType,
+            isGroup: true,
+          });
+
+          await redis.set(`call:active:${userId}`, call.id, "EX", 3600);
+
+          ack?.({ call, token, channelName: call.channelName });
+        } else if (data.calleeId) {
+          // 1-on-1 call
+          const busyKey = await redis.get(`call:active:${data.calleeId}`);
+          if (busyKey) {
+            ack?.({ error: "User is busy", code: "BUSY" });
+            return;
+          }
+
+          const call = await callService.initiateCall(userId, data.calleeId, data.chatId, callType);
+          const token = callService.generateAgoraToken(call.channelName, 0);
+
+          // Notify callee
+          const calleeSockets = userSockets.get(data.calleeId);
+          if (calleeSockets) {
+            for (const sId of calleeSockets) {
+              io.to(sId).emit("call:incoming", {
+                callId: call.id,
+                channelName: call.channelName,
+                callerId: userId,
+                caller: call.caller,
+                chatId: data.chatId,
+                type: callType,
+                isGroup: false,
+              });
+            }
+          }
+
+          await redis.set(`call:active:${userId}`, call.id, "EX", 3600);
+
+          // Auto-miss after 30 seconds if not answered
+          setTimeout(async () => {
+            try {
+              const currentCall = await callRepo.findById(call.id);
+              if (currentCall && currentCall.status === "RINGING") {
+                await callService.missCall(call.id);
+                await redis.del(`call:active:${userId}`);
+                io.to(`user:${userId}`).emit("call:timeout", { callId: call.id });
+                if (data.calleeId) {
+                  io.to(`user:${data.calleeId}`).emit("call:timeout", { callId: call.id });
+                }
+              }
+            } catch {
+              // Ignore timeout errors
+            }
+          }, 30000);
+
+          ack?.({ call, token, channelName: call.channelName });
+        } else {
+          ack?.({ error: "calleeId or chatId required" });
+        }
+      } catch (err) {
+        logger.error({ err, userId }, "call:initiate failed");
+        ack?.({ error: err instanceof Error ? err.message : "Failed to initiate call" });
+      }
+    });
+
+    // --- Event: call:accept ---
+    socket.on("call:accept", async (data: { callId: string }, ack) => {
+      try {
+        const redis = getRedis();
+        const call = await callService.acceptCall(data.callId);
+        const token = callService.generateAgoraToken(call.channelName, 1);
+
+        await redis.set(`call:active:${userId}`, call.id, "EX", 3600);
+
+        // Notify caller
+        io.to(`user:${call.callerId}`).emit("call:accepted", {
+          callId: call.id,
+          calleeId: userId,
+        });
+
+        ack?.({ call, token, channelName: call.channelName });
+      } catch (err) {
+        logger.error({ err, userId }, "call:accept failed");
+        ack?.({ error: err instanceof Error ? err.message : "Failed to accept call" });
+      }
+    });
+
+    // --- Event: call:reject ---
+    socket.on("call:reject", async (data: { callId: string }, ack) => {
+      try {
+        const call = await callService.rejectCall(data.callId);
+        const redis = getRedis();
+        await redis.del(`call:active:${call.callerId}`);
+
+        io.to(`user:${call.callerId}`).emit("call:rejected", {
+          callId: call.id,
+          calleeId: userId,
+        });
+
+        ack?.({ success: true });
+      } catch (err) {
+        logger.error({ err, userId }, "call:reject failed");
+        ack?.({ error: err instanceof Error ? err.message : "Failed to reject call" });
+      }
+    });
+
+    // --- Event: call:hangup ---
+    socket.on("call:hangup", async (data: { callId: string }, ack) => {
+      try {
+        const redis = getRedis();
+        const endReason = EndReason.CALLER_HANGUP;
+        const call = await callService.endCall(data.callId, endReason);
+
+        await redis.del(`call:active:${userId}`);
+        if (call.calleeId) await redis.del(`call:active:${call.calleeId}`);
+
+        // Notify other party
+        if (call.calleeId && call.calleeId !== userId) {
+          io.to(`user:${call.calleeId}`).emit("call:ended", {
+            callId: call.id,
+            endReason,
+          });
+        }
+        if (call.callerId !== userId) {
+          io.to(`user:${call.callerId}`).emit("call:ended", {
+            callId: call.id,
+            endReason,
+          });
+        }
+
+        // For group calls, notify the chat room
+        if (call.chatId && !call.calleeId) {
+          socket.to(`chat:${call.chatId}`).emit("call:ended", {
+            callId: call.id,
+            endReason,
+          });
+        }
+
+        ack?.({ success: true, duration: call.duration });
+      } catch (err) {
+        logger.error({ err, userId }, "call:hangup failed");
+        ack?.({ error: err instanceof Error ? err.message : "Failed to hang up" });
+      }
+    });
+
+    // --- Event: call:busy ---
+    socket.on("call:busy", async (data: { callId: string }, ack) => {
+      try {
+        const call = await callService.busyCall(data.callId);
+        const redis = getRedis();
+        await redis.del(`call:active:${call.callerId}`);
+
+        io.to(`user:${call.callerId}`).emit("call:busy", {
+          callId: call.id,
+          calleeId: userId,
+        });
+
+        ack?.({ success: true });
+      } catch (err) {
+        logger.error({ err, userId }, "call:busy failed");
+        ack?.({ error: err instanceof Error ? err.message : "Failed to report busy" });
+      }
+    });
+
     // --- Disconnect ---
     socket.on("disconnect", async () => {
       const sockets = userSockets.get(userId);
@@ -314,6 +504,18 @@ export function createSocketServer(httpServer: HttpServer, prisma: PrismaClient,
           typingThrottle.delete(userId);
           msgThrottle.delete(userId);
           readThrottle.delete(userId);
+
+          // Clean up active call on disconnect
+          const disconnectRedis = getRedis();
+          const activeCallId = await disconnectRedis.get(`call:active:${userId}`);
+          if (activeCallId) {
+            await disconnectRedis.del(`call:active:${userId}`);
+            try {
+              await callService.endCall(activeCallId, EndReason.NETWORK_ERROR);
+            } catch {
+              // Call may already be ended
+            }
+          }
 
           // Set user offline
           await userRepo.setOnlineStatus(userId, false);

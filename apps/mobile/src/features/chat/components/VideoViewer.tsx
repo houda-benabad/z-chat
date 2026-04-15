@@ -1,4 +1,5 @@
-import { Modal, View, Pressable, StatusBar, Dimensions } from 'react-native';
+import { useRef, useState, useCallback } from 'react';
+import { Modal, View, Pressable, StatusBar, Dimensions, ActivityIndicator } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Video, ResizeMode } from 'expo-av';
@@ -12,28 +13,56 @@ const { width, height } = Dimensions.get('window');
 
 export function VideoViewer({ uri, onClose }: VideoViewerProps) {
   const insets = useSafeAreaInsets();
+  const videoRef = useRef<Video>(null);
+  const [loading, setLoading] = useState(true);
+
+  const handleLoad = useCallback(async () => {
+    setLoading(false);
+    await videoRef.current?.playAsync();
+  }, []);
+
+  const handleClose = useCallback(async () => {
+    await videoRef.current?.stopAsync();
+    await videoRef.current?.unloadAsync();
+    setLoading(true);
+    onClose();
+  }, [onClose]);
 
   return (
     <Modal
       visible={uri !== null}
       transparent
       animationType="fade"
-      onRequestClose={onClose}
+      onRequestClose={handleClose}
       statusBarTranslucent
     >
       <StatusBar barStyle="light-content" backgroundColor="#000" />
       <View style={{ flex: 1, backgroundColor: '#000', justifyContent: 'center', alignItems: 'center' }}>
         {uri && (
           <Video
+            key={uri}
+            ref={videoRef}
             source={{ uri }}
             style={{ width, height: height * 0.85 }}
             resizeMode={ResizeMode.CONTAIN}
             useNativeControls
-            shouldPlay
+            shouldPlay={false}
+            isLooping={false}
+            onLoad={handleLoad}
+            onError={() => setLoading(false)}
           />
         )}
+
+        {loading && uri && (
+          <ActivityIndicator
+            size="large"
+            color="#E46C53"
+            style={{ position: 'absolute' }}
+          />
+        )}
+
         <Pressable
-          onPress={onClose}
+          onPress={handleClose}
           hitSlop={12}
           style={{
             position: 'absolute',

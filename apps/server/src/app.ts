@@ -14,6 +14,7 @@ import { createGroupRouter } from "./features/groups/routes";
 import { createContactRouter } from "./features/contacts/routes";
 import { createSettingsRouter } from "./features/settings/routes";
 import { createUploadRouter } from "./features/upload/routes";
+import { createCallRouter } from "./features/calls/routes";
 import { errorHandler } from "./shared/middleware/errorHandler";
 import { globalRateLimit } from "./shared/middleware/rateLimit";
 
@@ -71,6 +72,7 @@ export function createApp(
   app.use("/contacts", createContactRouter(prisma, jwtSecret));
   app.use("/settings", createSettingsRouter(prisma, jwtSecret));
   app.use("/upload", createUploadRouter(jwtSecret, uploadBaseUrl));
+  app.use("/calls", createCallRouter(prisma, jwtSecret));
 
   app.use(errorHandler);
   Sentry.setupExpressErrorHandler(app);

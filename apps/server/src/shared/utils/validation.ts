@@ -100,6 +100,13 @@ export type UpdateGroupInput = z.infer<typeof updateGroupSchema>;
 export type AddMembersInput = z.infer<typeof addMembersSchema>;
 export type UpdateMemberRoleInput = z.infer<typeof updateMemberRoleSchema>;
 
+export const generateCallTokenSchema = z.object({
+  channelName: z.string().min(1).max(200),
+  uid: z.number().int().min(0),
+});
+
+export type GenerateCallTokenInput = z.infer<typeof generateCallTokenSchema>;
+
 export type AddContactInput = z.infer<typeof addContactSchema>;
 export type SyncContactsInput = z.infer<typeof syncContactsSchema>;
 export type SendOtpInput = z.infer<typeof sendOtpSchema>;

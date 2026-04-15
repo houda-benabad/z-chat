@@ -28,6 +28,8 @@ model User {
   blockedUsers  BlockedUser[]      @relation("UserBlocked")
   blockedBy     BlockedUser[]      @relation("BlockedByUser")
   starredMessages StarredMessage[]
+  outgoingCalls   Call[]             @relation("OutgoingCalls")
+  incomingCalls   Call[]             @relation("IncomingCalls")
 
   @@map("users")
 }
@@ -179,4 +181,51 @@ model StarredMessage {
   @@index([userId])
   @@index([userId, createdAt])
   @@map("starred_messages")
+}
+
+// ─── Calls ───────────────��───────────────────────────────────────────────────
+
+enum CallType {
+  VOICE
+  VIDEO
+}
+
+enum CallStatus {
+  RINGING
+  ONGOING
+  ENDED
+  MISSED
+  REJECTED
+  NO_ANSWER
+  BUSY
+}
+
+enum EndReason {
+  CALLER_HANGUP
+  CALLEE_HANGUP
+  NETWORK_ERROR
+  TIMEOUT
+}
+
+model Call {
+  id         String      @id @default(uuid())
+  callerId   String      @map("caller_id")
+  calleeId   String?     @map("callee_id")
+  chatId     String?     @map("chat_id")
+  channelName String     @map("channel_name")
+  type       CallType
+  status     CallStatus  @default(RINGING)
+  startedAt  DateTime    @default(now()) @map("started_at")
+  answeredAt DateTime?   @map("answered_at")
+  endedAt    DateTime?   @map("ended_at")
+  duration   Int?
+  endReason  EndReason?  @map("end_reason")
+
+  caller User  @relation("OutgoingCalls", fields: [callerId], references: [id])
+  callee User? @relation("IncomingCalls", fields: [calleeId], references: [id])
+
+  @@index([callerId, startedAt])
+  @@index([calleeId, startedAt])
+  @@index([channelName])
+  @@map("calls")
 }

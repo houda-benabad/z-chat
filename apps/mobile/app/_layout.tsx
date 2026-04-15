@@ -7,12 +7,14 @@ import { useFonts } from 'expo-font';
 import * as SplashScreen from 'expo-splash-screen';
 import * as Notifications from 'expo-notifications';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import { BottomSheetModalProvider } from '@gorhom/bottom-sheet';
 
 import { requestNotificationPermissions, registerBackgroundNotificationTask } from '../src/shared/services/notifications';
 import { AppSettingsProvider, useAppSettings } from '../src/shared/context/AppSettingsContext';
 import { UserProfileProvider } from '../src/shared/context/UserProfileContext';
 import { ErrorBoundary } from '../src/shared/components';
 import { setSessionExpiredHandler } from '../src/shared/services/api/client';
+import { CallProvider } from '../src/features/calls/components/CallProvider';
 
 if (process.env.EXPO_PUBLIC_SENTRY_DSN) {
   Sentry.init({ dsn: process.env.EXPO_PUBLIC_SENTRY_DSN });
@@ -54,6 +56,7 @@ function ThemedStack() {
       <Stack.Screen name="settings-help" />
       <Stack.Screen name="starred-messages" />
       <Stack.Screen name="user-profile" />
+      <Stack.Screen name="call" options={{ gestureEnabled: false, animation: 'slide_from_bottom' }} />
     </Stack>
   );
 }
@@ -115,8 +118,12 @@ export default Sentry.wrap(function RootLayout() {
     <AppSettingsProvider>
     <UserProfileProvider>
     <GestureHandlerRootView style={{ flex: 1 }}>
-      <ThemedStatusBar />
-      <ThemedStack />
+      <BottomSheetModalProvider>
+        <CallProvider>
+          <ThemedStatusBar />
+          <ThemedStack />
+        </CallProvider>
+      </BottomSheetModalProvider>
     </GestureHandlerRootView>
     </UserProfileProvider>
     </AppSettingsProvider>

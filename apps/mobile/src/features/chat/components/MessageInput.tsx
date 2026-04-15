@@ -1,6 +1,6 @@
-import { useRef, useState, useEffect } from 'react';
+import { useRef, useState, useEffect, useCallback } from 'react';
 import {
-  View, Text, TextInput, Pressable, ActivityIndicator, Modal, StyleSheet,
+  View, Text, TextInput, Pressable, ActivityIndicator, Keyboard,
   Animated as RNAnimated, type GestureResponderEvent,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
@@ -12,8 +12,11 @@ import Animated, {
   interpolate,
   Extrapolation,
 } from 'react-native-reanimated';
+import { BottomSheetModal } from '@gorhom/bottom-sheet';
 import { useThemedStyles } from '@/shared/hooks/useThemedStyles';
 import { useAttachmentPicker } from '../hooks/useAttachmentPicker';
+import { AttachmentSheet } from './AttachmentSheet';
+import { MediaPreviewModal } from './MediaPreviewModal';
 import { createStyles } from './styles/MessageInput.styles';
 import type { ChatMessage } from '@/types';
 
@@ -35,7 +38,7 @@ interface MessageInputProps {
   bottomInset: number;
   replyToMessage?: ChatMessage | null;
   onCancelReply?: () => void;
-  onMediaSelected?: (uri: string, mimeType: string, mediaType: 'image' | 'video' | 'document') => Promise<void>;
+  onMediaSelected?: (uri: string, mimeType: string, mediaType: 'image' | 'video' | 'document', caption: string) => Promise<void>;
   uploadingMedia?: boolean;
   isRecordingVoice?: boolean;
   recordingDurationMs?: number;
@@ -126,10 +129,23 @@ export function MessageInput({
     }
   }, [isRecordingVoice]);
 
-  const { menuVisible, openMenu, closeMenu, pickPhoto, pickVideo, pickDocument } = useAttachmentPicker({
+  const attachSheetRef = useRef<BottomSheetModal>(null);
+  const openMenu = useCallback(() => {
+    if (!uploadingMedia) {
+      Keyboard.dismiss();
+      attachSheetRef.current?.present();
+    }
+  }, [uploadingMedia]);
+
+  const { openCamera, openGallery, openDocument, pendingMedia, confirmSend, cancelPending } = useAttachmentPicker({
     onMediaSelected: onMediaSelected ?? (async () => {}),
     disabled: uploadingMedia,
   });
+
+  const handleSheetAction = useCallback((action: () => void) => {
+    attachSheetRef.current?.dismiss();
+    action();
+  }, []);
 
   const animatedMicStyle = useAnimatedStyle(() => ({
     transform: [{ translateX: translationX.value }],
@@ -345,25 +361,18 @@ export function MessageInput({
         )}
       </View>
 
-      <Modal transparent animationType="fade" visible={menuVisible} onRequestClose={closeMenu}>
-        <View style={styles.menuOverlay}>
-          <Pressable style={StyleSheet.absoluteFill} onPress={closeMenu} />
-          <View style={styles.attachMenu}>
-            <Pressable style={styles.attachMenuItem} onPress={pickPhoto}>
-              <Ionicons name="image-outline" size={22} color="#E46C53" />
-              <Text style={styles.attachMenuText}>Photo</Text>
-            </Pressable>
-            <Pressable style={styles.attachMenuItem} onPress={pickVideo}>
-              <Ionicons name="videocam-outline" size={22} color="#E46C53" />
-              <Text style={styles.attachMenuText}>Video</Text>
-            </Pressable>
-            <Pressable style={styles.attachMenuItem} onPress={pickDocument}>
-              <Ionicons name="document-outline" size={22} color="#E46C53" />
-              <Text style={styles.attachMenuText}>File</Text>
-            </Pressable>
-          </View>
-        </View>
-      </Modal>
+      <AttachmentSheet
+        ref={attachSheetRef}
+        onCamera={() => handleSheetAction(openCamera)}
+        onGallery={() => handleSheetAction(openGallery)}
+        onDocument={() => handleSheetAction(openDocument)}
+      />
+
+      <MediaPreviewModal
+        media={pendingMedia}
+        onSend={confirmSend}
+        onClose={cancelPending}
+      />
     </View>
   );
 }

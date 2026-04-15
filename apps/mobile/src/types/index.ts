@@ -204,6 +204,46 @@ export interface BlockedUserItem {
   };
 }
 
+// ─── Call ─────────────────────────────────────────────────────────────────────
+
+export type CallType = 'VOICE' | 'VIDEO';
+export type CallStatus = 'RINGING' | 'ONGOING' | 'ENDED' | 'MISSED' | 'REJECTED' | 'NO_ANSWER' | 'BUSY';
+export type EndReason = 'CALLER_HANGUP' | 'CALLEE_HANGUP' | 'NETWORK_ERROR' | 'TIMEOUT';
+
+export interface CallUser {
+  id: string;
+  phone: string;
+  name: string | null;
+  avatar: string | null;
+}
+
+export interface CallRecord {
+  id: string;
+  callerId: string;
+  calleeId: string | null;
+  chatId: string | null;
+  channelName: string;
+  type: CallType;
+  status: CallStatus;
+  startedAt: string;
+  answeredAt: string | null;
+  endedAt: string | null;
+  duration: number | null;
+  endReason: EndReason | null;
+  caller: CallUser;
+  callee: CallUser | null;
+}
+
+export interface IncomingCallData {
+  callId: string;
+  channelName: string;
+  callerId: string;
+  caller: CallUser;
+  chatId?: string;
+  type: CallType;
+  isGroup: boolean;
+}
+
 // ─── User ─────────────────────────────────────────────────────────────────────
 
 export interface UserProfile {

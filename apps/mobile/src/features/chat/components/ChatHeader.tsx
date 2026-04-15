@@ -19,6 +19,8 @@ interface ChatHeaderProps {
   onBack: () => void;
   onHeaderPress?: () => void;
   onSearchPress?: () => void;
+  onVideoCall?: () => void;
+  onVoiceCall?: () => void;
 }
 
 export const ChatHeader = memo(function ChatHeader({
@@ -34,6 +36,8 @@ export const ChatHeader = memo(function ChatHeader({
   onBack,
   onHeaderPress,
   onSearchPress,
+  onVideoCall,
+  onVoiceCall,
 }: ChatHeaderProps) {
   const styles = useThemedStyles(createStyles);
   const statusText = isBlocked
@@ -68,10 +72,10 @@ export const ChatHeader = memo(function ChatHeader({
       </Pressable>
 
       <View style={styles.actions}>
-        <Pressable hitSlop={10} style={styles.actionBtn}>
+        <Pressable hitSlop={10} style={styles.actionBtn} onPress={onVideoCall}>
           <Ionicons name="videocam-outline" size={22} color="#fff" />
         </Pressable>
-        <Pressable hitSlop={10} style={styles.actionBtn}>
+        <Pressable hitSlop={10} style={styles.actionBtn} onPress={onVoiceCall}>
           <Ionicons name="call-outline" size={20} color="#fff" />
         </Pressable>
         {onSearchPress && (

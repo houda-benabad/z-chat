@@ -126,6 +126,13 @@ export const createStyles = (_colors: AppColors) => StyleSheet.create({
     fontFamily: typography.fontFamily,
     color: TEXT_COLOR,
   },
+  captionText: {
+    fontSize: 13,
+    fontFamily: typography.fontFamily,
+    color: TEXT_COLOR,
+    paddingTop: 4,
+    paddingHorizontal: 2,
+  },
 
   avatarColumn: {
     width: 28,
