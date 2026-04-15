@@ -38,8 +38,7 @@ const storage = multer.diskStorage({
   destination: path.join(process.cwd(), "public/uploads"),
   filename: (_req, file, cb) => {
     const ext = MIME_EXT[file.mimetype.toLowerCase()]
-      ?? path.extname(file.originalname)
-      || ".bin";
+      ?? (path.extname(file.originalname) || ".bin");
     cb(null, `${randomUUID()}${ext}`);
   },
 });
