@@ -46,8 +46,8 @@ export class ContactController {
   });
 
   syncAndAddContacts = asyncHandler(async (req: AuthRequest, res: Response) => {
-    const { phones } = req.body;
-    const result = await this.service.syncAndAddContacts(req.userId!, phones);
+    const { contacts } = req.body;
+    const result = await this.service.syncAndAddContacts(req.userId!, contacts);
     res.json(result);
   });
 }

@@ -93,6 +93,18 @@ export const syncContactsSchema = z.object({
   phones: z.array(normalizedPhone).min(1).max(500),
 });
 
+export const syncAndAddContactsSchema = z.object({
+  contacts: z
+    .array(
+      z.object({
+        phone: normalizedPhone,
+        name: z.string().trim().max(100).optional(),
+      }),
+    )
+    .min(1)
+    .max(500),
+});
+
 export const createGroupSchema = z.object({
   name: z.string().min(1, "Group name is required").max(100),
   description: z.string().max(500).optional(),
@@ -128,6 +140,7 @@ export type GenerateCallTokenInput = z.infer<typeof generateCallTokenSchema>;
 
 export type AddContactInput = z.infer<typeof addContactSchema>;
 export type SyncContactsInput = z.infer<typeof syncContactsSchema>;
+export type SyncAndAddContactsInput = z.infer<typeof syncAndAddContactsSchema>;
 export type SendOtpInput = z.infer<typeof sendOtpSchema>;
 export type VerifyOtpInput = z.infer<typeof verifyOtpSchema>;
 export type RefreshInput = z.infer<typeof refreshSchema>;

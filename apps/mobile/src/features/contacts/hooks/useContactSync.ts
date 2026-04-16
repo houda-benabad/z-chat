@@ -79,13 +79,25 @@ export function useContactSync() {
         return { matchedUsers: [], totalPhoneContacts: phoneBookContacts.length, addedCount: 0, phoneBookContacts };
       }
 
+      const phoneToName = new Map<string, string>();
+      for (const c of phoneBookContacts) {
+        if (!c.name || c.name === 'Unknown') continue;
+        for (const p of c.normalizedPhones) {
+          if (!phoneToName.has(p)) phoneToName.set(p, c.name);
+        }
+      }
+
       // Batch into chunks
       const allMatched: SyncedUser[] = [];
       let totalAdded = 0;
 
       for (let i = 0; i < filtered.length; i += BATCH_SIZE) {
         const batch = filtered.slice(i, i + BATCH_SIZE);
-        const { users, addedCount } = await contactApi.syncAndAddContacts(batch);
+        const payload = batch.map((phone) => {
+          const name = phoneToName.get(phone);
+          return name ? { phone, name } : { phone };
+        });
+        const { users, addedCount } = await contactApi.syncAndAddContacts(payload);
         allMatched.push(...users);
         totalAdded += addedCount;
       }

@@ -5,7 +5,12 @@ import { ContactService } from "./service";
 import { ContactController } from "./controller";
 import { authMiddleware } from "../../shared/middleware/auth";
 import { validate } from "../../shared/middleware/validate";
-import { addContactSchema, syncContactsSchema, updateContactNicknameSchema } from "../../shared/utils/validation";
+import {
+  addContactSchema,
+  syncAndAddContactsSchema,
+  syncContactsSchema,
+  updateContactNicknameSchema,
+} from "../../shared/utils/validation";
 
 export function createContactRouter(prisma: PrismaClient, jwtSecret: string): Router {
   const repo = new ContactRepository(prisma);
@@ -21,7 +26,7 @@ export function createContactRouter(prisma: PrismaClient, jwtSecret: string): Ro
   router.patch("/:id", validate(updateContactNicknameSchema), controller.updateNickname);
   router.delete("/:id", controller.removeContact);
   router.post("/sync", validate(syncContactsSchema), controller.syncContacts);
-  router.post("/sync-and-add", validate(syncContactsSchema), controller.syncAndAddContacts);
+  router.post("/sync-and-add", validate(syncAndAddContactsSchema), controller.syncAndAddContacts);
 
   return router;
 }

@@ -31,9 +31,11 @@ export const contactApi = {
       body: JSON.stringify({ phones }),
     }),
 
-  syncAndAddContacts: (phones: string[]): Promise<{ users: SyncedUser[]; addedCount: number }> =>
+  syncAndAddContacts: (
+    contacts: Array<{ phone: string; name?: string }>,
+  ): Promise<{ users: SyncedUser[]; addedCount: number }> =>
     request('/contacts/sync-and-add', {
       method: 'POST',
-      body: JSON.stringify({ phones }),
+      body: JSON.stringify({ contacts }),
     }),
 };

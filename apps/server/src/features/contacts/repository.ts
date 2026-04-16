@@ -76,11 +76,15 @@ export class ContactRepository {
     });
   }
 
-  async bulkCreateContacts(userId: string, contactUserIds: string[]) {
+  async bulkCreateContacts(
+    userId: string,
+    entries: Array<{ contactUserId: string; nickname?: string }>,
+  ) {
     const result = await this.prisma.contact.createMany({
-      data: contactUserIds.map((contactUserId) => ({
+      data: entries.map(({ contactUserId, nickname }) => ({
         userId,
         contactUserId,
+        nickname,
       })),
       skipDuplicates: true,
     });

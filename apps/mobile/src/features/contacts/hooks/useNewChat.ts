@@ -90,10 +90,21 @@ export function useNewChat(): UseNewChatReturn {
       const userPhone = profile?.phone ?? '';
       const phones = Array.from(allNormalized).filter((p) => p !== userPhone);
       if (phones.length > 0) {
+        const phoneToName = new Map<string, string>();
+        for (const c of mapped) {
+          if (!c.name || c.name === 'Unknown') continue;
+          for (const p of c.normalizedPhones) {
+            if (!phoneToName.has(p)) phoneToName.set(p, c.name);
+          }
+        }
         try {
           const BATCH = 500;
           for (let i = 0; i < phones.length; i += BATCH) {
-            await contactApi.syncAndAddContacts(phones.slice(i, i + BATCH));
+            const batch = phones.slice(i, i + BATCH).map((phone) => {
+              const name = phoneToName.get(phone);
+              return name ? { phone, name } : { phone };
+            });
+            await contactApi.syncAndAddContacts(batch);
           }
         } catch { /* silent — contacts list still works without sync */ }
       }

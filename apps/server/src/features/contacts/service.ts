@@ -66,7 +66,14 @@ export class ContactService {
     }));
   }
 
-  async syncAndAddContacts(userId: string, phones: string[]) {
+  async syncAndAddContacts(userId: string, contacts: Array<{ phone: string; name?: string }>) {
+    const phones = contacts.map((c) => c.phone);
+    const phoneToName = new Map<string, string>();
+    for (const c of contacts) {
+      const name = c.name?.trim();
+      if (name) phoneToName.set(c.phone, name);
+    }
+
     const registeredUsers = await this.repo.findRegisteredUsers(phones, userId);
 
     if (registeredUsers.length === 0) {
@@ -75,7 +82,7 @@ export class ContactService {
 
     const addedCount = await this.repo.bulkCreateContacts(
       userId,
-      registeredUsers.map((u) => u.id),
+      registeredUsers.map((u) => ({ contactUserId: u.id, nickname: phoneToName.get(u.phone) })),
     );
 
     return {
