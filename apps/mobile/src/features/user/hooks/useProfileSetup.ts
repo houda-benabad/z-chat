@@ -77,7 +77,7 @@ export function useProfileSetup(): UseProfileSetupReturn {
     }
 
     setIsLoading(false);
-    router.replace('/chat-list');
+    router.replace('/contact-sync');
   }, [isValid, displayName, about, avatarUri, router, updateProfile]);
 
   return {

@@ -153,6 +153,16 @@ export interface SyncedUser {
   isContact: boolean;
 }
 
+// ─── Phone Book ──────────────────────────────────────────────────────────────
+
+export interface PhoneBookContact {
+  id: string;
+  name: string;
+  phones: string[];
+  normalizedPhones: string[];
+  imageUri?: string;
+}
+
 // ─── Settings ─────────────────────────────────────────────────────────────────
 
 export interface UserSettings {

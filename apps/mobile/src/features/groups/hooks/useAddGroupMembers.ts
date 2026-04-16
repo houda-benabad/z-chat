@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
-import { Alert } from 'react-native';
+import { alert } from '@/shared/utils/alert';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { contactApi, groupApi } from '@/shared/services/api';
 import { decryptGroupKey, generateGroupKeyBundle } from '@/shared/services/crypto';
@@ -97,7 +97,7 @@ export function useAddGroupMembers(): UseAddGroupMembersReturn {
 
       router.back();
     } catch {
-      Alert.alert('Error', 'Failed to add members');
+      alert('Error', 'Failed to add members');
     } finally {
       setAdding(false);
     }

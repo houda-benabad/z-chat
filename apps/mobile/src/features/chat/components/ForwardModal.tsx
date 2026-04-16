@@ -33,7 +33,7 @@ export function ForwardModal({
   const { accentColor } = useAppSettings();
 
   return (
-    <Modal visible={visible} animationType="slide" transparent statusBarTranslucent>
+    <Modal visible={visible} animationType="slide" transparent statusBarTranslucent onRequestClose={onClose}>
       <View style={styles.overlay}>
         <View style={styles.sheet}>
           <View style={styles.handle} />
@@ -46,15 +46,21 @@ export function ForwardModal({
           </View>
 
           <View style={styles.searchWrap}>
-            <TextInput
-              style={styles.searchInput}
-              placeholder="Search chats…"
-              placeholderTextColor="#AAAAAA"
-              value={search}
-              onChangeText={onSearch}
-              autoCorrect={false}
-              clearButtonMode="while-editing"
-            />
+            <View style={styles.searchRow}>
+              <TextInput
+                style={styles.searchInput}
+                placeholder="Search chats…"
+                placeholderTextColor="#AAAAAA"
+                value={search}
+                onChangeText={onSearch}
+                autoCorrect={false}
+              />
+              {search.length > 0 && (
+                <Pressable onPress={() => onSearch('')} hitSlop={8} style={styles.searchClear}>
+                  <Ionicons name="close-circle" size={18} color="#AAAAAA" />
+                </Pressable>
+              )}
+            </View>
           </View>
 
           <FlatList

@@ -48,14 +48,23 @@ export const createStyles = (_colors: AppColors) => StyleSheet.create({
     borderBottomWidth: StyleSheet.hairlineWidth,
     borderBottomColor: '#EEEEEE',
   },
-  searchInput: {
+  searchRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
     backgroundColor: '#F3F3F3',
     borderRadius: 10,
     paddingHorizontal: 12,
+  },
+  searchInput: {
+    flex: 1,
     paddingVertical: 8,
     fontSize: 14,
     fontFamily: typography.fontFamily,
     color: '#222222',
+  },
+  searchClear: {
+    marginLeft: 4,
+    padding: 2,
   },
   list: {
     flexGrow: 0,

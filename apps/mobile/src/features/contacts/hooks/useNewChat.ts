@@ -1,13 +1,16 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
+import { Share, TextInput } from 'react-native';
 import { useFocusEffect, useRouter } from 'expo-router';
-import { TextInput } from 'react-native';
+import * as ExpoContacts from 'expo-contacts';
 import { contactApi } from '@/shared/services/api';
-import { getContactDisplayName, groupContactsByLetter } from '@/shared/utils';
-import type { ContactItem } from '@/types';
+import { getContactDisplayName, groupContactsByLetter, normalizePhoneNumber, extractCountryCode } from '@/shared/utils';
+import { useUserProfile } from '@/shared/context/UserProfileContext';
+import type { ContactItem, PhoneBookContact } from '@/types';
 
 export interface UseNewChatReturn {
   contacts: ContactItem[];
   sections: { title: string; data: ContactItem[] }[];
+  inviteContacts: PhoneBookContact[];
   search: string;
   setSearch: (s: string) => void;
   loading: boolean;
@@ -20,15 +23,18 @@ export interface UseNewChatReturn {
   onRefresh: () => Promise<void>;
   loadMore: () => Promise<void>;
   handleSelectContact: (contact: ContactItem) => Promise<void>;
+  handleInvite: (contact: PhoneBookContact) => Promise<void>;
 }
 
 export function useNewChat(): UseNewChatReturn {
   const router = useRouter();
   const searchRef = useRef<TextInput>(null);
+  const { profile } = useUserProfile();
 
   const PAGE_SIZE = 50;
 
   const [contacts, setContacts] = useState<ContactItem[]>([]);
+  const [phoneBookContacts, setPhoneBookContacts] = useState<PhoneBookContact[]>([]);
   const [search, setSearch] = useState('');
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState(false);
@@ -46,6 +52,46 @@ export function useNewChat(): UseNewChatReturn {
     } catch {
       setLoadError(true);
     }
+  }, []);
+
+  const loadPhoneBookContacts = useCallback(async () => {
+    try {
+      const { status } = await ExpoContacts.getPermissionsAsync();
+      if (status !== 'granted') return;
+
+      const { data } = await ExpoContacts.getContactsAsync({
+        fields: [ExpoContacts.Fields.PhoneNumbers, ExpoContacts.Fields.Name, ExpoContacts.Fields.Image],
+      });
+
+      const defaultCC = extractCountryCode(profile?.phone ?? '+1');
+      const mapped: PhoneBookContact[] = [];
+
+      for (const c of data) {
+        if (!c.phoneNumbers?.length) continue;
+        const raw = c.phoneNumbers.map((p) => p.number ?? '').filter(Boolean);
+        const normalized = raw
+          .map((r) => normalizePhoneNumber(r, defaultCC))
+          .filter((n): n is string => n !== null);
+        if (!normalized.length) continue;
+        mapped.push({
+          id: c.id ?? '',
+          name: [c.firstName, c.lastName].filter(Boolean).join(' ') || 'Unknown',
+          phones: raw,
+          normalizedPhones: normalized,
+          imageUri: c.image?.uri,
+        });
+      }
+
+      setPhoneBookContacts(mapped);
+    } catch {
+      // Silent — invite section is optional
+    }
+  }, [profile?.phone]);
+
+  const handleInvite = useCallback(async (contact: PhoneBookContact) => {
+    await Share.share({
+      message: `Hey ${contact.name}! I'm using z.chat for messaging. Join me! https://zchat.app/download`,
+    });
   }, []);
 
   const loadMore = useCallback(async () => {
@@ -66,17 +112,20 @@ export function useNewChat(): UseNewChatReturn {
 
   useEffect(() => {
     const init = async () => {
-      await loadContacts();
+      await Promise.all([loadContacts(), loadPhoneBookContacts()]);
       setLoading(false);
       setTimeout(() => searchRef.current?.focus(), 350);
     };
     init();
-  }, [loadContacts]);
+  }, [loadContacts, loadPhoneBookContacts]);
 
   useFocusEffect(
     useCallback(() => {
-      if (!loading) loadContacts();
-    }, [loading, loadContacts]),
+      if (!loading) {
+        loadContacts();
+        loadPhoneBookContacts();
+      }
+    }, [loading, loadContacts, loadPhoneBookContacts]),
   );
 
   const onRefresh = useCallback(async () => {
@@ -112,9 +161,21 @@ export function useNewChat(): UseNewChatReturn {
 
   const sections = useMemo(() => groupContactsByLetter(filtered), [filtered]);
 
+  // Phone contacts NOT on z.chat — candidates for invite
+  const inviteContacts = useMemo(() => {
+    const contactPhones = new Set(contacts.map((c) => c.contactUser.phone));
+    const q = search.toLowerCase().trim();
+    const notOnApp = phoneBookContacts.filter(
+      (pc) => !pc.normalizedPhones.some((p) => contactPhones.has(p)),
+    );
+    if (!q) return notOnApp;
+    return notOnApp.filter((pc) => pc.name.toLowerCase().includes(q) || pc.phones.some((p) => p.includes(q)));
+  }, [phoneBookContacts, contacts, search]);
+
   return {
     contacts,
     sections,
+    inviteContacts,
     search,
     setSearch,
     loading,
@@ -127,5 +188,6 @@ export function useNewChat(): UseNewChatReturn {
     onRefresh,
     loadMore,
     handleSelectContact,
+    handleInvite,
   };
 }

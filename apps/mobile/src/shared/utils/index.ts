@@ -1,4 +1,5 @@
 export { alert, confirm } from './alert';
+export { normalizePhoneNumber, extractCountryCode } from './phoneNormalize';
 import { AVATAR_COLORS, MESSAGE_TYPE_LABELS } from '../../constants';
 import { resolveSystemText } from '../../features/chat/utils/resolveSystemText';
 import type { ContactItem, ChatListItem, ChatMessage } from '../../types';

@@ -1,3 +1,4 @@
+import { useRef } from 'react';
 import {
   View,
   Text,
@@ -9,8 +10,9 @@ import {
   ScrollView,
 } from 'react-native';
 import { useRouter } from 'expo-router';
+import { BottomSheetModal } from '@gorhom/bottom-sheet';
 import { useAppSettings } from '@/shared/context/AppSettingsContext';
-import { Avatar, ImageCropperModal } from '@/shared/components';
+import { Avatar, ImageCropperModal, PhotoActionSheet } from '@/shared/components';
 import { useSettingsProfile } from '../hooks/useSettingsProfile';
 import { createStyles } from './styles/SettingsProfileScreen.styles';
 import { useThemedStyles } from '@/shared/hooks/useThemedStyles';
@@ -31,10 +33,13 @@ export default function SettingsProfileScreen() {
     hasChanges,
     setName,
     setAbout,
-    handleAvatarEdit,
+    handleTakePhoto,
+    handleChoosePhoto,
+    handleDeletePhoto,
     handleSave,
     cropper,
   } = useSettingsProfile();
+  const photoSheetRef = useRef<BottomSheetModal>(null);
 
   if (loading) {
     return (
@@ -81,7 +86,7 @@ export default function SettingsProfileScreen() {
             )}
           </View>
           <Pressable
-            onPress={handleAvatarEdit}
+            onPress={() => photoSheetRef.current?.present()}
             disabled={uploadingAvatar || saving}
           >
             <Text style={styles.editAvatarText}>Edit</Text>
@@ -132,6 +137,13 @@ export default function SettingsProfileScreen() {
         processing={cropper.processing}
         onConfirm={cropper.confirmCrop}
         onCancel={cropper.cancelCrop}
+      />
+
+      <PhotoActionSheet
+        ref={photoSheetRef}
+        onTakePhoto={handleTakePhoto}
+        onChoosePhoto={handleChoosePhoto}
+        onDeletePhoto={handleDeletePhoto}
       />
     </KeyboardAvoidingView>
   );

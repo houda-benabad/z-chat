@@ -1,5 +1,6 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
-import { Alert, Platform } from 'react-native';
+import { Platform } from 'react-native';
+import { alert } from '@/shared/utils/alert';
 import { Audio } from 'expo-av';
 import * as Device from 'expo-device';
 
@@ -116,14 +117,14 @@ export function useVoiceRecorder(): UseVoiceRecorderReturn {
 
     if (Platform.OS === 'web') {
       if (!navigator?.mediaDevices?.getUserMedia) {
-        Alert.alert(
+        alert(
           'Microphone unavailable',
           'navigator.mediaDevices is undefined. Voice recording requires a secure origin (localhost or HTTPS).',
         );
         return false;
       }
       if (typeof MediaRecorder === 'undefined') {
-        Alert.alert('Unsupported browser', 'MediaRecorder is not available in this browser.');
+        alert('Unsupported browser', 'MediaRecorder is not available in this browser.');
         return false;
       }
 
@@ -133,12 +134,12 @@ export function useVoiceRecorder(): UseVoiceRecorderReturn {
       } catch (err) {
         setIsRecording(false);
         if (err instanceof Error && err.name === 'NotAllowedError') {
-          Alert.alert(
+          alert(
             'Microphone Access Required',
             'Please allow microphone access in your browser to send voice messages.',
           );
         } else {
-          Alert.alert('Microphone error', describeError(err));
+          alert('Microphone error', describeError(err));
         }
         return false;
       }
@@ -157,7 +158,7 @@ export function useVoiceRecorder(): UseVoiceRecorderReturn {
       } catch (err) {
         stream.getTracks().forEach(t => t.stop());
         setIsRecording(false);
-        Alert.alert('Recorder unavailable', `Could not create audio recorder: ${describeError(err)}`);
+        alert('Recorder unavailable', `Could not create audio recorder: ${describeError(err)}`);
         return false;
       }
 
@@ -177,7 +178,7 @@ export function useVoiceRecorder(): UseVoiceRecorderReturn {
         webRecorderRef.current = null;
         webStreamRef.current = null;
         setIsRecording(false);
-        Alert.alert('Recorder failed to start', describeError(err));
+        alert('Recorder failed to start', describeError(err));
         return false;
       }
 
@@ -192,7 +193,7 @@ export function useVoiceRecorder(): UseVoiceRecorderReturn {
     try {
       // iOS simulator has no microphone hardware — AVAudioRecorder always fails there.
       if (__DEV__ && Platform.OS === 'ios' && !Device.isDevice) {
-        Alert.alert(
+        alert(
           'Simulator limitation',
           'Audio recording is not supported on the iOS simulator. Please test on a real device.',
         );
@@ -201,7 +202,7 @@ export function useVoiceRecorder(): UseVoiceRecorderReturn {
 
       const { granted } = await Audio.requestPermissionsAsync();
       if (!granted) {
-        Alert.alert('Microphone Access Required', 'Please enable microphone access in Settings to send voice messages.');
+        alert('Microphone Access Required', 'Please enable microphone access in Settings to send voice messages.');
         return false;
       }
       if (gen !== genRef.current) return false;
@@ -256,7 +257,7 @@ export function useVoiceRecorder(): UseVoiceRecorderReturn {
       return true;
     } catch (err) {
       setIsRecording(false);
-      Alert.alert('Recording failed', describeError(err));
+      alert('Recording failed', describeError(err));
       return false;
     }
   }, []);

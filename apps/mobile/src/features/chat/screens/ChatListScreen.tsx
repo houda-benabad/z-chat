@@ -17,6 +17,7 @@ import { ContactSearchItem } from '../components/ContactSearchItem';
 import { CallsTab } from '../components/CallsTab';
 import { SettingsTab } from '../components/SettingsTab';
 import { useThemedStyles } from '@/shared/hooks/useThemedStyles';
+import { useBackgroundContactSync } from '@/features/contacts/hooks/useBackgroundContactSync';
 import { createStyles } from './styles/ChatListScreen.styles';
 
 type TabName = (typeof NAV_TABS)[number]['key'];
@@ -46,6 +47,7 @@ export default function ChatListScreen() {
     useChatList(myUserId);
 
   const { profile, loading: profileLoading } = useChatListProfile();
+  useBackgroundContactSync();
 
   useFocusEffect(useCallback(() => { loadChats(); loadNicknames(); }, [loadChats, loadNicknames]));
 

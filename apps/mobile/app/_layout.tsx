@@ -12,7 +12,7 @@ import { BottomSheetModalProvider } from '@gorhom/bottom-sheet';
 import { requestNotificationPermissions, registerBackgroundNotificationTask } from '../src/shared/services/notifications';
 import { AppSettingsProvider, useAppSettings } from '../src/shared/context/AppSettingsContext';
 import { UserProfileProvider } from '../src/shared/context/UserProfileContext';
-import { ErrorBoundary } from '../src/shared/components';
+import { ErrorBoundary, CustomDialog } from '../src/shared/components';
 import { setSessionExpiredHandler } from '../src/shared/services/api/client';
 import { CallProvider } from '../src/features/calls/components/CallProvider';
 
@@ -39,6 +39,7 @@ function ThemedStack() {
       <Stack.Screen name="phone-auth" />
       <Stack.Screen name="otp-verification" />
       <Stack.Screen name="profile-setup" options={{ gestureEnabled: false }} />
+      <Stack.Screen name="contact-sync" options={{ gestureEnabled: false }} />
       <Stack.Screen name="chat-list" options={{ gestureEnabled: false }} />
       <Stack.Screen name="chat" />
       <Stack.Screen name="new-chat" />
@@ -122,6 +123,7 @@ export default Sentry.wrap(function RootLayout() {
         <CallProvider>
           <ThemedStatusBar />
           <ThemedStack />
+          <CustomDialog />
         </CallProvider>
       </BottomSheetModalProvider>
     </GestureHandlerRootView>

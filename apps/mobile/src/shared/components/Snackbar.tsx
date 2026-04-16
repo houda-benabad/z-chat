@@ -1,5 +1,6 @@
 import { useEffect, useRef } from 'react';
 import { Animated, Text, Pressable, StyleSheet } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 interface SnackbarProps {
   message: string;
@@ -17,6 +18,7 @@ export function Snackbar({
   duration = 4000,
 }: SnackbarProps) {
   const opacity = useRef(new Animated.Value(0)).current;
+  const insets = useSafeAreaInsets();
 
   useEffect(() => {
     Animated.timing(opacity, { toValue: 1, duration: 200, useNativeDriver: true }).start();
@@ -27,7 +29,7 @@ export function Snackbar({
   }, [opacity, duration, onDismiss]);
 
   return (
-    <Animated.View style={[styles.container, { opacity }]}>
+    <Animated.View style={[styles.container, { opacity, bottom: 90 + insets.bottom }]}>
       <Text style={styles.message} numberOfLines={1}>{message}</Text>
       {actionLabel && (
         <Pressable
@@ -47,7 +49,6 @@ export function Snackbar({
 const styles = StyleSheet.create({
   container: {
     position: 'absolute',
-    bottom: 90,
     left: 16,
     right: 16,
     backgroundColor: '#323232',

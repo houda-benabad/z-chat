@@ -1,5 +1,6 @@
 import { useState, useCallback } from 'react';
-import { Alert, Platform } from 'react-native';
+import { Platform } from 'react-native';
+import { alert } from '@/shared/utils/alert';
 import * as ImagePicker from 'expo-image-picker';
 import * as ImageManipulator from 'expo-image-manipulator';
 import type { CropRegion } from '../components/ImageCropper/cropUtils';
@@ -37,7 +38,7 @@ export function useImageCropper(
   const pickAndCrop = useCallback(async () => {
     const { granted } = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (!granted) {
-      Alert.alert(
+      alert(
         'Permission Required',
         'Please allow access to your photo library.',
       );
@@ -62,7 +63,7 @@ export function useImageCropper(
   const takeAndCrop = useCallback(async () => {
     const { granted } = await ImagePicker.requestCameraPermissionsAsync();
     if (!granted) {
-      Alert.alert(
+      alert(
         'Permission Required',
         'Please allow access to your camera.',
       );
@@ -101,7 +102,7 @@ export function useImageCropper(
         setSourceUri(null);
         onResult(result.uri);
       } catch {
-        Alert.alert('Error', 'Failed to crop image. Please try again.');
+        alert('Error', 'Failed to crop image. Please try again.');
       } finally {
         setProcessing(false);
       }

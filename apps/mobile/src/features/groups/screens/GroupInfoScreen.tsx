@@ -1,3 +1,4 @@
+import { useRef } from 'react';
 import {
   View,
   Text,
@@ -7,11 +8,12 @@ import {
   TextInput,
 } from 'react-native';
 import { useRouter } from 'expo-router';
+import { BottomSheetModal } from '@gorhom/bottom-sheet';
 import { useGroupInfo } from '../hooks/useGroupInfo';
 import { useAppSettings } from '@/shared/context/AppSettingsContext';
 import { createStyles } from './styles/GroupInfoScreen.styles';
 import { useThemedStyles } from '@/shared/hooks/useThemedStyles';
-import { Avatar, ImageCropperModal } from '@/shared/components';
+import { Avatar, ImageCropperModal, PhotoActionSheet } from '@/shared/components';
 
 
 export default function GroupInfoScreen() {
@@ -33,13 +35,16 @@ export default function GroupInfoScreen() {
     handleStartEditName,
     handleSaveName,
     handleCancelEditName,
-    handleAvatarEdit,
+    handleTakePhoto,
+    handleChoosePhoto,
+    handleDeletePhoto,
     cropper,
     handleRemoveMember,
     handleToggleAdmin,
     handleLeaveGroup,
     handleAddMembers,
   } = useGroupInfo();
+  const photoSheetRef = useRef<BottomSheetModal>(null);
 
   if (loading) {
     return (
@@ -85,7 +90,7 @@ export default function GroupInfoScreen() {
             )}
           </View>
           {isAdmin && !uploadingAvatar && (
-            <Pressable onPress={handleAvatarEdit}>
+            <Pressable onPress={() => photoSheetRef.current?.present()}>
               <Text style={styles.editAvatarText}>Edit</Text>
             </Pressable>
           )}
@@ -229,6 +234,13 @@ export default function GroupInfoScreen() {
           processing={cropper.processing}
           onConfirm={cropper.confirmCrop}
           onCancel={cropper.cancelCrop}
+        />
+
+        <PhotoActionSheet
+          ref={photoSheetRef}
+          onTakePhoto={handleTakePhoto}
+          onChoosePhoto={handleChoosePhoto}
+          onDeletePhoto={handleDeletePhoto}
         />
 
         {/* Leave group */}

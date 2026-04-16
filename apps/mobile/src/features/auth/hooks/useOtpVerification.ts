@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
-import { Alert, TextInput } from 'react-native';
+import { TextInput } from 'react-native';
+import { alert } from '@/shared/utils/alert';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { OTP_LENGTH } from '@z-chat/shared';
 import { authApi, tokenStorage, userApi, ApiError } from '@/shared/services/api';
@@ -80,7 +81,7 @@ export function useOtpVerification(): UseOtpVerificationReturn {
         error instanceof ApiError
           ? error.message
           : 'Invalid verification code. Please try again.';
-      Alert.alert('Error', message);
+      alert('Error', message);
       setCode('');
       inputRef.current?.focus();
     } finally {
@@ -96,9 +97,9 @@ export function useOtpVerification(): UseOtpVerificationReturn {
       setResendTimer(RESEND_COOLDOWN);
       setCode('');
       inputRef.current?.focus();
-      Alert.alert('Code Sent', 'A new verification code has been sent.');
+      alert('Code Sent', 'A new verification code has been sent.');
     } catch {
-      Alert.alert('Error', 'Failed to resend code. Please try again.');
+      alert('Error', 'Failed to resend code. Please try again.');
     }
   }, [resendTimer, phoneNumber]);
 

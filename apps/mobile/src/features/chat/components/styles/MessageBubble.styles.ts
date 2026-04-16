@@ -82,7 +82,7 @@ export const createStyles = (_colors: AppColors) => StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'flex-end',
     marginTop: 2,
-    gap: 3,
+    gap: 4,
   },
   msgTime: {
     fontSize: 11,
@@ -93,7 +93,7 @@ export const createStyles = (_colors: AppColors) => StyleSheet.create({
   msgTimeTheirs: { color: TIME_COLOR },
 
   // Ghost spacer — invisible time copy to reserve last-line space
-  ghostTime: { fontSize: 11, opacity: 0 },
+  ghostTime: { fontSize: 11, opacity: 0, paddingRight: 2 },
 
   mediaBubble: {
     width: 200,

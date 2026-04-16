@@ -18,17 +18,20 @@ import { useAppSettings } from '@/shared/context/AppSettingsContext';
 import { useThemedStyles } from '@/shared/hooks/useThemedStyles';
 import { Avatar, EmptyState, LoadingScreen } from '@/shared/components';
 import { useNewChat } from '../hooks/useNewChat';
-import type { ContactItem } from '@/types';
+import type { ContactItem, PhoneBookContact } from '@/types';
 import { getContactDisplayName } from '@/shared/utils';
 import { createStyles } from './styles/NewChatScreen.styles';
+import { createInviteStyles } from './styles/NewChatInvite.styles';
 
 export default function NewChatScreen() {
   const styles = useThemedStyles(createStyles);
+  const inviteStyles = useThemedStyles(createInviteStyles);
   const { appColors } = useAppSettings();
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const {
     sections,
+    inviteContacts,
     search,
     setSearch,
     loading,
@@ -41,6 +44,7 @@ export default function NewChatScreen() {
     onRefresh,
     loadMore,
     handleSelectContact,
+    handleInvite,
   } = useNewChat();
 
   const q = search.toLowerCase().trim();
@@ -169,11 +173,37 @@ export default function NewChatScreen() {
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={appColors.primary} />
         }
         ListFooterComponent={
-          loadingMore ? (
-            <View style={{ paddingVertical: 16, alignItems: 'center' }}>
-              <ActivityIndicator size="small" color={appColors.primary} />
-            </View>
-          ) : null
+          <>
+            {loadingMore && (
+              <View style={{ paddingVertical: 16, alignItems: 'center' }}>
+                <ActivityIndicator size="small" color={appColors.primary} />
+              </View>
+            )}
+            {inviteContacts.length > 0 && (
+              <View>
+                <View style={inviteStyles.sectionHeader}>
+                  <Text style={inviteStyles.sectionHeaderText}>Invite to z.chat</Text>
+                </View>
+                {inviteContacts.map((contact) => (
+                  <View key={contact.id} style={styles.contactRow}>
+                    <View style={inviteStyles.avatarPlaceholder}>
+                      <Ionicons name="person-outline" size={22} color={appColors.textSecondary} />
+                    </View>
+                    <View style={styles.contactInfo}>
+                      <Text style={styles.contactName} numberOfLines={1}>{contact.name}</Text>
+                      <Text style={styles.contactSub} numberOfLines={1}>{contact.phones[0]}</Text>
+                    </View>
+                    <Pressable
+                      onPress={() => handleInvite(contact)}
+                      style={({ pressed }) => [inviteStyles.inviteButton, pressed && { opacity: 0.8 }]}
+                    >
+                      <Text style={inviteStyles.inviteButtonText}>Invite</Text>
+                    </Pressable>
+                  </View>
+                ))}
+              </View>
+            )}
+          </>
         }
         onEndReached={hasMore && !search ? loadMore : undefined}
         onEndReachedThreshold={0.3}

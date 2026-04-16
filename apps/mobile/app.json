@@ -10,11 +10,11 @@
       "web"
     ],
     "newArchEnabled": true,
-    "icon": "./assets/default-avatar.png",
+    "icon": "./assets/icon.jpg",
     "userInterfaceStyle": "light",
     "scheme": "zchat",
     "splash": {
-      "image": "./assets/splash.png",
+      "image": "./assets/icon.jpg",
       "resizeMode": "contain",
       "backgroundColor": "#E46C53"
     },
@@ -29,6 +29,7 @@
     },
     "android": {
       "adaptiveIcon": {
+        "foregroundImage": "./assets/icon.jpg",
         "backgroundColor": "#FFFFFF"
       },
       "package": "com.zsystems.zchat",
@@ -55,7 +56,7 @@
       [
         "expo-notifications",
         {
-          "icon": "./assets/default-avatar.png",
+          "icon": "./assets/icon.jpg",
           "color": "#E46C53"
         }
       ],

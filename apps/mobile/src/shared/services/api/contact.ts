@@ -30,4 +30,10 @@ export const contactApi = {
       method: 'POST',
       body: JSON.stringify({ phones }),
     }),
+
+  syncAndAddContacts: (phones: string[]): Promise<{ users: SyncedUser[]; addedCount: number }> =>
+    request('/contacts/sync-and-add', {
+      method: 'POST',
+      body: JSON.stringify({ phones }),
+    }),
 };

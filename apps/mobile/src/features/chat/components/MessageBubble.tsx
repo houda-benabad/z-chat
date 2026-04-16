@@ -275,7 +275,7 @@ export const MessageBubble = memo(function MessageBubble({
                   {message.isDeleted ? 'This message was deleted' : message.content}
                   {/* Invisible ghost reserves space on the last line for the time */}
                   <Text style={styles.ghostTime}>
-                    {'  ' + (isStarred ? '★ ' : '') + timeLabel + (isMine && !isGroup && !message.isDeleted ? '  ✓✓' : '')}
+                    {'  ' + (isStarred ? '★ ' : '') + timeLabel + (isMine && !isGroup && !message.isDeleted ? '   ✓✓' : '')}
                   </Text>
                 </Text>
                 {/* Actual time + ticks overlaid at bottom-right */}

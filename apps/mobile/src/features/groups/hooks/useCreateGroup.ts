@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
-import { Alert } from 'react-native';
+import { alert } from '@/shared/utils/alert';
 import { useRouter } from 'expo-router';
 import { contactApi, groupApi, uploadMedia } from '@/shared/services/api';
 import { generateGroupKey, generateGroupKeyBundle } from '@/shared/services/crypto';
@@ -94,7 +94,7 @@ export function useCreateGroup(): UseCreateGroupReturn {
 
   const handleNext = useCallback(() => {
     if (selectedIds.size === 0) {
-      Alert.alert('Select Members', 'Please select at least one contact');
+      alert('Select Members', 'Please select at least one contact');
       return;
     }
     setStep('group-details');
@@ -103,7 +103,7 @@ export function useCreateGroup(): UseCreateGroupReturn {
   const handleCreate = useCallback(async () => {
     const name = groupName.trim();
     if (!name) {
-      Alert.alert('Group Name', 'Please enter a group name');
+      alert('Group Name', 'Please enter a group name');
       return;
     }
 
@@ -116,7 +116,7 @@ export function useCreateGroup(): UseCreateGroupReturn {
         try {
           avatarUrl = await uploadMedia(groupAvatar, 'image/jpeg');
         } catch {
-          Alert.alert('Upload failed', 'Could not upload group picture. Please try again.');
+          alert('Upload failed', 'Could not upload group picture. Please try again.');
           setUploadingAvatar(false);
           setCreating(false);
           return;
@@ -148,7 +148,7 @@ export function useCreateGroup(): UseCreateGroupReturn {
       }
 
       if (keyDistributionFailed) {
-        Alert.alert(
+        alert(
           'Group created with a warning',
           'The group was created but encryption keys could not be distributed to all members. Some members may not be able to read messages until they rejoin.',
           [{ text: 'OK' }],
@@ -165,7 +165,7 @@ export function useCreateGroup(): UseCreateGroupReturn {
         },
       });
     } catch {
-      Alert.alert('Error', 'Failed to create group. Please try again.');
+      alert('Error', 'Failed to create group. Please try again.');
     } finally {
       setCreating(false);
     }

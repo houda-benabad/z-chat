@@ -1,5 +1,5 @@
 import { useState, useCallback } from 'react';
-import { Alert } from 'react-native';
+import { alert } from '@/shared/utils/alert';
 import * as ImagePicker from 'expo-image-picker';
 import * as DocumentPicker from 'expo-document-picker';
 import type { PendingMedia } from '../components/MediaPreviewModal';
@@ -23,7 +23,7 @@ export function useAttachmentPicker({ onMediaSelected, disabled }: UseAttachment
     if (disabled) return;
     const { status } = await ImagePicker.requestCameraPermissionsAsync();
     if (status !== 'granted') {
-      Alert.alert('Camera Access Required', 'Please enable camera access in Settings.', [{ text: 'OK' }]);
+      alert('Camera Access Required', 'Please enable camera access in Settings.', [{ text: 'OK' }]);
       return;
     }
     const result = await ImagePicker.launchCameraAsync({
@@ -45,7 +45,7 @@ export function useAttachmentPicker({ onMediaSelected, disabled }: UseAttachment
     if (disabled) return;
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (status !== 'granted') {
-      Alert.alert('Media Access Required', 'Please enable media library access in Settings.', [{ text: 'OK' }]);
+      alert('Media Access Required', 'Please enable media library access in Settings.', [{ text: 'OK' }]);
       return;
     }
     const result = await ImagePicker.launchImageLibraryAsync({

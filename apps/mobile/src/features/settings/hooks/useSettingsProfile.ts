@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { Alert, ActionSheetIOS, Platform } from 'react-native';
+import { alert } from '@/shared/utils/alert';
 import { uploadAvatar } from '@/shared/services/api';
 import { useUserProfile } from '@/shared/context/UserProfileContext';
 import { useImageCropper } from '@/shared/hooks';
@@ -28,39 +28,23 @@ export function useSettingsProfile() {
     }, []),
   );
 
-  const handleAvatarEdit = useCallback(() => {
-    const options = ['Take Photo', 'Choose Photo', 'Delete Photo', 'Cancel'];
-    const destructiveButtonIndex = 2;
-    const cancelButtonIndex = 3;
-
-    const onSelect = (index: number) => {
-      if (index === 0) cropper.takeAndCrop();
-      else if (index === 1) cropper.pickAndCrop();
-      else if (index === 2) {
-        setAvatarUri(null);
-        setAvatarRemoved(true);
-      }
-    };
-
-    if (Platform.OS === 'ios') {
-      ActionSheetIOS.showActionSheetWithOptions(
-        { options, cancelButtonIndex, destructiveButtonIndex },
-        onSelect,
-      );
-    } else {
-      Alert.alert('Profile Photo', undefined, [
-        { text: 'Take Photo', onPress: () => onSelect(0) },
-        { text: 'Choose Photo', onPress: () => onSelect(1) },
-        { text: 'Delete Photo', style: 'destructive', onPress: () => onSelect(2) },
-        { text: 'Cancel', style: 'cancel' },
-      ]);
-    }
+  const handleTakePhoto = useCallback(() => {
+    cropper.takeAndCrop();
   }, [cropper]);
+
+  const handleChoosePhoto = useCallback(() => {
+    cropper.pickAndCrop();
+  }, [cropper]);
+
+  const handleDeletePhoto = useCallback(() => {
+    setAvatarUri(null);
+    setAvatarRemoved(true);
+  }, []);
 
   const handleSave = useCallback(async () => {
     const trimmedName = name.trim();
     if (!trimmedName) {
-      Alert.alert('Name Required', 'Please enter a display name');
+      alert('Name Required', 'Please enter a display name');
       return;
     }
     setSaving(true);
@@ -80,10 +64,10 @@ export function useSettingsProfile() {
         ...(avatarValue !== undefined ? { avatar: avatarValue } : {}),
       });
       setAvatarRemoved(false);
-      Alert.alert('Saved', 'Profile updated successfully');
+      alert('Saved', 'Profile updated successfully');
     } catch {
       setUploadingAvatar(false);
-      Alert.alert('Error', 'Failed to update profile');
+      alert('Error', 'Failed to update profile');
     } finally {
       setSaving(false);
     }
@@ -107,7 +91,9 @@ export function useSettingsProfile() {
     hasChanges,
     setName,
     setAbout,
-    handleAvatarEdit,
+    handleTakePhoto,
+    handleChoosePhoto,
+    handleDeletePhoto,
     handleSave,
     cropper,
   };
