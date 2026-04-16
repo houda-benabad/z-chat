@@ -1,7 +1,7 @@
 import { useRef, useState, useEffect, useCallback } from 'react';
 import {
   View, Text, TextInput, Pressable, ActivityIndicator, Keyboard,
-  Animated as RNAnimated, type GestureResponderEvent,
+  type GestureResponderEvent,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -9,11 +9,15 @@ import Animated, {
   useSharedValue,
   useAnimatedStyle,
   withTiming,
+  withRepeat,
+  withSequence,
+  cancelAnimation,
   interpolate,
   Extrapolation,
 } from 'react-native-reanimated';
 import { BottomSheetModal } from '@gorhom/bottom-sheet';
 import { useThemedStyles } from '@/shared/hooks/useThemedStyles';
+import { useKeyboardVisible } from '@/shared/hooks';
 import { useAttachmentPicker } from '../hooks/useAttachmentPicker';
 import { AttachmentSheet } from './AttachmentSheet';
 import { MediaPreviewModal } from './MediaPreviewModal';
@@ -24,12 +28,14 @@ const SLIDE_CANCEL_THRESHOLD = 80; // px left  → cancel
 const SLIDE_LOCK_THRESHOLD   = 80; // px up    → lock
 
 // 12 wave bars with staggered durations so they animate at different speeds,
-// producing a rolling wave effect without importing extra animation libraries.
+// producing a rolling wave effect. Driven by Reanimated shared values on the
+// UI thread via scaleY transform.
 const WAVE_BAR_COUNT = 12;
 const WAVE_BAR_DURATIONS = Array.from({ length: WAVE_BAR_COUNT }, (_, i) => 220 + i * 25);
 const WAVE_BAR_MAX     = Array.from({ length: WAVE_BAR_COUNT }, (_, i) =>
   0.25 + 0.75 * Math.abs(Math.sin(i * 0.9 + 0.5)),
 );
+const WAVE_BAR_MIN = 0.17; // 4 / 24 — matches the old height:4 idle state.
 
 interface MessageInputProps {
   value: string;
@@ -71,6 +77,7 @@ export function MessageInput({
 }: MessageInputProps) {
   const styles  = useThemedStyles(createStyles);
   const hasText = value.trim().length > 0;
+  const isKeyboardVisible = useKeyboardVisible();
   const [isFocused,    setIsFocused]    = useState(false);
   const [gestureActive, setGestureActive] = useState(false);
   const [isCanceling,  setIsCanceling]  = useState(false);
@@ -84,41 +91,8 @@ export function MessageInput({
   const startXRef     = useRef(0);
   const startYRef     = useRef(0);
   const finishedRef   = useRef(false);
-
-  // Wave bar animation (core RNAnimated — height isn't supported by useNativeDriver)
-  const waveAnims = useRef(
-    Array.from({ length: WAVE_BAR_COUNT }, () => new RNAnimated.Value(0.1)),
-  ).current;
-  const waveLoopsRef = useRef<RNAnimated.CompositeAnimation[]>([]);
-
-  // Start / stop wave animation when recording state changes
-  useEffect(() => {
-    if (showRecording) {
-      waveLoopsRef.current.forEach(l => l.stop());
-      waveLoopsRef.current = waveAnims.map((anim, i) => {
-        const loop = RNAnimated.loop(
-          RNAnimated.sequence([
-            RNAnimated.timing(anim, {
-              toValue: WAVE_BAR_MAX[i]!,
-              duration: WAVE_BAR_DURATIONS[i]!,
-              useNativeDriver: false,
-            }),
-            RNAnimated.timing(anim, {
-              toValue: 0.1,
-              duration: WAVE_BAR_DURATIONS[i]!,
-              useNativeDriver: false,
-            }),
-          ]),
-        );
-        loop.start();
-        return loop;
-      });
-      return () => waveLoopsRef.current.forEach(l => l.stop());
-    } else {
-      waveLoopsRef.current.forEach(l => l.stop());
-      waveAnims.forEach(a => a.setValue(0.1));
-    }
-  }, [showRecording]);
+  // Debounce — only call setIsCanceling when boolean actually changes.
+  const wasCancelingRef = useRef(false);
 
   // If recording stopped externally (e.g. error), reset lock state
   useEffect(() => {
@@ -166,6 +140,7 @@ export function MessageInput({
     startYRef.current  = e.nativeEvent.pageY;
     finishedRef.current = false;
     isLockedRef.current = false;
+    wasCancelingRef.current = false;
     translationX.value  = 0;
     setGestureActive(true);
     setIsCanceling(false);
@@ -186,12 +161,19 @@ export function MessageInput({
     const dx = Math.min(0, e.nativeEvent.pageX - startXRef.current);
     const dy = e.nativeEvent.pageY - startYRef.current; // negative = upward
     translationX.value = dx;
-    setIsCanceling(dx < -SLIDE_CANCEL_THRESHOLD);
+    const nextCanceling = dx < -SLIDE_CANCEL_THRESHOLD;
+    if (nextCanceling !== wasCancelingRef.current) {
+      wasCancelingRef.current = nextCanceling;
+      setIsCanceling(nextCanceling);
+    }
     // Slide up to lock
     if (dy < -SLIDE_LOCK_THRESHOLD) {
       isLockedRef.current = true;
       setIsLocked(true);
-      setIsCanceling(false);
+      if (wasCancelingRef.current) {
+        wasCancelingRef.current = false;
+        setIsCanceling(false);
+      }
       translationX.value = withTiming(0, { duration: 150 });
     }
   };
@@ -224,7 +206,7 @@ export function MessageInput({
   };
 
   return (
-    <View style={[styles.container, { paddingBottom: Math.max(bottomInset, 10) }]}>
+    <View style={[styles.container, { paddingBottom: isKeyboardVisible ? 8 : Math.max(bottomInset, 10) }]}>
       {replyToMessage && !showRecording && (
         <View style={styles.replyBar}>
           <View style={styles.replyBarContent}>
@@ -243,20 +225,15 @@ export function MessageInput({
         {/* ── Recording row ────────────────────────────────────────── */}
         {showRecording ? (
           <View style={styles.recordingRow}>
-            {/* Animated waveform bars */}
+            {/* Animated waveform bars (Reanimated, UI-thread scaleY) */}
             <View style={styles.waveformContainer}>
-              {waveAnims.map((anim, i) => (
-                <RNAnimated.View
+              {WAVE_BAR_DURATIONS.map((dur, i) => (
+                <WaveBar
                   key={i}
-                  style={[
-                    styles.waveBar,
-                    {
-                      height: anim.interpolate({
-                        inputRange: [0, 1],
-                        outputRange: [4, 24],
-                      }),
-                    },
-                  ]}
+                  running={showRecording}
+                  maxScale={WAVE_BAR_MAX[i]!}
+                  duration={dur}
+                  style={styles.waveBar}
                 />
               ))}
             </View>
@@ -375,4 +352,37 @@ export function MessageInput({
       />
     </View>
   );
+}
+
+interface WaveBarProps {
+  running: boolean;
+  maxScale: number;
+  duration: number;
+  style: object;
+}
+
+function WaveBar({ running, maxScale, duration, style }: WaveBarProps) {
+  const scale = useSharedValue(WAVE_BAR_MIN);
+
+  useEffect(() => {
+    if (running) {
+      scale.value = withRepeat(
+        withSequence(
+          withTiming(maxScale,       { duration }),
+          withTiming(WAVE_BAR_MIN,   { duration }),
+        ),
+        -1,
+        false,
+      );
+    } else {
+      cancelAnimation(scale);
+      scale.value = WAVE_BAR_MIN;
+    }
+  }, [running, maxScale, duration, scale]);
+
+  const animatedStyle = useAnimatedStyle(() => ({
+    transform: [{ scaleY: scale.value }],
+  }));
+
+  return <Animated.View style={[style, animatedStyle]} />;
 }

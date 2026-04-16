@@ -5,10 +5,11 @@ import {
   Pressable,
   ActivityIndicator,
   KeyboardAvoidingView,
-  Platform,
+  ScrollView,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { OTP_LENGTH } from '@z-chat/shared';
 import { useAppSettings } from '@/shared/context/AppSettingsContext';
 import { useThemedStyles } from '@/shared/hooks/useThemedStyles';
@@ -19,6 +20,7 @@ export default function OtpVerificationScreen() {
   const styles = useThemedStyles(createStyles);
   const { appColors } = useAppSettings();
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const {
     code,
     isLoading,
@@ -39,9 +41,12 @@ export default function OtpVerificationScreen() {
   return (
     <KeyboardAvoidingView
       style={styles.container}
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      behavior="padding"
     >
-      <View style={styles.content}>
+      <ScrollView
+        contentContainerStyle={[styles.scrollContent, { paddingTop: 60 + insets.top, paddingBottom: 40 + insets.bottom }]}
+        keyboardShouldPersistTaps="handled"
+      >
         <Pressable
           style={styles.backButton}
           onPress={() => router.back()}
@@ -147,7 +152,7 @@ export default function OtpVerificationScreen() {
             <Text style={styles.changeNumberLink}>Change phone number</Text>
           </Pressable>
         </View>
-      </View>
+      </ScrollView>
     </KeyboardAvoidingView>
   );
 }

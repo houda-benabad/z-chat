@@ -10,11 +10,11 @@
       "web"
     ],
     "newArchEnabled": true,
-    "icon": "./assets/icon.jpg",
+    "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
     "scheme": "zchat",
     "splash": {
-      "image": "./assets/icon.jpg",
+      "image": "./assets/icon.png",
       "resizeMode": "contain",
       "backgroundColor": "#E46C53"
     },
@@ -23,22 +23,29 @@
       "bundleIdentifier": "com.zsystems.zchat",
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false,
+        "NSContactsUsageDescription": "Allow z.chat to access your contacts to find friends already on the app.",
         "NSCameraUsageDescription": "Allow z.chat to access the camera for video calls.",
         "NSMicrophoneUsageDescription": "Allow z.chat to access the microphone for voice and video calls."
       }
     },
     "android": {
       "adaptiveIcon": {
-        "foregroundImage": "./assets/icon.jpg",
+        "foregroundImage": "./assets/icon.png",
         "backgroundColor": "#FFFFFF"
       },
       "package": "com.zsystems.zchat",
+      "navigationBar": {
+        "backgroundColor": "#FFFFFF",
+        "barStyle": "dark-content"
+      },
       "permissions": [
         "android.permission.RECORD_AUDIO",
         "android.permission.MODIFY_AUDIO_SETTINGS",
         "android.permission.CAMERA",
+        "android.permission.READ_CONTACTS",
         "android.permission.BLUETOOTH",
-        "android.permission.BLUETOOTH_CONNECT"
+        "android.permission.BLUETOOTH_CONNECT",
+        "android.permission.WRITE_CONTACTS"
       ]
     },
     "runtimeVersion": {
@@ -51,22 +58,37 @@
       "expo-secure-store",
       "expo-image-picker",
       [
-        "expo-av",
+        "expo-contacts",
         {
-          "microphonePermission": "Allow z.chat to record audio for voice messages."
+          "contactsPermission": "Allow z.chat to access your contacts to find friends already on the app."
         }
       ],
       "expo-asset",
       [
+        "expo-splash-screen",
+        {
+          "image": "./assets/icon.png",
+          "imageWidth": 200,
+          "resizeMode": "contain",
+          "backgroundColor": "#E46C53"
+        }
+      ],
+      [
         "expo-notifications",
         {
-          "icon": "./assets/icon.jpg",
+          "icon": "./assets/icon.png",
           "color": "#E46C53"
         }
       ],
       "@sentry/react-native/expo",
       "expo-video",
-      "expo-dev-client"
+      "expo-dev-client",
+      [
+        "expo-audio",
+        {
+          "microphonePermission": "Allow z.chat to record audio for voice messages."
+        }
+      ]
     ],
     "extra": {
       "router": {},
@@ -74,6 +96,9 @@
         "projectId": "3af539f2-fdd6-41cb-b80f-1f000ee1466f"
       }
     },
-    "owner": "hobenaba"
+    "owner": "hobenaba",
+    "updates": {
+      "url": "https://u.expo.dev/3af539f2-fdd6-41cb-b80f-1f000ee1466f"
+    }
   }
 }

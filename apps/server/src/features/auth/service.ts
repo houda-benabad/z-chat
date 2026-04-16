@@ -39,12 +39,45 @@ export class AuthService {
     await this.redis.set(`otp:${phone}`, otp, "EX", OTP_TTL);
 
     if (this.twilioClient && this.twilioPhone) {
-      await this.twilioClient.messages.create({
-        body: `Your z.chat verification code is: ${otp}`,
-        from: this.twilioPhone,
-        to: phone,
-      });
-      logger.info({ phone }, "OTP sent via Twilio");
+      const startedAt = Date.now();
+      try {
+        const msg = await this.twilioClient.messages.create({
+          body: `Your z.chat verification code is: ${otp}`,
+          from: this.twilioPhone,
+          to: phone,
+        });
+        logger.info(
+          {
+            phone,
+            from: this.twilioPhone,
+            sid: msg.sid,
+            status: msg.status,
+            errorCode: msg.errorCode,
+            errorMessage: msg.errorMessage,
+            durationMs: Date.now() - startedAt,
+          },
+          "OTP Twilio create response",
+        );
+        if (msg.status === "failed" || msg.status === "undelivered" || msg.errorCode) {
+          throw new AppError(502, "Failed to send SMS", "SMS_SEND_FAILED");
+        }
+      } catch (err) {
+        if (err instanceof AppError) throw err;
+        const twilioErr = err as { code?: number | string; status?: number; moreInfo?: string; message?: string };
+        logger.error(
+          {
+            phone,
+            from: this.twilioPhone,
+            code: twilioErr.code,
+            status: twilioErr.status,
+            moreInfo: twilioErr.moreInfo,
+            message: twilioErr.message,
+            durationMs: Date.now() - startedAt,
+          },
+          "OTP Twilio create threw",
+        );
+        throw new AppError(502, "Failed to send SMS", "SMS_SEND_FAILED");
+      }
     } else {
       logger.info({ phone }, `[Dev] OTP: ${otp}`);
     }

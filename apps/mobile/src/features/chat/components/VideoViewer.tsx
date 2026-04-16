@@ -1,8 +1,8 @@
-import { useRef, useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { Modal, View, Pressable, StatusBar, Dimensions, ActivityIndicator } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Video, ResizeMode } from 'expo-av';
+import { VideoView, useVideoPlayer } from 'expo-video';
 
 interface VideoViewerProps {
   uri: string | null;
@@ -13,20 +13,31 @@ const { width, height } = Dimensions.get('window');
 
 export function VideoViewer({ uri, onClose }: VideoViewerProps) {
   const insets = useSafeAreaInsets();
-  const videoRef = useRef<Video>(null);
   const [loading, setLoading] = useState(true);
 
-  const handleLoad = useCallback(async () => {
-    setLoading(false);
-    await videoRef.current?.playAsync();
-  }, []);
+  const player = useVideoPlayer(uri ?? '', (p) => {
+    p.loop = false;
+  });
 
-  const handleClose = useCallback(async () => {
-    await videoRef.current?.stopAsync();
-    await videoRef.current?.unloadAsync();
+  useEffect(() => {
+    if (!uri) return;
+    setLoading(true);
+    const sub = player.addListener('statusChange', ({ status }) => {
+      if (status === 'readyToPlay') {
+        setLoading(false);
+        player.play();
+      } else if (status === 'error') {
+        setLoading(false);
+      }
+    });
+    return () => sub.remove();
+  }, [uri, player]);
+
+  const handleClose = useCallback(() => {
+    player.pause();
     setLoading(true);
     onClose();
-  }, [onClose]);
+  }, [player, onClose]);
 
   return (
     <Modal
@@ -39,17 +50,11 @@ export function VideoViewer({ uri, onClose }: VideoViewerProps) {
       <StatusBar barStyle="light-content" backgroundColor="#000" />
       <View style={{ flex: 1, backgroundColor: '#000', justifyContent: 'center', alignItems: 'center' }}>
         {uri && (
-          <Video
-            key={uri}
-            ref={videoRef}
-            source={{ uri }}
+          <VideoView
+            player={player}
             style={{ width, height: height * 0.85 }}
-            resizeMode={ResizeMode.CONTAIN}
-            useNativeControls
-            shouldPlay={false}
-            isLooping={false}
-            onLoad={handleLoad}
-            onError={() => setLoading(false)}
+            contentFit="contain"
+            nativeControls
           />
         )}
 

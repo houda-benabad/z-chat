@@ -44,7 +44,6 @@ export const createStyles = (colors: AppColors) => StyleSheet.create({
     lineHeight: 24,
   },
   inputSection: {
-    flex: 1,
   },
   phoneRow: {
     flexDirection: 'row',

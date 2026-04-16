@@ -5,10 +5,10 @@ import {
   TextInput,
   ActivityIndicator,
   KeyboardAvoidingView,
-  Platform,
   ScrollView,
 } from 'react-native';
 import { useRouter } from 'expo-router';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { spacing } from '@/theme';
 import { useAppSettings } from '@/shared/context/AppSettingsContext';
 import { Avatar } from '@/shared/components';
@@ -20,6 +20,7 @@ export default function AddContactScreen() {
   const styles = useThemedStyles(createStyles);
   const { appColors } = useAppSettings();
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const {
     phone,
     setPhone,
@@ -43,10 +44,10 @@ export default function AddContactScreen() {
   return (
     <KeyboardAvoidingView
       style={styles.container}
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      behavior="padding"
     >
       {/* Header */}
-      <View style={styles.header}>
+      <View style={[styles.header, { paddingTop: 60 + insets.top }]}>
         <Pressable onPress={() => router.back()} style={styles.backButton}>
           <Text style={styles.backArrow}>{'\u2190'}</Text>
         </Pressable>
@@ -54,7 +55,7 @@ export default function AddContactScreen() {
       </View>
 
       <ScrollView
-        contentContainerStyle={styles.content}
+        contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + 20 }]}
         keyboardShouldPersistTaps="handled"
       >
         <Text style={styles.description}>

@@ -8,6 +8,7 @@ import {
   TextInput,
   ActivityIndicator,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { spacing, typography, borderRadius } from '@/theme';
@@ -90,7 +91,7 @@ export default function CreateGroupScreen() {
 
   if (step === 'group-details') {
     return (
-      <View style={styles.container}>
+      <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
         <View style={styles.header}>
           <Pressable onPress={() => setStep('select-members')} style={styles.backButton}>
             <Text style={styles.backArrow}>{'\u2190'}</Text>
@@ -177,12 +178,12 @@ export default function CreateGroupScreen() {
           onConfirm={cropper.confirmCrop}
           onCancel={cropper.cancelCrop}
         />
-      </View>
+      </SafeAreaView>
     );
   }
 
   return (
-    <View style={styles.container}>
+    <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
       <View style={styles.header}>
         <Pressable onPress={() => router.back()} style={styles.backButton}>
           <Text style={styles.backArrow}>{'\u2190'}</Text>
@@ -232,7 +233,7 @@ export default function CreateGroupScreen() {
           </View>
         }
       />
-    </View>
+    </SafeAreaView>
   );
 }
 

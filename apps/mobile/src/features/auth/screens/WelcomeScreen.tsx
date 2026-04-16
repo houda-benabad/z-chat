@@ -2,9 +2,9 @@ import { View, Text, Pressable, Dimensions } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useThemedStyles } from '@/shared/hooks/useThemedStyles';
 import { useAppSettings } from '@/shared/context/AppSettingsContext';
-import { useWelcome } from '../hooks/useWelcome';
 import { createStyles } from './styles/WelcomeScreen.styles';
 
 const { width } = Dimensions.get('window');
@@ -31,10 +31,9 @@ export default function WelcomeScreen() {
   const styles = useThemedStyles(createStyles);
   const { appColors } = useAppSettings();
   const router = useRouter();
-  useWelcome();
-
+  const insets = useSafeAreaInsets();
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { paddingTop: 80 + insets.top, paddingBottom: 40 + insets.bottom }]}>
       <View style={styles.topSection}>
         <View style={styles.logoContainer}>
           <LinearGradient

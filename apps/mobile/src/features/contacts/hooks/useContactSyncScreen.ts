@@ -14,24 +14,28 @@ export function useContactSyncScreen() {
   const [totalContacts, setTotalContacts] = useState(0);
 
   const handleSync = useCallback(async () => {
-    const granted = await requestPermission();
-    if (!granted) {
-      setState('denied');
-      return;
-    }
+    try {
+      const granted = await requestPermission();
+      if (!granted) {
+        setState('denied');
+        return;
+      }
 
-    setState('syncing');
-    const userPhone = profile?.phone ?? '';
-    const result = await syncContacts(userPhone);
+      setState('syncing');
+      const userPhone = profile?.phone ?? '';
+      const result = await syncContacts(userPhone);
 
-    if (!result) {
+      if (!result) {
+        setState('error');
+        return;
+      }
+
+      setMatchedCount(result.matchedUsers.length);
+      setTotalContacts(result.totalPhoneContacts);
+      setState('done');
+    } catch {
       setState('error');
-      return;
     }
-
-    setMatchedCount(result.matchedUsers.length);
-    setTotalContacts(result.totalPhoneContacts);
-    setState('done');
   }, [requestPermission, syncContacts, profile]);
 
   const handleRetry = handleSync;

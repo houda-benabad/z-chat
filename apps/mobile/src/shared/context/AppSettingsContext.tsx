@@ -51,10 +51,15 @@ export function AppSettingsProvider({ children }: { children: ReactNode }) {
 
   const load = useCallback(async () => {
     try {
-      const { settings: s } = await settingsApi.getSettings();
+      const { settings: s } = await Promise.race([
+        settingsApi.getSettings(),
+        new Promise<never>((_, reject) =>
+          setTimeout(() => reject(new Error('settings-timeout')), 2500),
+        ),
+      ]);
       setSettings(s);
     } catch {
-      // user not logged in yet — keep defaults
+      // user not logged in or slow network — keep defaults so splash can hide
     } finally {
       setSettingsLoaded(true);
     }

@@ -5,10 +5,10 @@ import {
   Pressable,
   ActivityIndicator,
   KeyboardAvoidingView,
-  Platform,
   ScrollView,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { MAX_DISPLAY_NAME_LENGTH, MAX_ABOUT_LENGTH } from '@z-chat/shared';
 import { useAppSettings } from '@/shared/context/AppSettingsContext';
 import { useThemedStyles } from '@/shared/hooks/useThemedStyles';
@@ -19,6 +19,7 @@ import { createStyles } from './styles/ProfileSetupScreen.styles';
 export default function ProfileSetupScreen() {
   const styles = useThemedStyles(createStyles);
   const { appColors } = useAppSettings();
+  const insets = useSafeAreaInsets();
   const {
     displayName,
     setDisplayName,
@@ -36,10 +37,10 @@ export default function ProfileSetupScreen() {
   return (
     <KeyboardAvoidingView
       style={styles.container}
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      behavior="padding"
     >
       <ScrollView
-        contentContainerStyle={styles.scrollContent}
+        contentContainerStyle={[styles.scrollContent, { paddingTop: 60 + insets.top, paddingBottom: 40 + insets.bottom }]}
         keyboardShouldPersistTaps="handled"
       >
         <View style={styles.headerSection}>

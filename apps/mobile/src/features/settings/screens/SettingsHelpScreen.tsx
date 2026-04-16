@@ -5,6 +5,7 @@ import {
   ScrollView,
   Linking,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { createStyles } from './styles/SettingsHelpScreen.styles';
 import { useThemedStyles } from '@/shared/hooks/useThemedStyles';
@@ -72,7 +73,7 @@ export default function SettingsHelpScreen() {
   const router = useRouter();
 
   return (
-    <View style={styles.container}>
+    <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
       <View style={styles.header}>
         <Pressable onPress={() => router.back()} style={styles.backButton}>
           <Text style={styles.backArrow}>{'\u2190'}</Text>
@@ -151,6 +152,6 @@ export default function SettingsHelpScreen() {
           <Text style={styles.aboutVersion}>Version 1.0.0</Text>
         </View>
       </ScrollView>
-    </View>
+    </SafeAreaView>
   );
 }

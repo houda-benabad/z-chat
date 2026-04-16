@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { Share, TextInput } from 'react-native';
 import { useFocusEffect, useRouter } from 'expo-router';
 import * as ExpoContacts from 'expo-contacts';
-import { contactApi } from '@/shared/services/api';
+import { chatApi, contactApi } from '@/shared/services/api';
 import { getContactDisplayName, groupContactsByLetter, normalizePhoneNumber, extractCountryCode } from '@/shared/utils';
 import { useUserProfile } from '@/shared/context/UserProfileContext';
 import type { ContactItem, PhoneBookContact } from '@/types';
@@ -160,19 +160,26 @@ export function useNewChat(): UseNewChatReturn {
     setRefreshing(false);
   }, [loadContacts]);
 
-  const handleSelectContact = useCallback((contact: ContactItem) => {
+  const handleSelectContact = useCallback(async (contact: ContactItem) => {
     if (openingId) return;
     setOpeningId(contact.id);
-    router.replace({
-      pathname: '/chat',
-      params: {
-        chatId: '',
-        name: contact.nickname ?? contact.contactUser.name ?? contact.contactUser.phone ?? 'Chat',
-        recipientId: contact.contactUserId,
-        recipientAvatar: contact.contactUser.avatar ?? '',
-        recipientIsOnline: contact.contactUser.isOnline ? '1' : '0',
-      },
-    });
+    try {
+      const { chat } = await chatApi.createChat(contact.contactUserId);
+      router.replace({
+        pathname: '/chat',
+        params: {
+          chatId: chat.id,
+          name: contact.nickname ?? contact.contactUser.name ?? contact.contactUser.phone ?? 'Chat',
+          recipientId: contact.contactUserId,
+          recipientAvatar: contact.contactUser.avatar ?? '',
+          recipientIsOnline: contact.contactUser.isOnline ? '1' : '0',
+          backTo: '/chat-list',
+        },
+      });
+    } catch {
+      setOpeningId(null);
+      setLoadError(true);
+    }
   }, [router, openingId]);
 
   const filtered = useMemo(() => {

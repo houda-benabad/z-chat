@@ -7,7 +7,7 @@ const workspaceRoot = path.resolve(projectRoot, '../..');
 const config = getDefaultConfig(projectRoot);
 
 // Watch monorepo root so Metro can find @z-chat/shared
-config.watchFolders = [workspaceRoot];
+config.watchFolders = [...(config.watchFolders || []), workspaceRoot];
 
 // Resolve packages from both mobile and workspace root
 config.resolver.nodeModulesPaths = [

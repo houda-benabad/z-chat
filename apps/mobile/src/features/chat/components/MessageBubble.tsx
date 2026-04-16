@@ -173,9 +173,9 @@ export const MessageBubble = memo(function MessageBubble({
                 {
                   backgroundColor: '#E46C53',
                   opacity: highlightAnim,
-                  borderRadius: 10,
-                  borderBottomRightRadius: isMine ? 2 : 10,
-                  borderBottomLeftRadius: isMine ? 10 : 2,
+                  borderRadius: 16,
+                  borderBottomRightRadius: isMine ? 4 : 16,
+                  borderBottomLeftRadius: isMine ? 16 : 4,
                 },
               ]}
               pointerEvents="none"
@@ -265,7 +265,7 @@ export const MessageBubble = memo(function MessageBubble({
 
             /* ── Text ─────────────────────────────────────────────────── */
             ) : (
-              <View style={{ position: 'relative' }}>
+              <View>
                 <Text style={[
                   styles.msgText,
                   isMine ? styles.msgTextMine : styles.msgTextTheirs,
@@ -273,13 +273,8 @@ export const MessageBubble = memo(function MessageBubble({
                   message.isDeleted && styles.msgTextDeleted,
                 ]}>
                   {message.isDeleted ? 'This message was deleted' : message.content}
-                  {/* Invisible ghost reserves space on the last line for the time */}
-                  <Text style={styles.ghostTime}>
-                    {'  ' + (isStarred ? '★ ' : '') + timeLabel + (isMine && !isGroup && !message.isDeleted ? '   ✓✓' : '')}
-                  </Text>
                 </Text>
-                {/* Actual time + ticks overlaid at bottom-right */}
-                <View style={[styles.msgMeta, { position: 'absolute', bottom: 0, right: 0 }]}>
+                <View style={styles.msgMeta}>
                   {isStarred && <Ionicons name="star" size={10} color="#F1A167" style={{ marginRight: 2 }} />}
                   <Text
                     style={[styles.msgTime, isMine ? styles.msgTimeMine : styles.msgTimeTheirs]}

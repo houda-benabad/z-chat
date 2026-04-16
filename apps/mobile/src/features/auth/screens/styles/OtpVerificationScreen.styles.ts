@@ -7,8 +7,8 @@ export const createStyles = (colors: AppColors) => StyleSheet.create({
     flex: 1,
     backgroundColor: colors.background,
   },
-  content: {
-    flex: 1,
+  scrollContent: {
+    flexGrow: 1,
     paddingHorizontal: spacing.lg,
     paddingTop: 60,
     paddingBottom: 40,
@@ -48,7 +48,6 @@ export const createStyles = (colors: AppColors) => StyleSheet.create({
     color: colors.text,
   },
   codeSection: {
-    flex: 1,
   },
   codeRow: {
     flexDirection: 'row',

@@ -5,11 +5,11 @@ import {
   Pressable,
   ActivityIndicator,
   KeyboardAvoidingView,
-  Platform,
   ScrollView,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAppSettings } from '@/shared/context/AppSettingsContext';
 import { useThemedStyles } from '@/shared/hooks/useThemedStyles';
 import { usePhoneAuth, COUNTRY_CODES } from '../hooks/usePhoneAuth';
@@ -19,6 +19,7 @@ export default function PhoneAuthScreen() {
   const styles = useThemedStyles(createStyles);
   const { appColors } = useAppSettings();
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const {
     countryCode,
     setCountryCode,
@@ -35,10 +36,10 @@ export default function PhoneAuthScreen() {
   return (
     <KeyboardAvoidingView
       style={styles.container}
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      behavior="padding"
     >
       <ScrollView
-        contentContainerStyle={styles.scrollContent}
+        contentContainerStyle={[styles.scrollContent, { paddingTop: 60 + insets.top, paddingBottom: 40 + insets.bottom }]}
         keyboardShouldPersistTaps="handled"
       >
         <Pressable

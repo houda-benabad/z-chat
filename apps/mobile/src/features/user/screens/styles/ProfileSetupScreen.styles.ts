@@ -62,7 +62,6 @@ export const createStyles = (colors: AppColors) => StyleSheet.create({
     fontSize: 16,
   },
   inputSection: {
-    flex: 1,
     gap: spacing.lg,
   },
   inputGroup: {

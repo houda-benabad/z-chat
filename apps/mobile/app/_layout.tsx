@@ -1,5 +1,5 @@
 import 'react-native-get-random-values'; // Must be first — polyfills crypto.getRandomValues for tweetnacl on native
-import { useEffect, useCallback } from 'react';
+import { useEffect, type ReactNode } from 'react';
 import * as Sentry from '@sentry/react-native';
 import { Stack, useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
@@ -8,6 +8,7 @@ import * as SplashScreen from 'expo-splash-screen';
 import * as Notifications from 'expo-notifications';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { BottomSheetModalProvider } from '@gorhom/bottom-sheet';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import { requestNotificationPermissions, registerBackgroundNotificationTask, setupNotificationChannels } from '../src/shared/services/notifications';
 import { AppSettingsProvider, useAppSettings } from '../src/shared/context/AppSettingsContext';
@@ -62,7 +63,17 @@ function ThemedStack() {
   );
 }
 
-SplashScreen.preventAutoHideAsync();
+function SplashGate({ fontsLoaded, children }: { fontsLoaded: boolean; children: ReactNode }) {
+  const { settingsLoaded } = useAppSettings();
+  const ready = fontsLoaded && settingsLoaded;
+  useEffect(() => {
+    if (ready) SplashScreen.hideAsync().catch(() => {});
+  }, [ready]);
+  if (!ready) return null;
+  return <>{children}</>;
+}
+
+SplashScreen.preventAutoHideAsync().catch(() => {});
 
 export default Sentry.wrap(function RootLayout() {
   const router = useRouter();
@@ -70,22 +81,15 @@ export default Sentry.wrap(function RootLayout() {
     Inter: require('../assets/Inter.ttf'),
   });
 
-  const onLayoutReady = useCallback(async () => {
-    if (fontsLoaded) {
-      await SplashScreen.hideAsync();
-    }
-  }, [fontsLoaded]);
-
   useEffect(() => {
     setSessionExpiredHandler(() => router.replace('/'));
   }, [router]);
 
   useEffect(() => {
-    onLayoutReady();
     requestNotificationPermissions();
     setupNotificationChannels();
     registerBackgroundNotificationTask();
-  }, [onLayoutReady]);
+  }, []);
 
   useEffect(() => {
     const navigateToChat = (data: Record<string, unknown>) => {
@@ -111,25 +115,25 @@ export default Sentry.wrap(function RootLayout() {
     return () => sub.remove();
   }, [router]);
 
-  if (!fontsLoaded) {
-    return null;
-  }
-
   return (
     <ErrorBoundary>
-    <AppSettingsProvider>
-    <UserProfileProvider>
-    <GestureHandlerRootView style={{ flex: 1 }}>
-      <BottomSheetModalProvider>
-        <CallProvider>
-          <ThemedStatusBar />
-          <ThemedStack />
-          <CustomDialog />
-        </CallProvider>
-      </BottomSheetModalProvider>
-    </GestureHandlerRootView>
-    </UserProfileProvider>
-    </AppSettingsProvider>
+      <SafeAreaProvider>
+        <AppSettingsProvider>
+          <SplashGate fontsLoaded={fontsLoaded}>
+            <UserProfileProvider>
+              <GestureHandlerRootView style={{ flex: 1 }}>
+                <BottomSheetModalProvider>
+                  <CallProvider>
+                    <ThemedStatusBar />
+                    <ThemedStack />
+                    <CustomDialog />
+                  </CallProvider>
+                </BottomSheetModalProvider>
+              </GestureHandlerRootView>
+            </UserProfileProvider>
+          </SplashGate>
+        </AppSettingsProvider>
+      </SafeAreaProvider>
     </ErrorBoundary>
   );
 });

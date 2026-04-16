@@ -6,10 +6,10 @@ import {
   TextInput,
   ActivityIndicator,
   KeyboardAvoidingView,
-  Platform,
   ScrollView,
 } from 'react-native';
 import { useRouter } from 'expo-router';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { BottomSheetModal } from '@gorhom/bottom-sheet';
 import { useAppSettings } from '@/shared/context/AppSettingsContext';
 import { Avatar, ImageCropperModal, PhotoActionSheet } from '@/shared/components';
@@ -21,6 +21,7 @@ export default function SettingsProfileScreen() {
   const styles = useThemedStyles(createStyles);
   const { appColors } = useAppSettings();
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const {
     profile,
     loading,
@@ -52,9 +53,9 @@ export default function SettingsProfileScreen() {
   return (
     <KeyboardAvoidingView
       style={styles.container}
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      behavior="padding"
     >
-      <View style={styles.header}>
+      <View style={[styles.header, { paddingTop: 60 + insets.top }]}>
         <Pressable onPress={() => router.back()} style={styles.backButton}>
           <Text style={styles.backArrow}>{'\u2190'}</Text>
         </Pressable>
@@ -70,7 +71,7 @@ export default function SettingsProfileScreen() {
         )}
       </View>
 
-      <ScrollView contentContainerStyle={styles.content}>
+      <ScrollView contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + 20 }]}>
         {/* Avatar */}
         <View style={styles.avatarSection}>
           <View style={styles.avatarWrapper}>
