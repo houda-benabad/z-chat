@@ -9,7 +9,7 @@ import * as Notifications from 'expo-notifications';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { BottomSheetModalProvider } from '@gorhom/bottom-sheet';
 
-import { requestNotificationPermissions, registerBackgroundNotificationTask } from '../src/shared/services/notifications';
+import { requestNotificationPermissions, registerBackgroundNotificationTask, setupNotificationChannels } from '../src/shared/services/notifications';
 import { AppSettingsProvider, useAppSettings } from '../src/shared/context/AppSettingsContext';
 import { UserProfileProvider } from '../src/shared/context/UserProfileContext';
 import { ErrorBoundary, CustomDialog } from '../src/shared/components';
@@ -83,6 +83,7 @@ export default Sentry.wrap(function RootLayout() {
   useEffect(() => {
     onLayoutReady();
     requestNotificationPermissions();
+    setupNotificationChannels();
     registerBackgroundNotificationTask();
   }, [onLayoutReady]);
 

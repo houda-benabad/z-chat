@@ -33,7 +33,7 @@ if (Platform.OS !== 'web') {
   TaskManager.defineTask(BACKGROUND_NOTIFICATION_TASK, async ({ data, error }) => {
     if (error || !data) return;
 
-    const notification = (data as { notification?: { request?: { content?: { data?: unknown } } } })
+    const notification = (data as { notification?: { request?: { identifier?: string; content?: { data?: unknown } } } })
       .notification;
     const pushData = (notification?.request?.content?.data ?? {}) as Record<string, string>;
 
@@ -60,6 +60,13 @@ if (Platform.OS !== 'web') {
       body = fallbackBody ?? 'New message'; // already set, but explicit
     }
 
+    // Dismiss the OS-displayed fallback notification (from title/body in push payload)
+    // before showing the decrypted replacement to avoid duplicates
+    const notificationId = notification?.request?.identifier;
+    if (notificationId) {
+      await Notifications.dismissNotificationAsync(notificationId);
+    }
+
     await Notifications.scheduleNotificationAsync({
       content: {
         title: senderName ?? 'New message',
@@ -79,6 +86,20 @@ export async function registerBackgroundNotificationTask(): Promise<void> {
   } catch {
     // Already registered or not supported on this platform
   }
+}
+
+// ─── Android notification channel ──────────────────────────────────────────
+
+export async function setupNotificationChannels(): Promise<void> {
+  if (Platform.OS !== 'android') return;
+  await Notifications.setNotificationChannelAsync('messages', {
+    name: 'Messages',
+    importance: Notifications.AndroidImportance.MAX,
+    vibrationPattern: [0, 250, 250, 250],
+    sound: 'default',
+    enableLights: true,
+    enableVibrate: true,
+  });
 }
 
 // ─── Permissions & token ────────────────────────────────────────────────────

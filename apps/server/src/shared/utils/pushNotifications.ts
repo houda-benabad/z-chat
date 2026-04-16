@@ -1,33 +1,33 @@
 const EXPO_PUSH_URL = "https://exp.host/--/api/v2/push/send";
 
 /**
- * Send a silent (data-only) push notification.
- * The mobile background task handles all notification display — this payload
- * intentionally has no title/body so the OS doesn't show anything before
- * the app has a chance to decrypt and render the real content.
+ * Send a push notification with visible title/body for Android FCM delivery
+ * plus encrypted data payload for the mobile background task to decrypt.
  *
- * Required data fields (handled by mobile background task):
- *   senderName   — display name to use as notification title
- *   fallbackBody — what to show if decryption is unavailable
- *   messageType  — "text" | "image" | "video" | ...
- *   chatId       — for navigation on tap
- *
- * Optional preview fields (only included when recipient has preview enabled):
- *   encryptedContent  — encrypted message text
- *   senderPublicKey   — sender public key (direct chats)
- *   encryptedGroupKey — recipient's encrypted group key (group chats)
- *   chatType          — "direct" | "group"
+ * When the app is alive in background, the background task dismisses the
+ * OS-displayed fallback and replaces it with the decrypted content.
+ * When the app is killed, the OS shows the fallback title/body directly.
  */
 export async function sendPushNotification(
   token: string,
   data: Record<string, string>,
+  display: { title: string; body: string; sound: boolean },
 ): Promise<void> {
   if (!token.startsWith("ExponentPushToken[")) return;
   try {
     await fetch(EXPO_PUSH_URL, {
       method: "POST",
       headers: { "Content-Type": "application/json", Accept: "application/json" },
-      body: JSON.stringify({ to: token, data, _contentAvailable: true }),
+      body: JSON.stringify({
+        to: token,
+        title: display.title,
+        body: display.body,
+        sound: display.sound ? "default" : undefined,
+        data,
+        priority: "high",
+        channelId: "messages",
+        _contentAvailable: true,
+      }),
     });
   } catch {
     // Push delivery is best-effort — don't crash the message flow

@@ -41,8 +41,12 @@
         "android.permission.BLUETOOTH_CONNECT"
       ]
     },
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
     "plugins": [
       "expo-router",
+      "expo-updates",
       "expo-font",
       "expo-secure-store",
       "expo-image-picker",

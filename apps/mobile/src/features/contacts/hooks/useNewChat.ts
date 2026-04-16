@@ -65,6 +65,7 @@ export function useNewChat(): UseNewChatReturn {
 
       const defaultCC = extractCountryCode(profile?.phone ?? '+1');
       const mapped: PhoneBookContact[] = [];
+      const allNormalized = new Set<string>();
 
       for (const c of data) {
         if (!c.phoneNumbers?.length) continue;
@@ -80,9 +81,22 @@ export function useNewChat(): UseNewChatReturn {
           normalizedPhones: normalized,
           imageUri: c.image?.uri,
         });
+        for (const n of normalized) allNormalized.add(n);
       }
 
       setPhoneBookContacts(mapped);
+
+      // Quick sync: discover newly registered users and auto-add as contacts
+      const userPhone = profile?.phone ?? '';
+      const phones = Array.from(allNormalized).filter((p) => p !== userPhone);
+      if (phones.length > 0) {
+        try {
+          const BATCH = 500;
+          for (let i = 0; i < phones.length; i += BATCH) {
+            await contactApi.syncAndAddContacts(phones.slice(i, i + BATCH));
+          }
+        } catch { /* silent — contacts list still works without sync */ }
+      }
     } catch {
       // Silent — invite section is optional
     }
@@ -112,7 +126,8 @@ export function useNewChat(): UseNewChatReturn {
 
   useEffect(() => {
     const init = async () => {
-      await Promise.all([loadContacts(), loadPhoneBookContacts()]);
+      await loadPhoneBookContacts(); // sync first — discovers newly registered users
+      await loadContacts();          // then load contacts — includes newly synced ones
       setLoading(false);
       setTimeout(() => searchRef.current?.focus(), 350);
     };
@@ -122,8 +137,8 @@ export function useNewChat(): UseNewChatReturn {
   useFocusEffect(
     useCallback(() => {
       if (!loading) {
-        loadContacts();
-        loadPhoneBookContacts();
+        // Sync first, then reload contacts to pick up newly added ones
+        loadPhoneBookContacts().then(() => loadContacts());
       }
     }, [loading, loadContacts, loadPhoneBookContacts]),
   );

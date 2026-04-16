@@ -100,7 +100,16 @@ export function createSocketServer(httpServer: HttpServer, prisma: PrismaClient,
     socket.join(`user:${userId}`);
 
     // Set user online
-    await userRepo.setOnlineStatus(userId, true);
+    try {
+      await userRepo.setOnlineStatus(userId, true);
+    } catch (err: any) {
+      if (err?.code === "P2025") {
+        console.warn(`[socket] User ${userId} not found in DB — disconnecting`);
+        socket.disconnect();
+        return;
+      }
+      throw err;
+    }
 
     // Join all chat rooms this user belongs to
     const participations = await chatRepo.getUserChatIds(userId);
@@ -235,7 +244,11 @@ export function createSocketServer(httpServer: HttpServer, prisma: PrismaClient,
               }
             }
 
-            sendPushNotification(token, pushData);
+            sendPushNotification(token, pushData, {
+              title: senderName,
+              body: fallbackBody,
+              sound: notifSettings?.notificationSound ?? true,
+            });
           }
         }
 
@@ -518,7 +531,15 @@ export function createSocketServer(httpServer: HttpServer, prisma: PrismaClient,
           }
 
           // Set user offline
-          await userRepo.setOnlineStatus(userId, false);
+          try {
+            await userRepo.setOnlineStatus(userId, false);
+          } catch (err: any) {
+            if (err?.code === "P2025") {
+              console.warn(`[socket] User ${userId} not found in DB — skipping offline update`);
+            } else {
+              throw err;
+            }
+          }
 
           // Broadcast offline status, excluding blocked users (fresh query — unblock may have happened)
           const offlineBlockedIds = await getBlockedSocketIds();
