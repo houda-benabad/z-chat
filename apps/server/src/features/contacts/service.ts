@@ -65,4 +65,22 @@ export class ContactService {
       isContact: existingIds.has(user.id),
     }));
   }
+
+  async syncAndAddContacts(userId: string, phones: string[]) {
+    const registeredUsers = await this.repo.findRegisteredUsers(phones, userId);
+
+    if (registeredUsers.length === 0) {
+      return { users: [] as Array<(typeof registeredUsers)[number] & { isContact: boolean }>, addedCount: 0 };
+    }
+
+    const addedCount = await this.repo.bulkCreateContacts(
+      userId,
+      registeredUsers.map((u) => u.id),
+    );
+
+    return {
+      users: registeredUsers.map((user) => ({ ...user, isContact: true })),
+      addedCount,
+    };
+  }
 }

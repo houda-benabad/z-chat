@@ -44,4 +44,10 @@ export class ContactController {
     const users = await this.service.syncContacts(req.userId!, phones);
     res.json({ users });
   });
+
+  syncAndAddContacts = asyncHandler(async (req: AuthRequest, res: Response) => {
+    const { phones } = req.body;
+    const result = await this.service.syncAndAddContacts(req.userId!, phones);
+    res.json(result);
+  });
 }

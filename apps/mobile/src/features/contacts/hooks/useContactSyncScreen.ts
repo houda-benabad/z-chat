@@ -3,7 +3,7 @@ import { useRouter } from 'expo-router';
 import { useUserProfile } from '@/shared/context/UserProfileContext';
 import { useContactSync } from './useContactSync';
 
-export type SyncState = 'initial' | 'syncing' | 'done' | 'denied';
+export type SyncState = 'initial' | 'syncing' | 'done' | 'denied' | 'error';
 
 export function useContactSyncScreen() {
   const router = useRouter();
@@ -24,12 +24,17 @@ export function useContactSyncScreen() {
     const userPhone = profile?.phone ?? '';
     const result = await syncContacts(userPhone);
 
-    if (result) {
-      setMatchedCount(result.matchedUsers.length);
-      setTotalContacts(result.totalPhoneContacts);
+    if (!result) {
+      setState('error');
+      return;
     }
+
+    setMatchedCount(result.matchedUsers.length);
+    setTotalContacts(result.totalPhoneContacts);
     setState('done');
   }, [requestPermission, syncContacts, profile]);
+
+  const handleRetry = handleSync;
 
   const handleContinue = useCallback(() => {
     router.replace('/chat-list');
@@ -39,5 +44,5 @@ export function useContactSyncScreen() {
     router.replace('/chat-list');
   }, [router]);
 
-  return { state, matchedCount, totalContacts, syncing, error, handleSync, handleContinue, handleSkip };
+  return { state, matchedCount, totalContacts, syncing, error, handleSync, handleRetry, handleContinue, handleSkip };
 }

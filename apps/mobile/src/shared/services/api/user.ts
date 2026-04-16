@@ -106,7 +106,8 @@ export async function uploadAvatar(uri: string): Promise<string> {
       formData.append('avatar', blob, `avatar.${ext}`);
     } else {
       const ext = uploadUri.split('.').pop() ?? 'jpg';
-      formData.append('avatar', { uri: uploadUri, name: `avatar.${ext}`, type: `image/${ext}` } as unknown as Blob);
+      const mimeType = ext === 'jpg' ? 'image/jpeg' : `image/${ext}`;
+      formData.append('avatar', { uri: uploadUri, name: `avatar.${ext}`, type: mimeType } as unknown as Blob);
     }
 
     const controller = new AbortController();

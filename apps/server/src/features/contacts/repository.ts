@@ -76,6 +76,17 @@ export class ContactRepository {
     });
   }
 
+  async bulkCreateContacts(userId: string, contactUserIds: string[]) {
+    const result = await this.prisma.contact.createMany({
+      data: contactUserIds.map((contactUserId) => ({
+        userId,
+        contactUserId,
+      })),
+      skipDuplicates: true,
+    });
+    return result.count;
+  }
+
   async findExistingContactIds(userId: string) {
     const contacts = await this.prisma.contact.findMany({
       where: { userId },

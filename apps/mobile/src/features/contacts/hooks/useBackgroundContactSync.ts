@@ -46,8 +46,9 @@ export function useBackgroundContactSync(): void {
     return () => sub.remove();
   }, [profile?.phone]);
 
-  // Sync when phone book changes
+  // Sync when phone book changes (not available in Expo Go)
   useEffect(() => {
+    if (typeof Contacts.addChangeListener !== 'function') return;
     const sub = Contacts.addChangeListener(() => {
       doSync();
     });

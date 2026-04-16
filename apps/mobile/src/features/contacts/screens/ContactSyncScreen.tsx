@@ -10,7 +10,7 @@ import { createStyles } from './styles/ContactSyncScreen.styles';
 export default function ContactSyncScreen() {
   const styles = useThemedStyles(createStyles);
   const { appColors } = useAppSettings();
-  const { state, matchedCount, totalContacts, error, handleSync, handleContinue, handleSkip } =
+  const { state, matchedCount, totalContacts, error, handleSync, handleRetry, handleContinue, handleSkip } =
     useContactSyncScreen();
 
   return (
@@ -19,9 +19,9 @@ export default function ContactSyncScreen() {
         {/* Icon */}
         <View style={styles.iconContainer}>
           <Ionicons
-            name={state === 'done' ? 'checkmark-circle' : 'people'}
+            name={state === 'done' ? 'checkmark-circle' : state === 'error' ? 'alert-circle' : 'people'}
             size={56}
-            color={state === 'done' ? appColors.primary : appColors.textSecondary}
+            color={state === 'done' ? appColors.primary : state === 'error' ? '#ED2F3C' : appColors.textSecondary}
           />
         </View>
 
@@ -62,6 +62,32 @@ export default function ContactSyncScreen() {
           </>
         )}
 
+        {/* Error state */}
+        {state === 'error' && (
+          <>
+            <Text style={styles.heading}>Something went wrong</Text>
+            <Text style={styles.subheading}>
+              {error || 'Could not sync your contacts. Please try again.'}
+            </Text>
+            <Pressable
+              onPress={handleRetry}
+              style={({ pressed }) => [styles.buttonContainer, pressed && styles.buttonPressed]}
+            >
+              <LinearGradient
+                colors={[appColors.primary, '#D45A42']}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 0 }}
+                style={styles.button}
+              >
+                <Text style={styles.buttonText}>Try Again</Text>
+              </LinearGradient>
+            </Pressable>
+            <Pressable onPress={handleSkip} style={styles.skipButton}>
+              <Text style={styles.skipText}>Skip</Text>
+            </Pressable>
+          </>
+        )}
+
         {/* Done state */}
         {state === 'done' && (
           <>
@@ -80,7 +106,6 @@ export default function ContactSyncScreen() {
                 None of your contacts are on z.chat yet. You can invite them later!
               </Text>
             )}
-            {error && <Text style={styles.errorText}>{error}</Text>}
             <Pressable
               onPress={handleContinue}
               style={({ pressed }) => [styles.buttonContainer, pressed && styles.buttonPressed]}

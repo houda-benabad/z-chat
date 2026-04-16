@@ -54,7 +54,14 @@ export function useSettingsProfile() {
         avatarValue = null;
       } else if (avatarUri) {
         setUploadingAvatar(true);
-        avatarValue = await uploadAvatar(avatarUri);
+        try {
+          avatarValue = await uploadAvatar(avatarUri);
+        } catch {
+          setUploadingAvatar(false);
+          alert('Upload Failed', 'Could not upload profile picture. Please try again.');
+          setSaving(false);
+          return;
+        }
         setUploadingAvatar(false);
         setAvatarUri(null);
       }
@@ -66,7 +73,6 @@ export function useSettingsProfile() {
       setAvatarRemoved(false);
       alert('Saved', 'Profile updated successfully');
     } catch {
-      setUploadingAvatar(false);
       alert('Error', 'Failed to update profile');
     } finally {
       setSaving(false);
