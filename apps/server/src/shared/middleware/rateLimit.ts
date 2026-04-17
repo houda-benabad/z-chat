@@ -2,15 +2,18 @@ import { Request, RequestHandler } from "express";
 import { getRedis } from "../database/redis";
 import { AppError } from "../utils/errors";
 import { asyncHandler } from "../utils/asyncHandler";
+import { loadEnv } from "../config/env";
 
-const OTP_RATE_LIMIT = 5;
-const OTP_RATE_WINDOW = 15 * 60;
+const env = loadEnv();
 
-const VERIFY_RATE_LIMIT = 10;
-const VERIFY_RATE_WINDOW = 15 * 60;
+const OTP_RATE_LIMIT = env.OTP_RATE_LIMIT;
+const OTP_RATE_WINDOW = env.OTP_RATE_WINDOW;
 
-const GLOBAL_RATE_LIMIT = 100; // requests per IP per minute
-const GLOBAL_RATE_WINDOW = 60;
+const VERIFY_RATE_LIMIT = env.VERIFY_RATE_LIMIT;
+const VERIFY_RATE_WINDOW = env.VERIFY_RATE_WINDOW;
+
+const GLOBAL_RATE_LIMIT = env.GLOBAL_RATE_LIMIT;
+const GLOBAL_RATE_WINDOW = env.GLOBAL_RATE_WINDOW;
 
 /** Increment a Redis counter and return the new value. Throws AppError(429) if limit exceeded.
  *  If Redis is unavailable, throws AppError(429) to fail closed — never silently passes. */

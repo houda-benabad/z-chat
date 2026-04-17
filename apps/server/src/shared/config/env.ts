@@ -12,6 +12,12 @@ const envSchema = z.object({
   TWILIO_ACCOUNT_SID: z.string().optional(),
   TWILIO_AUTH_TOKEN: z.string().optional(),
   TWILIO_PHONE_NUMBER: z.string().optional(),
+  GLOBAL_RATE_LIMIT: z.coerce.number().default(1000),
+  GLOBAL_RATE_WINDOW: z.coerce.number().default(60),
+  OTP_RATE_LIMIT: z.coerce.number().default(5),
+  OTP_RATE_WINDOW: z.coerce.number().default(900),
+  VERIFY_RATE_LIMIT: z.coerce.number().default(10),
+  VERIFY_RATE_WINDOW: z.coerce.number().default(900),
 });
 
 export type Env = z.infer<typeof envSchema>;
